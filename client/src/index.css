@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #0f172a;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+a {
+  text-decoration: none;
+  color: white;
+}
+
+.navbar {
+  background: #111827;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-links {
+  display: flex;
+  gap: 20px;
+}
+
+.main-content {
+  min-height: 80vh;
+  padding: 40px;
+}
+
+.page {
+  max-width: 900px;
+  margin: auto;
+}
+
+.page h1 {
+  margin-bottom: 20px;
+}
+
+.footer {
+  background: #111827;
+  text-align: center;
+  padding: 20px;
+}
+
+.calculator-box {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+button {
+  padding: 10px 20px;
+  background: crimson;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
