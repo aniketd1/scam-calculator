@@ -85,8 +85,8 @@ export default function Awareness() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .awareness-page {
-          background: #0F172A;
-          color: #F8FAFC;
+          background: #f7efe6;
+          color: #0f172a;
           font-family: 'DM Sans', sans-serif;
           min-height: 100vh;
         }
@@ -138,29 +138,54 @@ export default function Awareness() {
         }
 
         /* FILTER TABS */
-        .filter-bar {
-          padding: 0 24px 48px;
-          max-width: 1280px;
-          margin: 0 auto;
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-          justify-content: center;
-        }
-        .filter-btn {
-          padding: 8px 18px;
-          border-radius: 20px;
-          border: 1px solid #334155;
-          background: transparent;
-          color: #94A3B8;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 0.85rem;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .filter-btn:hover { border-color: #06B6D4; color: #06B6D4; background: rgba(6,182,212,0.05); }
-        .filter-btn.active { background: rgba(6,182,212,0.12); border-color: #06B6D4; color: #06B6D4; font-weight: 600; }
+      .filter-bar {
+        padding: 16px;
+        max-width: 900px;
+        margin: 0 auto 48px;
+
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+
+        background: #fbf7f0;
+        border: 1px solid #e6e9ef;
+        border-radius: 16px;
+      }
+
+    /* BUTTONS */
+    .filter-btn {
+      padding: 10px 20px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid #e6e9ef;
+
+      color: #475569;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    /* hover */
+    .filter-btn:hover {
+      border-color: rgba(6,182,212,0.4);
+      color: #06B6D4;
+      background: rgba(6,182,212,0.06);
+      transform: translateY(-1px);
+    }
+
+    /* active */
+    .filter-btn.active {
+      background: linear-gradient(135deg, #06B6D4, #0891b2);
+      border-color: transparent;
+      color: #ffffff;
+      font-weight: 600;
+
+      box-shadow: 0 6px 16px rgba(6,182,212,0.25);
+    }
 
         /* CARDS GRID */
         .aw-grid {
@@ -174,8 +199,8 @@ export default function Awareness() {
         @media (max-width: 800px) { .aw-grid { grid-template-columns: 1fr; } }
 
         .aw-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 16px;
           overflow: hidden;
           transition: border-color 0.2s, box-shadow 0.2s;
@@ -191,7 +216,7 @@ export default function Awareness() {
         .aw-card-icon {
           font-size: 2rem;
           width: 52px; height: 52px;
-          background: #0F172A;
+          background: #f3efe9;
           border-radius: 12px;
           display: flex; align-items: center; justify-content: center;
           flex-shrink: 0;
@@ -211,7 +236,7 @@ export default function Awareness() {
           border: 1px solid rgba(6,182,212,0.2);
           color: #06B6D4;
         }
-        .aw-card-summary { font-size: 0.87rem; color: #94A3B8; line-height: 1.6; }
+        .aw-card-summary { font-size: 0.87rem; color: #475569; line-height: 1.6; }
         .aw-card-toggle {
           font-size: 1.2rem;
           color: #475569;
@@ -223,7 +248,7 @@ export default function Awareness() {
 
         .aw-card-body {
           padding: 0 24px 24px;
-          border-top: 1px solid #334155;
+          border-top: 1px solid #e6e9ef;
           display: none;
         }
         .aw-card-body.open { display: block; }
@@ -233,11 +258,11 @@ export default function Awareness() {
           text-transform: uppercase;
           margin: 18px 0 8px;
         }
-        .aw-how { font-size: 0.87rem; color: #94A3B8; line-height: 1.65; }
+        .aw-how { font-size: 0.87rem; color: #475569; line-height: 1.65; }
         .red-flags { list-style: none; display: flex; flex-direction: column; gap: 6px; }
         .red-flags li {
           display: flex; align-items: center; gap: 8px;
-          font-size: 0.86rem; color: #CBD5E1;
+          font-size: 0.86rem; color: #334155;
         }
         .red-flags li::before {
           content: '🚩';
@@ -255,7 +280,7 @@ export default function Awareness() {
           align-items: flex-start;
         }
         .what-todo-box span { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
-        .what-todo-box p { font-size: 0.87rem; color: #CBD5E1; line-height: 1.6; }
+        .what-todo-box p { font-size: 0.87rem; color: #334155; line-height: 1.6; }
 
         /* TIP BANNER */
         .tip-banner {
