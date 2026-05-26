@@ -31,8 +31,8 @@ export default function About() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .about-page {
-          background: #0F172A;
-          color: #F8FAFC;
+          background: #f7efe6;
+          color: #0f172a;
           font-family: 'DM Sans', sans-serif;
           overflow-x: hidden;
         }
@@ -90,7 +90,7 @@ export default function About() {
 
         /* SECTIONS */
         .section { padding: 72px 24px; }
-        .section-alt { background: #111827; }
+        .section-alt { background: transparent; }
         .section-inner { max-width: 1280px; margin: 0 auto; }
         .section-header { text-align: center; margin-bottom: 48px; }
         .section-title {
@@ -125,8 +125,8 @@ export default function About() {
           margin-bottom: 16px;
         }
         .mission-visual {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 20px;
           padding: 40px;
           display: flex;
@@ -138,8 +138,8 @@ export default function About() {
           align-items: center;
           gap: 16px;
           padding: 16px;
-          background: #0F172A;
-          border: 1px solid #334155;
+          background: #f3efe9;
+          border: 1px solid #e6e9ef;
           border-radius: 12px;
         }
         .mission-stat-icon {
@@ -171,8 +171,8 @@ export default function About() {
         @media (max-width: 900px) { .values-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 560px) { .values-grid { grid-template-columns: 1fr; } }
         .value-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 14px;
           padding: 28px 22px;
           transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
@@ -206,7 +206,7 @@ export default function About() {
           left: 52px;
           top: 0; bottom: 0;
           width: 2px;
-          background: linear-gradient(to bottom, #06B6D4, #334155);
+          background: linear-gradient(to bottom, #06B6D4, #0891b2);
         }
         .tl-item {
           display: flex;
@@ -229,7 +229,7 @@ export default function About() {
           width: 14px;
           height: 14px;
           background: #06B6D4;
-          border: 3px solid #0F172A;
+          border: 3px solid #e6e9ef;
           border-radius: 50%;
           flex-shrink: 0;
           margin-top: 18px;
@@ -238,8 +238,8 @@ export default function About() {
           z-index: 1;
         }
         .tl-content {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 12px;
           padding: 18px 20px;
           flex: 1;
@@ -261,8 +261,8 @@ export default function About() {
         @media (max-width: 900px) { .team-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 500px) { .team-grid { grid-template-columns: 1fr; } }
         .team-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 14px;
           padding: 28px 20px;
           text-align: center;
@@ -333,7 +333,7 @@ export default function About() {
                 <h2>Empowering Citizens with <span>Scam Awareness</span></h2>
                 <p>India loses over ₹11,000 crore annually to cyber fraud. The most vulnerable are senior citizens and first-generation smartphone users who lack the context to identify sophisticated scam tactics.</p>
                 <p>ScamRisk bridges that gap — providing an intelligent, privacy-first risk calculator that anyone can use without technical knowledge, data plans, or login credentials.</p>
-                <p>Our goal is not just detection, but <strong style={{color:"#F8FAFC"}}>education and empowerment</strong> — so that every Indian can confidently navigate the digital world without fear.</p>
+                <p>Our goal is not just detection, but <strong style={{color:"#0f172a"}}>education and empowerment</strong> — so that every Indian can confidently navigate the digital world without fear.</p>
               </div>
               <div className="mission-visual">
                 {[
