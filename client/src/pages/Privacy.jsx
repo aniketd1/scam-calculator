@@ -71,8 +71,8 @@ export default function Privacy() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .privacy-page {
-          background: #0F172A;
-          color: #F8FAFC;
+          background: #f7efe6;
+          color: #0f172a;
           font-family: 'DM Sans', sans-serif;
           min-height: 100vh;
         }
@@ -157,8 +157,8 @@ export default function Privacy() {
         .toc {
           position: sticky;
           top: 88px;
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 14px;
           padding: 20px;
         }
@@ -176,8 +176,8 @@ export default function Privacy() {
         /* CONTENT */
         .privacy-content { display: flex; flex-direction: column; gap: 24px; }
         .privacy-section {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 16px;
           padding: 28px 28px;
           scroll-margin-top: 90px;
@@ -199,16 +199,16 @@ export default function Privacy() {
         }
         .ps-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.05rem; }
         .ps-items { display: flex; flex-direction: column; gap: 18px; }
-        .ps-item-heading { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem; color: #F8FAFC; margin-bottom: 5px; }
-        .ps-item-body { font-size: 0.88rem; color: #94A3B8; line-height: 1.7; }
+        .ps-item-heading { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem; color: #0f172a; margin-bottom: 5px; }
+        .ps-item-body { font-size: 0.88rem; color: #475569; line-height: 1.7; }
 
         /* FOOTER NOTE */
         .privacy-footer-note {
           max-width: 1100px;
           margin: 0 auto;
           padding: 0 24px 60px;
-          background: rgba(6,182,212,0.05);
-          border: 1px solid rgba(6,182,212,0.15);
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 16px;
           padding: 24px 28px;
           display: flex;
