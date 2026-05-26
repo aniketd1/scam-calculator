@@ -9,10 +9,10 @@ export default function Footer() {
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
         .footer-root {
-          background: #020617;
-          border-top: 1px solid #1E293B;
+          background: #e8dccb;
+          border-top: 1px solid #efe6db;
           font-family: 'DM Sans', sans-serif;
-          color: #CBD5E1;
+          color: #475569;
         }
         .footer-main {
           max-width: 1280px;
@@ -36,24 +36,24 @@ export default function Footer() {
           width: 34px;
           height: 34px;
           background: linear-gradient(135deg, #06B6D4, #0891b2);
+          box-shadow: 0 0 14px rgba(6,182,212,0.18);
           border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 16px;
-          box-shadow: 0 0 14px rgba(6, 182, 212, 0.25);
         }
         .footer-logo-text {
           font-family: 'Syne', sans-serif;
           font-weight: 800;
           font-size: 1.1rem;
-          color: #06B6D4;
+          color: #0f172a;
         }
-        .footer-logo-text span { color: #F8FAFC; }
+        .footer-logo-text span { color: #1d4ed8; }
         .footer-tagline {
-          font-size: 0.9rem;
-          line-height: 1.65;
-          color: #94A3B8;
+          font-size: 0.95rem;
+          line-height: 1.75;
+          color: #475569;
           max-width: 280px;
           margin-bottom: 20px;
         }
@@ -61,20 +61,20 @@ export default function Footer() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          padding: 6px 12px;
-          background: rgba(6, 182, 212, 0.08);
-          border: 1px solid rgba(6, 182, 212, 0.2);
+          padding: 8px 14px;
+          background: rgba(6,182,212,0.08);
+          border: 1px solid rgba(6,182,212,0.18);
+          color: #0891b2;
           border-radius: 20px;
-          font-size: 0.78rem;
-          color: #06B6D4;
-          font-weight: 500;
+          font-size: 0.82rem;
+          font-weight: 600;
         }
 
         .footer-col-title {
           font-family: 'Syne', sans-serif;
           font-weight: 700;
           font-size: 0.85rem;
-          color: #F8FAFC;
+          color: #0f172a;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           margin-bottom: 18px;
@@ -88,9 +88,9 @@ export default function Footer() {
           gap: 10px;
         }
         .footer-links a {
-          color: #94A3B8;
+          color: #475569;
           text-decoration: none;
-          font-size: 0.9rem;
+          font-size: 0.95rem;
           transition: color 0.2s;
           display: flex;
           align-items: center;
@@ -101,7 +101,7 @@ export default function Footer() {
           width: 4px;
           height: 4px;
           border-radius: 50%;
-          background: #334155;
+          background: #e6dccf;
           transition: background 0.2s;
           flex-shrink: 0;
         }
@@ -109,8 +109,8 @@ export default function Footer() {
         .footer-links a:hover::before { background: #06B6D4; }
 
         .footer-helpline {
-          background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
-          border: 1px solid rgba(239, 68, 68, 0.25);
+          background: linear-gradient(135deg, rgba(251,207,232,0.12), rgba(254,215,215,0.06));
+          border: 1px solid rgba(244,114,182,0.12);
           border-radius: 12px;
           padding: 20px;
           margin-bottom: 16px;
@@ -119,43 +119,43 @@ export default function Footer() {
           font-family: 'Syne', sans-serif;
           font-size: 2rem;
           font-weight: 800;
-          color: #EF4444;
+          color: #be123c;
           letter-spacing: -0.02em;
           line-height: 1;
           margin-bottom: 4px;
         }
         .helpline-label {
-          font-size: 0.8rem;
-          color: #94A3B8;
+          font-size: 0.9rem;
+          color: #475569;
           margin-bottom: 10px;
         }
         .helpline-desc {
-          font-size: 0.82rem;
-          color: #CBD5E1;
-          line-height: 1.5;
+          font-size: 0.9rem;
+          color: #475569;
+          line-height: 1.6;
         }
         .report-btn {
           display: block;
           width: 100%;
-          padding: 10px;
-          background: rgba(6, 182, 212, 0.1);
-          border: 1px solid rgba(6, 182, 212, 0.25);
-          border-radius: 8px;
-          color: #06B6D4;
+          padding: 12px;
+          background: linear-gradient(135deg,#06B6D4,#0891b2);
+          border: 1px solid transparent;
+          border-radius: 10px;
+          color: #ffffff;
           text-decoration: none;
-          font-size: 0.88rem;
+          font-size: 0.95rem;
           font-weight: 600;
           text-align: center;
           transition: background 0.2s, border-color 0.2s;
         }
         .report-btn:hover {
-          background: rgba(6, 182, 212, 0.18);
-          border-color: rgba(6, 182, 212, 0.5);
+          background: #0891b2;
+          border-color: #0891b2;
         }
 
         .footer-divider {
           border: none;
-          border-top: 1px solid #1E293B;
+          border-top: 1px solid #e2e8f0;
           margin: 0;
         }
         .footer-bottom {
@@ -169,13 +169,13 @@ export default function Footer() {
           gap: 12px;
         }
         .footer-copy {
+          font-size: 0.85rem;
+          color: #64748b;
+        }
+        .footer-copy a { color: #2563eb; text-decoration: none; }
+        .footer-disclaimer {
           font-size: 0.82rem;
           color: #475569;
-        }
-        .footer-copy a { color: #06B6D4; text-decoration: none; }
-        .footer-disclaimer {
-          font-size: 0.78rem;
-          color: #334155;
           text-align: right;
           max-width: 400px;
         }
