@@ -7,18 +7,19 @@
 }
 
 body {
-  background-color: #0f172a;
-  color: white;
+  background-color: #f7efe6;
+  color: #0f172a;
   font-family: Arial, sans-serif;
 }
 
 a {
   text-decoration: none;
-  color: white;
+  color: #0f4f86;
 }
 
 .navbar {
-  background: #111827;
+  background: #fbf7f0;
+  border-bottom: 1px solid #e2e8f0;
   padding: 20px;
   display: flex;
   justify-content: space-between;
@@ -45,7 +46,7 @@ a {
 }
 
 .footer {
-  background: #111827;
+  background: #f7efe6;
   text-align: center;
   padding: 20px;
 }
@@ -59,8 +60,9 @@ a {
 
 button {
   padding: 10px 20px;
-  background: crimson;
+  background: #2563eb;
   border: none;
   color: white;
   cursor: pointer;
+  border-radius: 8px;
 }
