@@ -41,8 +41,8 @@ export default function Home() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .home {
-          background: #0F172A;
-          color: #F8FAFC;
+          background: #f7efe6;
+          color: #0f172a;
           font-family: 'DM Sans', sans-serif;
           overflow-x: hidden;
         }
@@ -211,7 +211,7 @@ export default function Home() {
           position: relative;
           width: 140px;
           height: 140px;
-          background: linear-gradient(135deg, #1E293B, #111827);
+          background: linear-gradient(135deg, #ffffff, #f3efe9);
           border: 1px solid rgba(6,182,212,0.3);
           border-radius: 24px;
           display: flex;
@@ -228,7 +228,7 @@ export default function Home() {
         .floating-badge {
           position: absolute;
           padding: 8px 14px;
-          background: #1E293B;
+          background: #fbf7f0;
           border: 1px solid #334155;
           border-radius: 10px;
           font-size: 0.8rem;
@@ -248,7 +248,7 @@ export default function Home() {
           max-width: 1280px;
           margin: 0 auto;
         }
-        .section-alt { background: #111827; }
+        .section-alt { background: transparent; }
         .section-header {
           text-align: center;
           margin-bottom: 52px;
@@ -289,8 +289,8 @@ export default function Home() {
         }
         @media (max-width: 700px) { .stats-grid { grid-template-columns: 1fr; } }
         .stat-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 16px;
           padding: 32px 28px;
           text-align: center;
@@ -305,7 +305,7 @@ export default function Home() {
           letter-spacing: -0.02em;
           margin-bottom: 6px;
         }
-        .stat-label { font-weight: 600; font-size: 0.95rem; color: #F8FAFC; margin-bottom: 4px; }
+        .stat-label { font-weight: 600; font-size: 0.95rem; color: #00000; margin-bottom: 4px; }
         .stat-sub { font-size: 0.82rem; color: #64748B; }
 
         /* ── SCAM TYPES ── */
@@ -317,8 +317,8 @@ export default function Home() {
         @media (max-width: 900px) { .scam-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 560px) { .scam-grid { grid-template-columns: 1fr; } }
         .scam-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 14px;
           padding: 26px 22px;
           display: flex;
@@ -359,8 +359,8 @@ export default function Home() {
         }
         .step-connector:last-of-type { left: calc(66.6% + 14px); }
         .step-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 16px;
           padding: 32px 26px;
           text-align: center;
@@ -399,8 +399,8 @@ export default function Home() {
         }
         @media (max-width: 640px) { .privacy-grid { grid-template-columns: 1fr; } }
         .privacy-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 14px;
           padding: 26px 22px;
           display: flex;
@@ -408,13 +408,13 @@ export default function Home() {
           align-items: flex-start;
           transition: transform 0.2s, border-color 0.2s;
         }
-        .privacy-card:hover { transform: translateY(-3px); border-color: rgba(34,197,94,0.25); }
+        .privacy-card:hover { transform: translateY(-3px); border-color: rgba(6,182,212,0.25); }
         .privacy-icon-wrap {
           width: 48px;
           height: 48px;
           flex-shrink: 0;
-          background: rgba(34,197,94,0.1);
-          border: 1px solid rgba(34,197,94,0.2);
+          background: rgba(6,182,212,0.1);
+          border: 1px solid rgba(6,182,212,0.2);
           border-radius: 12px;
           display: flex;
           align-items: center;
@@ -427,7 +427,11 @@ export default function Home() {
         /* ── EMERGENCY BANNER ── */
         .emergency {
           padding: 48px 24px;
-          background: linear-gradient(135deg, rgba(239,68,68,0.06) 0%, rgba(15,23,42,1) 60%);
+          background: linear-gradient(
+              135deg,
+              rgba(239,68,68,0.08) 0%,
+              #f7efe6 60%
+            );
           border-top: 1px solid rgba(239,68,68,0.15);
           border-bottom: 1px solid rgba(239,68,68,0.15);
         }
