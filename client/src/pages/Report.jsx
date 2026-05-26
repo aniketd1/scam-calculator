@@ -472,8 +472,8 @@ function PageStyles() {
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
       .report-page {
-        background: #0F172A;
-        color: #F8FAFC;
+        background: #f7efe6;
+        color: #0f172a;
         font-family: 'DM Sans', sans-serif;
         min-height: 100vh;
       }
@@ -590,11 +590,11 @@ function PageStyles() {
       .step-circle {
         width: 34px; height: 34px;
         border-radius: 50%;
-        border: 2px solid #334155;
-        background: #1E293B;
+        border: 2px solid #e6e9ef;
+        background: #f3efe9;
         display: flex; align-items: center; justify-content: center;
         font-size: 0.82rem; font-weight: 700;
-        color: #475569;
+        color: #334155;
         transition: all 0.3s;
         position: relative;
         z-index: 1;
@@ -625,7 +625,7 @@ function PageStyles() {
         left: calc(50% + 17px);
         width: 80px;
         height: 2px;
-        background: #334155;
+        background: #e6e9ef;
         z-index: 0;
       }
       .step-item.done .step-line { background: #22C55E; }
@@ -633,8 +633,8 @@ function PageStyles() {
 
       /* ── FORM CARD ── */
       .form-card {
-        background: #1E293B;
-        border: 1px solid #334155;
+        background: #fbf7f0;
+        border: 1px solid #e6e9ef;
         border-radius: 18px;
         padding: 36px 32px;
       }
@@ -663,8 +663,8 @@ function PageStyles() {
         display: flex; flex-direction: column;
         align-items: center; gap: 8px;
         padding: 18px 12px;
-        background: #0F172A;
-        border: 2px solid #334155;
+        background: #fbf7f0;
+        border: 2px solid #e6e9ef;
         border-radius: 12px;
         cursor: pointer;
         font-family: 'DM Sans', sans-serif;
@@ -672,10 +672,10 @@ function PageStyles() {
         text-align: center;
       }
       .type-btn:hover { border-color: rgba(6,182,212,0.4); transform: translateY(-2px); }
-      .type-btn.selected { border-color: #06B6D4; background: rgba(6,182,212,0.1); }
+      .type-btn.selected { border-color: #06B6D4; background: rgba(6,182,212,0.08); }
       .type-icon { font-size: 1.8rem; }
-      .type-label { font-size: 0.82rem; font-weight: 500; color: #CBD5E1; line-height: 1.3; }
-      .type-btn.selected .type-label { color: #F8FAFC; }
+      .type-label { font-size: 0.82rem; font-weight: 500; color: #334155; line-height: 1.3; }
+      .type-btn.selected .type-label { color: #0f172a; }
 
       /* ── CHANNEL GRID ── */
       .channel-grid {
@@ -684,8 +684,8 @@ function PageStyles() {
       .channel-btn {
         display: flex; align-items: center; gap: 14px;
         padding: 14px 18px;
-        background: #0F172A;
-        border: 2px solid #334155;
+        background: #fbf7f0;
+        border: 2px solid #e6e9ef;
         border-radius: 12px;
         cursor: pointer;
         font-family: 'DM Sans', sans-serif;
@@ -695,8 +695,8 @@ function PageStyles() {
       .channel-btn:hover { border-color: rgba(6,182,212,0.4); background: rgba(6,182,212,0.03); }
       .channel-btn.selected { border-color: #06B6D4; background: rgba(6,182,212,0.08); }
       .ch-icon { font-size: 1.4rem; width: 28px; text-align: center; flex-shrink: 0; }
-      .ch-label { flex: 1; font-size: 0.92rem; color: #CBD5E1; font-weight: 500; }
-      .channel-btn.selected .ch-label { color: #F8FAFC; }
+      .ch-label { flex: 1; font-size: 0.92rem; color: #334155; font-weight: 500; }
+      .channel-btn.selected .ch-label { color: #0f172a; }
       .ch-check { font-size: 0.9rem; color: #06B6D4; font-weight: 700; }
 
       /* ── FORM INPUTS ── */
@@ -705,10 +705,10 @@ function PageStyles() {
       .required { color: #EF4444; }
       .form-input, .form-textarea {
         padding: 12px 14px;
-        background: #0F172A;
-        border: 1px solid #334155;
+        background: #fbf7f0;
+        border: 1px solid #e6e9ef;
         border-radius: 10px;
-        color: #F8FAFC;
+        color: #0f172a;
         font-family: 'DM Sans', sans-serif;
         font-size: 0.92rem;
         outline: none;
@@ -729,24 +729,24 @@ function PageStyles() {
       .radio-group { display: flex; gap: 10px; flex-wrap: wrap; }
       .radio-btn {
         padding: 9px 16px;
-        background: #0F172A;
-        border: 1px solid #334155;
+        background: #fbf7f0;
+        border: 1px solid #e6e9ef;
         border-radius: 8px;
-        color: #94A3B8;
+        color: #334155;
         font-family: 'DM Sans', sans-serif;
         font-size: 0.85rem; font-weight: 500;
         cursor: pointer;
         transition: all 0.2s;
       }
       .radio-btn:hover { border-color: #06B6D4; color: #06B6D4; }
-      .radio-btn.selected { border-color: #06B6D4; background: rgba(6,182,212,0.1); color: #06B6D4; font-weight: 600; }
+      .radio-btn.selected { border-color: #06B6D4; background: rgba(6,182,212,0.08); color: #06B6D4; font-weight: 600; }
 
       /* ── ANONYMOUS TOGGLE ── */
       .anon-toggle {
         display: flex; align-items: center; gap: 14px;
         padding: 16px 18px;
-        background: #0F172A;
-        border: 1px solid #334155;
+        background: #fbf7f0;
+        border: 1px solid #e6e9ef;
         border-radius: 12px;
         cursor: pointer;
         margin-bottom: 20px;
@@ -755,7 +755,7 @@ function PageStyles() {
       .anon-toggle:hover { border-color: rgba(6,182,212,0.3); }
       .toggle-switch {
         width: 44px; height: 24px;
-        background: #334155;
+        background: #e6e9ef;
         border-radius: 12px;
         position: relative;
         flex-shrink: 0;
@@ -771,15 +771,15 @@ function PageStyles() {
         transition: transform 0.3s;
       }
       .toggle-switch.on .toggle-thumb { transform: translateX(20px); }
-      .toggle-label { font-size: 0.92rem; font-weight: 600; color: #F8FAFC; margin-bottom: 2px; }
+      .toggle-label { font-size: 0.92rem; font-weight: 600; color: #0f172a; margin-bottom: 2px; }
       .toggle-sub { font-size: 0.78rem; color: #64748B; }
       .reporter-fields { padding-top: 4px; }
       .info-note {
         padding: 12px 14px;
-        background: rgba(6,182,212,0.07);
-        border: 1px solid rgba(6,182,212,0.2);
+        background: rgba(6,182,212,0.04);
+        border: 1px solid rgba(6,182,212,0.12);
         border-radius: 10px;
-        font-size: 0.84rem; color: #94A3B8;
+        font-size: 0.84rem; color: #475569;
         margin-bottom: 20px; line-height: 1.55;
       }
 
@@ -792,39 +792,39 @@ function PageStyles() {
       }
       @media (max-width: 560px) { .review-grid { grid-template-columns: 1fr; } }
       .review-item {
-        background: #0F172A;
-        border: 1px solid #334155;
+        background: #fbf7f0;
+        border: 1px solid #e6e9ef;
         border-radius: 10px;
         padding: 14px 16px;
       }
       .review-label { font-size: 0.72rem; font-weight: 700; color: #475569; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
-      .review-value { font-size: 0.9rem; color: #F8FAFC; font-weight: 500; }
+      .review-value { font-size: 0.9rem; color: #0f172a; font-weight: 500; }
       .review-desc-box {
-        background: #0F172A;
-        border: 1px solid #334155;
+        background: #fbf7f0;
+        border: 1px solid #e6e9ef;
         border-radius: 10px;
         padding: 16px;
         margin-bottom: 16px;
       }
       .review-desc-label { font-size: 0.72rem; font-weight: 700; color: #475569; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
-      .review-desc-text { font-size: 0.88rem; color: #CBD5E1; line-height: 1.65; }
+      .review-desc-text { font-size: 0.88rem; color: #475569; line-height: 1.65; }
       .disclaimer-box {
         display: flex; gap: 10px; align-items: flex-start;
         padding: 14px 16px;
-        background: rgba(245,158,11,0.07);
-        border: 1px solid rgba(245,158,11,0.2);
+        background: rgba(245,158,11,0.06);
+        border: 1px solid rgba(245,158,11,0.12);
         border-radius: 10px;
         margin-bottom: 20px;
-        font-size: 0.83rem; color: #94A3B8; line-height: 1.55;
+        font-size: 0.83rem; color: #475569; line-height: 1.55;
       }
       .gov-cta {
         display: flex; gap: 8px; align-items: flex-start;
         padding: 12px 14px;
-        background: rgba(6,182,212,0.07);
-        border: 1px solid rgba(6,182,212,0.2);
+        background: rgba(6,182,212,0.04);
+        border: 1px solid rgba(6,182,212,0.12);
         border-radius: 10px;
         margin-top: 14px;
-        font-size: 0.83rem; color: #94A3B8; line-height: 1.55;
+        font-size: 0.83rem; color: #475569; line-height: 1.55;
       }
       .gov-cta a { color: #06B6D4; text-decoration: none; font-weight: 600; }
       .gov-cta a:hover { text-decoration: underline; }
@@ -838,9 +838,9 @@ function PageStyles() {
       .nav-btn-back {
         padding: 12px 22px;
         background: transparent;
-        border: 1px solid #334155;
+        border: 1px solid #e6e9ef;
         border-radius: 10px;
-        color: #94A3B8;
+        color: #475569;
         font-family: 'DM Sans', sans-serif;
         font-size: 0.9rem; font-weight: 500;
         cursor: pointer;
@@ -851,7 +851,7 @@ function PageStyles() {
         margin-left: auto;
         padding: 12px 28px;
         background: linear-gradient(135deg, #06B6D4, #0891b2);
-        color: #0F172A;
+        color: #0f172a;
         font-family: 'Syne', sans-serif;
         font-weight: 700; font-size: 0.95rem;
         border: none; border-radius: 10px;
@@ -878,8 +878,8 @@ function PageStyles() {
       /* ── SIDEBAR ── */
       .rp-sidebar { display: flex; flex-direction: column; gap: 18px; }
       .rp-sidebar-card {
-        background: #1E293B;
-        border: 1px solid #334155;
+        background: #fbf7f0;
+        border: 1px solid #e6e9ef;
         border-radius: 14px;
         padding: 20px 18px;
       }
@@ -902,14 +902,14 @@ function PageStyles() {
       .hs-call-btn:hover { filter: brightness(1.1); }
       .sb-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem; margin-bottom: 12px; }
       .sb-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
-      .sb-list li { display: flex; gap: 8px; font-size: 0.82rem; color: #94A3B8; line-height: 1.5; }
+      .sb-list li { display: flex; gap: 8px; font-size: 0.82rem; color: #475569; line-height: 1.5; }
       .sb-list li::before { content: "→"; color: #06B6D4; flex-shrink: 0; font-weight: 700; }
       .gov-link-list { display: flex; flex-direction: column; gap: 8px; }
       .gov-link {
         display: flex; align-items: center; gap: 8px;
         padding: 10px 12px;
-        background: #0F172A;
-        border: 1px solid #334155;
+        background: #fbf7f0;
+        border: 1px solid #e6e9ef;
         border-radius: 8px;
         font-size: 0.84rem; color: #06B6D4;
         text-decoration: none; font-weight: 500;
@@ -932,8 +932,8 @@ function PageStyles() {
       }
       .success-box {
         position: relative;
-        background: #1E293B;
-        border: 1px solid rgba(34,197,94,0.3);
+        background: #fbf7f0;
+        border: 1px solid rgba(34,197,94,0.12);
         border-radius: 24px;
         padding: 48px 40px;
         max-width: 600px;
@@ -971,12 +971,12 @@ function PageStyles() {
       .success-steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
       .success-step {
         display: flex; gap: 12px; align-items: flex-start;
-        background: #0F172A; border: 1px solid #334155;
+        background: #f3efe9; border: 1px solid #e6e9ef;
         border-radius: 10px; padding: 12px 14px;
         text-align: left;
       }
       .success-step span { font-size: 1.1rem; flex-shrink: 0; }
-      .success-step p { font-size: 0.84rem; color: #94A3B8; line-height: 1.55; }
+      .success-step p { font-size: 0.84rem; color: #475569; line-height: 1.55; }
       .success-helpline {
         background: linear-gradient(135deg, rgba(239,68,68,0.1), rgba(239,68,68,0.04));
         border: 1px solid rgba(239,68,68,0.25);
@@ -1001,9 +1001,9 @@ function PageStyles() {
       .btn-outline {
         display: block; width: 100%;
         padding: 12px;
-        border: 1px solid #334155;
+        border: 1px solid #e6e9ef;
         border-radius: 10px;
-        color: #94A3B8; font-family: 'DM Sans', sans-serif;
+        color: #475569; font-family: 'DM Sans', sans-serif;
         font-weight: 500; font-size: 0.9rem;
         text-decoration: none;
         transition: border-color 0.2s, color 0.2s;
