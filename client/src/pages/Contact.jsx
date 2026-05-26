@@ -29,8 +29,8 @@ export default function Contact() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .contact-page {
-          background: #0F172A;
-          color: #F8FAFC;
+          background: #f7efe6;
+          color: #0f172a;
           font-family: 'DM Sans', sans-serif;
           min-height: 100vh;
         }
@@ -88,8 +88,8 @@ export default function Contact() {
         }
         @media (max-width: 720px) { .channels-grid { grid-template-columns: 1fr; } }
         .channel-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 14px;
           padding: 26px 22px;
           display: flex;
@@ -122,8 +122,8 @@ export default function Contact() {
 
         /* FORM */
         .form-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 18px;
           padding: 36px 32px;
         }
@@ -136,10 +136,10 @@ export default function Contact() {
         .form-label { font-size: 0.82rem; font-weight: 600; color: #94A3B8; letter-spacing: 0.03em; }
         .form-input, .form-select, .form-textarea {
           padding: 12px 14px;
-          background: #0F172A;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 10px;
-          color: #F8FAFC;
+          color: #0f172a;
           font-family: 'DM Sans', sans-serif;
           font-size: 0.92rem;
           transition: border-color 0.2s, box-shadow 0.2s;
@@ -181,10 +181,10 @@ export default function Contact() {
         .faq-col { display: flex; flex-direction: column; gap: 0; }
         .faq-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; margin-bottom: 18px; }
         .faq-item {
-          border-bottom: 1px solid #334155;
+          border-bottom: 1px solid #e6e9ef;
           padding: 16px 0;
         }
-        .faq-item:first-of-type { border-top: 1px solid #334155; }
+        .faq-item:first-of-type { border-top: 1px solid #e6e9ef; }
         .faq-q {
           display: flex;
           justify-content: space-between;
@@ -193,7 +193,7 @@ export default function Contact() {
           cursor: pointer;
           font-size: 0.92rem;
           font-weight: 600;
-          color: #F8FAFC;
+          color: #0f172a;
           line-height: 1.4;
         }
         .faq-q:hover { color: #06B6D4; }
@@ -201,7 +201,7 @@ export default function Contact() {
         .faq-toggle.open { transform: rotate(45deg); color: #06B6D4; }
         .faq-a {
           font-size: 0.86rem;
-          color: #94A3B8;
+          color: #475569;
           line-height: 1.65;
           margin-top: 10px;
           display: none;
@@ -290,7 +290,7 @@ export default function Contact() {
               <div className="success-state">
                 <div className="success-icon">✅</div>
                 <div className="success-title">Message Sent!</div>
-                <div className="success-msg">Thank you for reaching out. Our team will review your message and respond to <strong style={{color:"#F8FAFC"}}>{form.email}</strong> within 24 hours.</div>
+                <div className="success-msg">Thank you for reaching out. Our team will review your message and respond to <strong style={{color:"#0f172a"}}>{form.email}</strong> within 24 hours.</div>
               </div>
             )}
           </div>
