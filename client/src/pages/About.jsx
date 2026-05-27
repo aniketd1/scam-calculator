@@ -27,13 +27,12 @@ export default function About() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .about-page {
           background: #f7efe6;
           color: #0f172a;
-          font-family: 'DM Sans', sans-serif;
+          font-family: 'Inter', sans-serif;
           overflow-x: hidden;
         }
 
@@ -72,7 +71,7 @@ export default function About() {
           margin-bottom: 18px;
         }
         .pg-h1 {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(2rem, 4vw, 3rem);
           letter-spacing: -0.03em;
@@ -94,7 +93,7 @@ export default function About() {
         .section-inner { max-width: 1280px; margin: 0 auto; }
         .section-header { text-align: center; margin-bottom: 48px; }
         .section-title {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(1.6rem, 3vw, 2.2rem);
           letter-spacing: -0.02em;
@@ -111,7 +110,7 @@ export default function About() {
         }
         @media (max-width: 800px) { .mission-grid { grid-template-columns: 1fr; } }
         .mission-text h2 {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(1.6rem, 3vw, 2.2rem);
           letter-spacing: -0.02em;
@@ -154,7 +153,7 @@ export default function About() {
           flex-shrink: 0;
         }
         .mission-stat-val {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: 1.5rem;
           color: #06B6D4;
@@ -184,7 +183,7 @@ export default function About() {
           display: block;
         }
         .value-title {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 700;
           font-size: 0.98rem;
           margin-bottom: 8px;
@@ -216,7 +215,7 @@ export default function About() {
           position: relative;
         }
         .tl-year {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: 0.9rem;
           color: #06B6D4;
@@ -245,7 +244,7 @@ export default function About() {
           flex: 1;
         }
         .tl-title {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 700;
           font-size: 0.98rem;
           margin-bottom: 6px;
@@ -278,7 +277,7 @@ export default function About() {
           font-size: 1.8rem;
           margin: 0 auto 14px;
         }
-        .team-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+        .team-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
         .team-role { font-size: 0.78rem; color: #06B6D4; font-weight: 600; margin-bottom: 10px; }
         .team-desc { font-size: 0.82rem; color: #94A3B8; line-height: 1.55; }
 
@@ -291,7 +290,7 @@ export default function About() {
           text-align: center;
         }
         .cta-strip h2 {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(1.6rem, 3vw, 2.2rem);
           letter-spacing: -0.02em;
@@ -302,14 +301,26 @@ export default function About() {
           display: inline-flex; align-items: center; gap: 8px;
           padding: 14px 28px;
           background: linear-gradient(135deg, #06B6D4, #0891b2);
-          color: #0F172A; font-family: 'DM Sans', sans-serif;
+          color: #0F172A; font-family: 'Inter', sans-serif;
           font-weight: 700; font-size: 1rem; border-radius: 10px;
           text-decoration: none;
           box-shadow: 0 0 24px rgba(6,182,212,0.3);
           transition: transform 0.2s, box-shadow 0.2s;
         }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(6,182,212,0.5); }
-      `}</style>
+        
+        /* ───────────────── RESPONSIVE DESIGN ───────────────── */
+
+/* Large Tablets */
+@media (max-width: 1024px) {
+
+  .pg-hero {
+    padding: 85px 22px 70px;
+  }
+
+  .
+     
+     `}</style>
 
       <div className="about-page">
 
