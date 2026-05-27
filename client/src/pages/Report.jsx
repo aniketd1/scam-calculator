@@ -48,12 +48,16 @@ function StepIndicator({ current, total, labels }) {
   return (
     <div className="step-indicator">
       {labels.map((label, i) => (
-        <div key={label} className={`step-item${i < current ? " done" : i === current ? " active" : ""}`}>
+        <div
+          key={label}
+          className={`step-item ${
+            i < current ? "done" : i === current ? "active" : ""
+          }`}
+        >
           <div className="step-circle">
             {i < current ? "✓" : i + 1}
           </div>
           <div className="step-label">{label}</div>
-          {i < total - 1 && <div className="step-line" />}
         </div>
       ))}
     </div>
@@ -571,64 +575,92 @@ function PageStyles() {
       /* ── STEP INDICATOR ── */
       .step-indicator {
         grid-column: 1 / -1;
+        position: relative;
         display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0;
-        margin-bottom: 8px;
-        overflow-x: auto;
-        padding-bottom: 4px;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+        padding: 0;
       }
+
+      /* perfect connecting line */
+      .step-indicator::before {
+        content: "";
+        position: absolute;
+        top: 17px; /* aligns with circle center */
+        left: 20px;
+        right: 20px;
+        height: 2px;
+        background: #e6e9ef;
+        z-index: 0;
+      }
+
+      /* ensure equal spacing */
       .step-item {
+        flex: 1;
         display: flex;
         flex-direction: column;
         align-items: center;
         position: relative;
-        flex-shrink: 0;
+        z-index: 1;
       }
+
+      /* circle */
       .step-circle {
-        width: 34px; height: 34px;
+        width: 34px;
+        height: 34px;
         border-radius: 50%;
         border: 2px solid #e6e9ef;
         background: #f3efe9;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 0.82rem; font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.82rem;
+        font-weight: 700;
         color: #334155;
         transition: all 0.3s;
-        position: relative;
-        z-index: 1;
       }
+
+      /* active */
       .step-item.active .step-circle {
         border-color: #06B6D4;
         background: rgba(6,182,212,0.15);
         color: #06B6D4;
-        box-shadow: 0 0 14px rgba(6,182,212,0.3);
       }
+
+      /* done */
       .step-item.done .step-circle {
         border-color: #22C55E;
         background: rgba(34,197,94,0.15);
         color: #22C55E;
       }
+
+      /* label */
       .step-label {
-        font-size: 0.72rem; font-weight: 600;
+        font-size: 0.72rem;
+        font-weight: 600;
         color: #475569;
         margin-top: 6px;
-        white-space: nowrap;
-        letter-spacing: 0.02em;
+        text-align: center;
+        max-width: 90px;
+        line-height: 1.2;
       }
-      .step-item.active .step-label { color: #06B6D4; }
-      .step-item.done .step-label { color: #22C55E; }
-      .step-line {
-        position: absolute;
-        top: 17px;
-        left: calc(50% + 17px);
-        width: 80px;
-        height: 2px;
-        background: #e6e9ef;
-        z-index: 0;
+
+      .step-item.active .step-label {
+        color: #06B6D4;
       }
-      .step-item.done .step-line { background: #22C55E; }
-      @media (max-width: 640px) { .step-line { width: 40px; } }
+
+      .step-item.done .step-label {
+        color: #22C55E;
+      }
+        @media (max-width: 768px) {
+          .step-indicator::before {
+            left: 12px;
+            right: 12px;
+            top: 17px;
+          }
+        }
+    @media (max-width: 640px) { .step-line { width: 40px; } }
 
       /* ── FORM CARD ── */
       .form-card {
@@ -1075,9 +1107,22 @@ function PageStyles() {
   }
 
   .step-indicator {
-    justify-content: flex-start;
-    overflow-x: auto;
-    padding-bottom: 8px;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding: 0 8px 8px;
+  }
+  .step-indicator::before {
+    content: "";
+    position: absolute;
+    top: 17px; /* aligns with circles */
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #e6e9ef;
+    z-index: 0;
   }
 
   .step-label {
