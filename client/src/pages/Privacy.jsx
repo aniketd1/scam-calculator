@@ -67,13 +67,12 @@ export default function Privacy() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .privacy-page {
           background: #f7efe6;
           color: #0f172a;
-          font-family: 'DM Sans', sans-serif;
+          font-family: 'Inter', sans-serif;
           min-height: 100vh;
         }
 
@@ -110,7 +109,7 @@ export default function Privacy() {
           margin-bottom: 18px;
         }
         .pg-h1 {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(2rem, 4vw, 2.8rem);
           letter-spacing: -0.03em;
@@ -163,7 +162,7 @@ export default function Privacy() {
           padding: 20px;
         }
         @media (max-width: 800px) { .toc { position: static; } }
-        .toc-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.82rem; color: #64748B; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 14px; }
+        .toc-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.82rem; color: #64748B; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 14px; }
         .toc-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
         .toc-list a {
           display: flex; align-items: center; gap: 8px;
@@ -197,9 +196,9 @@ export default function Privacy() {
           display: flex; align-items: center; justify-content: center;
           flex-shrink: 0;
         }
-        .ps-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.05rem; }
+        .ps-title { font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 1.05rem; }
         .ps-items { display: flex; flex-direction: column; gap: 18px; }
-        .ps-item-heading { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem; color: #0f172a; margin-bottom: 5px; }
+        .ps-item-heading { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.88rem; color: #0f172a; margin-bottom: 5px; }
         .ps-item-body { font-size: 0.88rem; color: #475569; line-height: 1.7; }
 
         /* FOOTER NOTE */
