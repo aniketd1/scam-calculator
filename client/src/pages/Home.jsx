@@ -36,14 +36,13 @@ export default function Home() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
-
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .home {
           background: #f7efe6;
           color: #0f172a;
-          font-family: 'DM Sans', sans-serif;
+          font-family: 'Inter', sans-serif;
           overflow-x: hidden;
         }
 
@@ -104,7 +103,7 @@ export default function Home() {
           margin-bottom: 24px;
         }
         .hero-h1 {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(2.4rem, 5vw, 3.6rem);
           line-height: 1.08;
@@ -132,7 +131,7 @@ export default function Home() {
           padding: 14px 28px;
           background: linear-gradient(135deg, #06B6D4, #0891b2);
           color: #0F172A;
-          font-family: 'DM Sans', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-weight: 700;
           font-size: 1rem;
           border-radius: 10px;
@@ -152,7 +151,7 @@ export default function Home() {
           padding: 13px 24px;
           border: 1px solid #334155;
           color: #CBD5E1;
-          font-family: 'DM Sans', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-weight: 500;
           font-size: 0.95rem;
           border-radius: 10px;
@@ -267,7 +266,7 @@ export default function Home() {
           margin-bottom: 14px;
         }
         .section-title {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(1.8rem, 3.5vw, 2.6rem);
           letter-spacing: -0.02em;
@@ -299,7 +298,7 @@ export default function Home() {
         .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
         .stat-icon { font-size: 2.2rem; margin-bottom: 14px; }
         .stat-value {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: 2rem;
           letter-spacing: -0.02em;
@@ -338,7 +337,7 @@ export default function Home() {
           letter-spacing: 0.08em;
           color: #fff;
         }
-        .scam-card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1rem; }
+        .scam-card-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1rem; }
         .scam-card-desc { font-size: 0.87rem; color: #94A3B8; line-height: 1.6; }
 
         /* ── HOW IT WORKS ── */
@@ -369,7 +368,7 @@ export default function Home() {
         }
         .step-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
         .step-num {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: 0.75rem;
           color: #334155;
@@ -388,7 +387,7 @@ export default function Home() {
           font-size: 1.8rem;
           margin: 0 auto 18px;
         }
-        .step-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.05rem; margin-bottom: 10px; }
+        .step-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.05rem; margin-bottom: 10px; }
         .step-desc { font-size: 0.88rem; color: #94A3B8; line-height: 1.65; }
 
         /* ── PRIVACY ── */
@@ -421,7 +420,7 @@ export default function Home() {
           justify-content: center;
           font-size: 1.4rem;
         }
-        .privacy-card-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.98rem; margin-bottom: 6px; }
+        .privacy-card-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.98rem; margin-bottom: 6px; }
         .privacy-card-desc { font-size: 0.86rem; color: #94A3B8; line-height: 1.6; }
 
         /* ── EMERGENCY BANNER ── */
@@ -464,7 +463,7 @@ export default function Home() {
         }
         .emergency-label { font-size: 0.8rem; color: #EF4444; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
         .emergency-number {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-size: 2.4rem;
           font-weight: 800;
           color: #EF4444;
@@ -502,6 +501,246 @@ export default function Home() {
           transition: background 0.2s, border-color 0.2s;
         }
         .btn-outline-danger:hover { background: rgba(239,68,68,0.08); border-color: #EF4444; }
+      
+        /* ───────────────── RESPONSIVE DESIGN ───────────────── */
+
+/* Large Tablets */
+@media (max-width: 1024px) {
+
+  .hero {
+    padding: 70px 24px;
+    min-height: auto;
+  }
+
+  .hero-inner {
+    gap: 40px;
+  }
+
+  .shield-wrap {
+    width: 280px;
+    height: 280px;
+  }
+
+  .shield-center {
+    width: 120px;
+    height: 120px;
+    font-size: 52px;
+  }
+
+  .section {
+    padding: 70px 20px;
+  }
+
+  .steps-grid,
+  .stats-grid,
+  .scam-grid,
+  .privacy-grid {
+    gap: 18px;
+  }
+}
+
+
+/* Tablets */
+@media (max-width: 768px) {
+
+  .hero {
+    padding: 60px 18px;
+    text-align: center;
+  }
+
+  .hero-inner {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
+  .hero-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .hero-sub {
+    max-width: 100%;
+  }
+
+  .hero-actions {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    justify-content: center;
+  }
+
+  .hero-trust {
+    justify-content: center;
+  }
+
+  .hero-visual {
+    display: none;
+  }
+
+  .section {
+    padding: 60px 18px;
+  }
+
+  .section-header {
+    margin-bottom: 40px;
+  }
+
+  .stats-grid,
+  .steps-grid,
+  .privacy-grid,
+  .scam-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card,
+  .step-card,
+  .privacy-card,
+  .scam-card {
+    padding: 24px 20px;
+  }
+
+  .emergency-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .emergency-actions {
+    width: 100%;
+  }
+
+  .btn-danger,
+  .btn-outline-danger {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .emergency-number {
+    font-size: 2rem;
+  }
+}
+
+
+/* Mobile Devices */
+@media (max-width: 480px) {
+
+  .hero {
+    padding: 50px 16px;
+  }
+
+  .hero-h1 {
+    font-size: 2rem;
+    line-height: 1.15;
+  }
+
+  .hero-sub {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .hero-eyebrow {
+    font-size: 0.72rem;
+    padding: 5px 12px;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+  }
+
+  .hero-trust {
+    gap: 10px;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .section {
+    padding: 50px 16px;
+  }
+
+  .section-title {
+    font-size: 1.8rem;
+  }
+
+  .section-sub {
+    font-size: 0.92rem;
+  }
+
+  .stat-value {
+    font-size: 1.7rem;
+  }
+
+  .step-icon-wrap {
+    width: 56px;
+    height: 56px;
+    font-size: 1.5rem;
+  }
+
+  .privacy-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .privacy-icon-wrap {
+    width: 44px;
+    height: 44px;
+  }
+
+  .emergency {
+    padding: 40px 16px;
+  }
+
+  .emergency-number {
+    font-size: 1.7rem;
+  }
+
+  .emergency-label {
+    font-size: 0.72rem;
+  }
+
+  .emergency-desc {
+    font-size: 0.82rem;
+  }
+}
+
+
+/* Small Phones */
+@media (max-width: 360px) {
+
+  .hero-h1 {
+    font-size: 1.75rem;
+  }
+
+  .section-title {
+    font-size: 1.6rem;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .btn-outline-danger {
+    font-size: 0.88rem;
+    padding: 12px 18px;
+  }
+
+  .stat-card,
+  .step-card,
+  .privacy-card,
+  .scam-card {
+    padding: 20px 16px;
+  }
+}
+      
       `}</style>
 
       <div className="home">
