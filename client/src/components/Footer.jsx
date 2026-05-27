@@ -6,12 +6,11 @@ export default function Footer() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap');
-
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
         .footer-root {
           background: #e8dccb;
           border-top: 1px solid #efe6db;
-          font-family: 'DM Sans', sans-serif;
+          font-family: 'Inter', sans-serif;
           color: #475569;
         }
         .footer-main {
@@ -44,7 +43,7 @@ export default function Footer() {
           font-size: 16px;
         }
         .footer-logo-text {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: 1.1rem;
           color: #0f172a;
@@ -71,7 +70,7 @@ export default function Footer() {
         }
 
         .footer-col-title {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 700;
           font-size: 0.85rem;
           color: #0f172a;
@@ -116,7 +115,7 @@ export default function Footer() {
           margin-bottom: 16px;
         }
         .helpline-number {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-size: 2rem;
           font-weight: 800;
           color: #be123c;
@@ -183,6 +182,221 @@ export default function Footer() {
           .footer-bottom { flex-direction: column; align-items: flex-start; }
           .footer-disclaimer { text-align: left; }
         }
+        
+        /* ───────────────── RESPONSIVE DESIGN ───────────────── */
+
+/* Large Tablets */
+@media (max-width: 1024px) {
+
+  .footer-main {
+    padding: 56px 22px 36px;
+    gap: 36px;
+  }
+
+  .footer-tagline {
+    max-width: 100%;
+  }
+
+  .footer-bottom {
+    padding: 18px 22px;
+  }
+}
+
+
+/* Tablets */
+@media (max-width: 768px) {
+
+  .footer-root {
+    overflow-x: hidden;
+  }
+
+  .footer-main {
+    grid-template-columns: 1fr;
+    gap: 34px;
+    padding: 50px 18px 34px;
+  }
+
+  .footer-brand-logo {
+    justify-content: flex-start;
+  }
+
+  .footer-tagline {
+    max-width: 100%;
+    font-size: 0.9rem;
+    line-height: 1.7;
+  }
+
+  .footer-col-title {
+    margin-bottom: 14px;
+  }
+
+  .footer-links {
+    gap: 9px;
+  }
+
+  .footer-links a {
+    font-size: 0.9rem;
+  }
+
+  .footer-helpline {
+    padding: 18px;
+  }
+
+  .helpline-number {
+    font-size: 1.8rem;
+  }
+
+  .helpline-label,
+  .helpline-desc {
+    font-size: 0.85rem;
+  }
+
+  .report-btn {
+    padding: 11px;
+    font-size: 0.9rem;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 18px;
+  }
+
+  .footer-copy,
+  .footer-disclaimer {
+    text-align: left;
+    max-width: 100%;
+  }
+}
+
+
+/* Mobile Devices */
+@media (max-width: 480px) {
+
+  .footer-main {
+    padding: 42px 16px 28px;
+    gap: 28px;
+  }
+
+  .footer-brand-logo {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .footer-logo-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    border-radius: 7px;
+  }
+
+  .footer-logo-text {
+    font-size: 1rem;
+  }
+
+  .footer-tagline {
+    font-size: 0.86rem;
+    line-height: 1.65;
+    margin-bottom: 16px;
+  }
+
+  .footer-badge {
+    font-size: 0.74rem;
+    padding: 7px 12px;
+    flex-wrap: wrap;
+    line-height: 1.5;
+  }
+
+  .footer-col-title {
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+  }
+
+  .footer-links {
+    gap: 8px;
+  }
+
+  .footer-links a {
+    font-size: 0.86rem;
+    gap: 7px;
+  }
+
+  .footer-helpline {
+    padding: 16px 14px;
+    border-radius: 10px;
+  }
+
+  .helpline-number {
+    font-size: 1.6rem;
+  }
+
+  .helpline-label {
+    font-size: 0.82rem;
+  }
+
+  .helpline-desc {
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+
+  .report-btn {
+    padding: 12px;
+    font-size: 0.88rem;
+    border-radius: 9px;
+  }
+
+  .footer-divider {
+    margin-top: 6px;
+  }
+
+  .footer-bottom {
+    padding: 16px;
+    gap: 8px;
+  }
+
+  .footer-copy {
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  .footer-disclaimer {
+    font-size: 0.76rem;
+    line-height: 1.55;
+  }
+}
+
+
+/* Small Phones */
+@media (max-width: 360px) {
+
+  .footer-main {
+    padding: 38px 14px 24px;
+  }
+
+  .footer-tagline,
+  .helpline-desc,
+  .footer-disclaimer {
+    font-size: 0.74rem;
+  }
+
+  .footer-links a {
+    font-size: 0.82rem;
+  }
+
+  .report-btn {
+    font-size: 0.84rem;
+  }
+
+  .helpline-number {
+    font-size: 1.45rem;
+  }
+
+  .footer-copy {
+    font-size: 0.74rem;
+  }
+}
+      
       `}</style>
 
       <footer className="footer-root">
