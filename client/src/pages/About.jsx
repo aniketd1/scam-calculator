@@ -197,21 +197,21 @@ export default function About() {
           margin: 0 auto;
           display: flex;
           flex-direction: column;
-          gap: 0;
         }
         .timeline::before {
           content: '';
           position: absolute;
-          left: 52px;
-          top: 0; bottom: 0;
+          left: 97px;
+          transform: translateX(7px);
+          top: 0;
+          bottom: 0;
           width: 2px;
           background: linear-gradient(to bottom, #06B6D4, #0891b2);
         }
         .tl-item {
-          display: flex;
-          gap: 28px;
-          align-items: flex-start;
-          padding-bottom: 36px;
+          display: grid;
+          grid-template-columns: 80px 14px 1fr;
+          gap: 18px;
           position: relative;
         }
         .tl-year {
@@ -231,9 +231,9 @@ export default function About() {
           border: 3px solid #e6e9ef;
           border-radius: 50%;
           flex-shrink: 0;
-          margin-top: 18px;
-          box-shadow: 0 0 10px rgba(6,182,212,0.5);
+
           position: relative;
+          top: 18px; /* aligns with content box center better */
           z-index: 1;
         }
         .tl-content {
