@@ -922,6 +922,7 @@ export default function Home() {
 }
   /* ── MINI CALCULATOR CENTER SECTION ── */
 .mini-section {
+  padding: 26px;
   display: flex;
   justify-content: center;
   align-items: center;

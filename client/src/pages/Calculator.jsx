@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 const questions = [
   {
     id: "q0",
-    question: "Did an unknown person contact you out of the blue?",
+    question: "Did an unknown person contact you?",
   },
   {
     id: "q1",
