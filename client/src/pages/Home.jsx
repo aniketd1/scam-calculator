@@ -472,7 +472,7 @@ export default function Home() {
 /* ── HERO ── */
 .hero {
   position: relative;
-  min-height: 72vh;
+  min-height: 68vh;
   display: flex;
   align-items: center;
   padding: 56px 24px 34px;
@@ -544,10 +544,17 @@ export default function Home() {
 }
 .hero-actions {
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 28px;
+  width: 100%;
 }
+
+.hero-actions .hero-btn {
+  min-width: 240px;
+}
+
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -849,12 +856,13 @@ export default function Home() {
   .mini-calc {
     max-width: 1000px;
     width: 100%;
+    margin-top: -28px;
   }
 
   .mini-calc-panel {
     width: 100%;
   }
-
+        
   .mini-q {
     padding: 14px 18px;
   }
@@ -862,7 +870,9 @@ export default function Home() {
   .mini-q-text {
     font-size: 0.94rem;
   }
+  
 }
+  
 
 @media (max-width: 768px) {
   .hero {padding: 36px 18px 20px; min-height: auto; text-align: center; }
@@ -884,7 +894,7 @@ export default function Home() {
   .mini-calc { max-width: 100%; }
 }
 @media (max-width: 480px) {
-  .hero { padding: 28px 16px 12px; min-height: auto; margin-top: -20px; }
+  .hero { padding: 28px 16px 12px; min-height: auto; margin-top: -10px; }
   .hero-h1 { font-size: 2rem; line-height: 1.15; }
   .hero-sub { font-size: 0.95rem; margin-bottom: 18px;}
   .hero-eyebrow { font-size: 0.72rem; padding: 5px 12px; }
@@ -915,7 +925,6 @@ export default function Home() {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: -12px;
   position: relative;
   z-index: 5;
 
@@ -943,10 +952,7 @@ export default function Home() {
               </h1>
               <p className="hero-sub">
                 India's growing scam threats demand fast awareness. Our risk engine helps users quickly detect suspicious activity and stay protected from financial fraud.              </p>
-              <div className="hero-actions">
-                <Link to="/calculator" className="btn-primary">⚡ Analyze Scam Risk</Link>
-                <Link to="/awareness" className="btn-secondary">📖 Learn About Scams</Link>
-              </div>
+              
               <div className="hero-trust">
                 <span className="hero-trust-item"><span>✓</span> No Login</span>
                 <span className="hero-trust-item"><span>✓</span> 100% Free</span>
@@ -975,6 +981,10 @@ export default function Home() {
             <MiniCalculator />
           </div>
         </section>
+
+        <div className="hero-actions">
+          <Link to="/awareness" className="btn-secondary">📖 Learn About Scams</Link>
+        </div>
 
         {/* ── STATS ── */}
         <section className="section section-alt">
