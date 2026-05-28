@@ -19,7 +19,7 @@ function getRiskLevel(pct) {
     bg: "rgba(185,28,28,0.12)",
     border: "rgba(185,28,28,0.3)",
     icon: "🚨",
-    advice: "This is almost certainly a scam. Do NOT share any information or transfer money. Hang up or stop responding immediately and call the Cyber Crime Helpline on 1930. Report at cybercrime.gov.in.",
+    advice: "Very likely a scam. Do not share anything. Call Cyber Crime Helpline on 1930 immediately. Report at cybercrime.gov.in.",
   };
   if (pct >= 60) return {
     label: "HIGH RISK",
@@ -27,7 +27,7 @@ function getRiskLevel(pct) {
     bg: "rgba(239,68,68,0.1)",
     border: "rgba(239,68,68,0.3)",
     icon: "⚠️",
-    advice: "Multiple red flags detected. This is very likely a scam. Disconnect immediately, block the number, and report it on cybercrime.gov.in. Do not act on any instructions they gave you.",
+    advice: "Likely a scam. Disconnect and report on cybercrime.gov.in.",
   };
   if (pct >= 40) return {
     label: "MEDIUM RISK",
@@ -35,7 +35,7 @@ function getRiskLevel(pct) {
     bg: "rgba(245,158,11,0.1)",
     border: "rgba(245,158,11,0.3)",
     icon: "🔍",
-    advice: "Some warning signs detected. Proceed with extreme caution. Verify the caller independently — look up the official number yourself and call it directly before sharing anything.",
+    advice: "Some risk signs. Verify the phone number and ID independently before acting.",
   };
   return {
     label: "LOW RISK",
@@ -43,7 +43,7 @@ function getRiskLevel(pct) {
     bg: "rgba(34,197,94,0.1)",
     border: "rgba(34,197,94,0.3)",
     icon: "✅",
-    advice: "This doesn't appear to have major scam indicators. However, always stay cautious — never share sensitive personal or banking details over the phone with anyone.",
+    advice: "No strong scam signs detected for now. Stay cautious.",
   };
 }
 
@@ -52,7 +52,7 @@ export default function Calculator() {
   const [submitted, setSubmitted] = useState(false);
 
   const score = Object.values(answers).filter((v) => v === "yes").length;
-  const pct = Math.round((score / questions.length) * 100);
+  const pct = score * 20;
   const risk = getRiskLevel(pct);
   const answered = Object.keys(answers).length;
   const complete = answered === questions.length;

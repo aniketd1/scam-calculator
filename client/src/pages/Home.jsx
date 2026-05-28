@@ -42,7 +42,7 @@ const miniQuestions = [
 ];
 
 function getMiniRisk(score) {
-  const percent = Math.round((score / 5) * 100);
+  const percent = score * 20;
 
   if (score >= 4)
     return {
