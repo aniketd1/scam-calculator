@@ -67,13 +67,12 @@ export default function Privacy() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .privacy-page {
-          background: #0F172A;
-          color: #F8FAFC;
-          font-family: 'DM Sans', sans-serif;
+          background: #f7efe6;
+          color: #0f172a;
+          font-family: 'Inter', sans-serif;
           min-height: 100vh;
         }
 
@@ -110,7 +109,7 @@ export default function Privacy() {
           margin-bottom: 18px;
         }
         .pg-h1 {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(2rem, 4vw, 2.8rem);
           letter-spacing: -0.03em;
@@ -157,13 +156,13 @@ export default function Privacy() {
         .toc {
           position: sticky;
           top: 88px;
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 14px;
           padding: 20px;
         }
         @media (max-width: 800px) { .toc { position: static; } }
-        .toc-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.82rem; color: #64748B; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 14px; }
+        .toc-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.82rem; color: #64748B; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 14px; }
         .toc-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
         .toc-list a {
           display: flex; align-items: center; gap: 8px;
@@ -176,8 +175,8 @@ export default function Privacy() {
         /* CONTENT */
         .privacy-content { display: flex; flex-direction: column; gap: 24px; }
         .privacy-section {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 16px;
           padding: 28px 28px;
           scroll-margin-top: 90px;
@@ -197,18 +196,18 @@ export default function Privacy() {
           display: flex; align-items: center; justify-content: center;
           flex-shrink: 0;
         }
-        .ps-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.05rem; }
+        .ps-title { font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 1.05rem; }
         .ps-items { display: flex; flex-direction: column; gap: 18px; }
-        .ps-item-heading { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem; color: #F8FAFC; margin-bottom: 5px; }
-        .ps-item-body { font-size: 0.88rem; color: #94A3B8; line-height: 1.7; }
+        .ps-item-heading { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.88rem; color: #0f172a; margin-bottom: 5px; }
+        .ps-item-body { font-size: 0.88rem; color: #475569; line-height: 1.7; }
 
         /* FOOTER NOTE */
         .privacy-footer-note {
           max-width: 1100px;
           margin: 0 auto;
           padding: 0 24px 60px;
-          background: rgba(6,182,212,0.05);
-          border: 1px solid rgba(6,182,212,0.15);
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 16px;
           padding: 24px 28px;
           display: flex;

@@ -27,13 +27,12 @@ export default function About() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .about-page {
-          background: #0F172A;
-          color: #F8FAFC;
-          font-family: 'DM Sans', sans-serif;
+          background: #f7efe6;
+          color: #0f172a;
+          font-family: 'Inter', sans-serif;
           overflow-x: hidden;
         }
 
@@ -72,7 +71,7 @@ export default function About() {
           margin-bottom: 18px;
         }
         .pg-h1 {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(2rem, 4vw, 3rem);
           letter-spacing: -0.03em;
@@ -90,11 +89,11 @@ export default function About() {
 
         /* SECTIONS */
         .section { padding: 72px 24px; }
-        .section-alt { background: #111827; }
+        .section-alt { background: transparent; }
         .section-inner { max-width: 1280px; margin: 0 auto; }
         .section-header { text-align: center; margin-bottom: 48px; }
         .section-title {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(1.6rem, 3vw, 2.2rem);
           letter-spacing: -0.02em;
@@ -111,7 +110,7 @@ export default function About() {
         }
         @media (max-width: 800px) { .mission-grid { grid-template-columns: 1fr; } }
         .mission-text h2 {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(1.6rem, 3vw, 2.2rem);
           letter-spacing: -0.02em;
@@ -125,8 +124,8 @@ export default function About() {
           margin-bottom: 16px;
         }
         .mission-visual {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 20px;
           padding: 40px;
           display: flex;
@@ -138,8 +137,8 @@ export default function About() {
           align-items: center;
           gap: 16px;
           padding: 16px;
-          background: #0F172A;
-          border: 1px solid #334155;
+          background: #f3efe9;
+          border: 1px solid #e6e9ef;
           border-radius: 12px;
         }
         .mission-stat-icon {
@@ -154,7 +153,7 @@ export default function About() {
           flex-shrink: 0;
         }
         .mission-stat-val {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: 1.5rem;
           color: #06B6D4;
@@ -171,8 +170,8 @@ export default function About() {
         @media (max-width: 900px) { .values-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 560px) { .values-grid { grid-template-columns: 1fr; } }
         .value-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 14px;
           padding: 28px 22px;
           transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
@@ -184,7 +183,7 @@ export default function About() {
           display: block;
         }
         .value-title {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 700;
           font-size: 0.98rem;
           margin-bottom: 8px;
@@ -198,25 +197,25 @@ export default function About() {
           margin: 0 auto;
           display: flex;
           flex-direction: column;
-          gap: 0;
         }
         .timeline::before {
           content: '';
           position: absolute;
-          left: 52px;
-          top: 0; bottom: 0;
+          left: 97px;
+          transform: translateX(7px);
+          top: 0;
+          bottom: 0;
           width: 2px;
-          background: linear-gradient(to bottom, #06B6D4, #334155);
+          background: linear-gradient(to bottom, #06B6D4, #0891b2);
         }
         .tl-item {
-          display: flex;
-          gap: 28px;
-          align-items: flex-start;
-          padding-bottom: 36px;
+          display: grid;
+          grid-template-columns: 80px 14px 1fr;
+          gap: 18px;
           position: relative;
         }
         .tl-year {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: 0.9rem;
           color: #06B6D4;
@@ -229,23 +228,23 @@ export default function About() {
           width: 14px;
           height: 14px;
           background: #06B6D4;
-          border: 3px solid #0F172A;
+          border: 3px solid #e6e9ef;
           border-radius: 50%;
           flex-shrink: 0;
-          margin-top: 18px;
-          box-shadow: 0 0 10px rgba(6,182,212,0.5);
+
           position: relative;
+          top: 18px; /* aligns with content box center better */
           z-index: 1;
         }
         .tl-content {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 12px;
           padding: 18px 20px;
           flex: 1;
         }
         .tl-title {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 700;
           font-size: 0.98rem;
           margin-bottom: 6px;
@@ -261,8 +260,8 @@ export default function About() {
         @media (max-width: 900px) { .team-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 500px) { .team-grid { grid-template-columns: 1fr; } }
         .team-card {
-          background: #1E293B;
-          border: 1px solid #334155;
+          background: #fbf7f0;
+          border: 1px solid #e6e9ef;
           border-radius: 14px;
           padding: 28px 20px;
           text-align: center;
@@ -278,7 +277,7 @@ export default function About() {
           font-size: 1.8rem;
           margin: 0 auto 14px;
         }
-        .team-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+        .team-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
         .team-role { font-size: 0.78rem; color: #06B6D4; font-weight: 600; margin-bottom: 10px; }
         .team-desc { font-size: 0.82rem; color: #94A3B8; line-height: 1.55; }
 
@@ -291,7 +290,7 @@ export default function About() {
           text-align: center;
         }
         .cta-strip h2 {
-          font-family: 'Syne', sans-serif;
+          font-family: 'Space Grotesk', sans-serif;
           font-weight: 800;
           font-size: clamp(1.6rem, 3vw, 2.2rem);
           letter-spacing: -0.02em;
@@ -302,14 +301,26 @@ export default function About() {
           display: inline-flex; align-items: center; gap: 8px;
           padding: 14px 28px;
           background: linear-gradient(135deg, #06B6D4, #0891b2);
-          color: #0F172A; font-family: 'DM Sans', sans-serif;
+          color: #0F172A; font-family: 'Inter', sans-serif;
           font-weight: 700; font-size: 1rem; border-radius: 10px;
           text-decoration: none;
           box-shadow: 0 0 24px rgba(6,182,212,0.3);
           transition: transform 0.2s, box-shadow 0.2s;
         }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(6,182,212,0.5); }
-      `}</style>
+        
+        /* ───────────────── RESPONSIVE DESIGN ───────────────── */
+
+/* Large Tablets */
+@media (max-width: 1024px) {
+
+  .pg-hero {
+    padding: 85px 22px 70px;
+  }
+
+  .
+     
+     `}</style>
 
       <div className="about-page">
 
@@ -333,7 +344,7 @@ export default function About() {
                 <h2>Empowering Citizens with <span>Scam Awareness</span></h2>
                 <p>India loses over ₹11,000 crore annually to cyber fraud. The most vulnerable are senior citizens and first-generation smartphone users who lack the context to identify sophisticated scam tactics.</p>
                 <p>ScamRisk bridges that gap — providing an intelligent, privacy-first risk calculator that anyone can use without technical knowledge, data plans, or login credentials.</p>
-                <p>Our goal is not just detection, but <strong style={{color:"#F8FAFC"}}>education and empowerment</strong> — so that every Indian can confidently navigate the digital world without fear.</p>
+                <p>Our goal is not just detection, but <strong style={{color:"#0f172a"}}>education and empowerment</strong> — so that every Indian can confidently navigate the digital world without fear.</p>
               </div>
               <div className="mission-visual">
                 {[
