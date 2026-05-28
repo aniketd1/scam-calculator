@@ -53,7 +53,7 @@ function getMiniRisk(score) {
       icon: "🚨",
       percent,
       advice:
-        "This is almost certainly a scam. Do NOT share anything. Call 1930 immediately."
+        "Very likely a scam. Do not share anything. Call Cyber Crime Helpline on 1930 immediately. Report at cybercrime.gov.in."
     };
 
   if (score >= 3)
@@ -65,7 +65,7 @@ function getMiniRisk(score) {
       icon: "⚠️",
       percent,
       advice:
-        "Very likely a scam. Disconnect, block the number, and report on cybercrime.gov.in."
+        "Likely a scam. Disconnect and report on cybercrime.gov.in."
     };
 
   if (score >= 2)
@@ -77,7 +77,7 @@ function getMiniRisk(score) {
       icon: "🔍",
       percent,
       advice:
-        "Warning signs detected. Verify the caller independently before sharing anything."
+        "Some risk signs. Verify the phone number and ID independently before acting."
     };
 
   return {
@@ -88,7 +88,7 @@ function getMiniRisk(score) {
     icon: "✅",
     percent,
     advice:
-      "No major red flags. But never share banking details or OTPs over the phone."
+      "This doesn't appear to be a scam for now. Stay cautious."
   };
 }
 

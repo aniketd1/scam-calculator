@@ -43,7 +43,7 @@ function getRiskLevel(pct) {
     bg: "rgba(34,197,94,0.1)",
     border: "rgba(34,197,94,0.3)",
     icon: "✅",
-    advice: "No strong scam signs detected for now. Stay cautious.",
+    advice: "This doesn't appear to be a scam for now. Stay cautious.",
   };
 }
 
