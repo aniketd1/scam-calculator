@@ -3,27 +3,13 @@ import { Link } from "react-router-dom";
 
 /* ── QUESTIONS ─────────────────────────────────────────────── */
 const questions = [
-  {
-    id: "q0",
-    question: "Did an unknown person contact you out of the blue?",
-  },
-  {
-    id: "q1",
-    question: "Did they claim to be an official — government, police, bank, CBI, courier, or similar?",
-  },
-  {
-    id: "q2",
-    question: "Did they tell you something false or unexpected — like a fake loan, arrest, drug parcel, or refund you never applied for?",
-  },
-  {
-    id: "q3",
-    question: "Did they ask for sensitive information — OTP, PIN, card details, bank account, CVV, or a photo?",
-  },
-  {
-    id: "q4",
-    question: "Did they send you a suspicious link, app/APK, QR code, or payment request?",
-  },
+  { id: "q0", question: "Did an unknown person contact you?" },
+  { id: "q1", question: "Did they claim to be an official — Government, Police, Bank, CBI, Courier, Loan, Customs etc?" },
+  { id: "q2", question: "Did they mention something unexpected — fake loan, arrest, parcel, KYC, fake courier or fake refund received?" },
+  { id: "q3", question: "Did they ask for Money, OTP, PIN, CVV, bank details, photo or Credit/Debit card details?" },
+  { id: "q4", question: "Did they send a suspicious link, app or apk download, Website link, image download, QR code, or payment request?" },
 ];
+
 
 /* ── RISK LEVELS ─────────────────────────────────────────────── */
 function getRiskLevel(pct) {
