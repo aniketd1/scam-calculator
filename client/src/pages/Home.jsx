@@ -34,11 +34,11 @@ const riskBadge = { HIGH: "#EF4444", CRITICAL: "#b91c1c", MEDIUM: "#F59E0B" };
 
 /* ─── Mini Calculator Questions ────────────────────────────────────────── */
 const miniQuestions = [
-  { id: "q0", question: "Did an unknown person contact you out of the blue?" },
-  { id: "q1", question: "Did they claim to be an official — government, police, bank, CBI, or similar?" },
-  { id: "q2", question: "Did they mention something unexpected — fake loan, arrest, parcel, or refund?" },
-  { id: "q3", question: "Did they ask for OTP, PIN, card details, or a photo?" },
-  { id: "q4", question: "Did they send a suspicious link, app, QR code, or payment request?" },
+  { id: "q0", question: "Did an unknown person contact you?" },
+  { id: "q1", question: "Did they claim to be an official — Government, Police, Bank, CBI, Courier, Loan, Customs etc?" },
+  { id: "q2", question: "Did they mention something unexpected — fake loan, arrest, parcel, KYC, fake courier or fake refund received?" },
+  { id: "q3", question: "Did they ask for Money, OTP, PIN, CVV, bank details, photo or Credit/Debit card details?" },
+  { id: "q4", question: "Did they send a suspicious link, app or apk download, Website link, image download, QR code, or payment request?" },
 ];
 
 function getMiniRisk(score) {
@@ -120,8 +120,11 @@ function MiniCalculator() {
     <div className="mini-calc" style={{ display: "flex", justifyContent: "center" }}>
 
       {/* Expanded panel (always open) */}
-      <div className="mini-calc-panel" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "700px" }}>
-
+<div
+  className="mini-calc-panel"
+  onClick={(e) => e.stopPropagation()}
+  style={{ width: "100%", maxWidth: "1000px" }}
+>
         {/* Header */}
         <div className="mini-panel-header">
           <div>
@@ -469,10 +472,10 @@ export default function Home() {
 /* ── HERO ── */
 .hero {
   position: relative;
-  min-height: 88vh;
+  min-height: 72vh;
   display: flex;
   align-items: center;
-  padding: 80px 24px;
+  padding: 56px 24px 34px;
   overflow: hidden;
 }
 .hero-bg {
@@ -500,7 +503,7 @@ export default function Home() {
   width: 100%;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 60px;
+  gap: 42px;
   align-items: center;
 }
 @media (max-width: 900px) {
@@ -520,7 +523,7 @@ export default function Home() {
   color: #06B6D4;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 .hero-h1 {
   font-family: 'Space Grotesk', sans-serif;
@@ -528,15 +531,16 @@ export default function Home() {
   font-size: clamp(2.4rem, 5vw, 3.6rem);
   line-height: 1.08;
   letter-spacing: -0.03em;
-  margin-bottom: 20px;
+  margin-bottom: 5px;
+  
 }
 .hero-h1 .accent { color: #06B6D4; }
 .hero-sub {
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   color: #94A3B8;
-  line-height: 1.7;
+  line-height: 1.65;
   max-width: 480px;
-  margin-bottom: 36px;
+  margin-bottom: 24px;
 }
 .hero-actions {
   display: flex;
@@ -584,10 +588,10 @@ export default function Home() {
   background: rgba(6,182,212,0.05);
 }
 .hero-trust {
-  display: flex;
+   display: flex;
   align-items: center;
-  gap: 20px;
-  margin-top: 28px;
+  gap: 16px;
+  margin-top: 18px;
   flex-wrap: wrap;
 }
 .hero-trust-item {
@@ -839,8 +843,29 @@ export default function Home() {
   .shield-center { width: 120px; height: 120px; font-size: 52px; }
   .section { padding: 70px 20px; }
 }
+
+@media (min-width: 1024px) {
+
+  .mini-calc {
+    max-width: 1000px;
+    width: 100%;
+  }
+
+  .mini-calc-panel {
+    width: 100%;
+  }
+
+  .mini-q {
+    padding: 14px 18px;
+  }
+
+  .mini-q-text {
+    font-size: 0.94rem;
+  }
+}
+
 @media (max-width: 768px) {
-  .hero { padding: 60px 18px; text-align: center; }
+  .hero {padding: 36px 18px 20px; min-height: auto; text-align: center; }
   .hero-inner { grid-template-columns: 1fr; gap: 36px; }
   .hero-content { display: flex; flex-direction: column; align-items: center; }
   .hero-sub { max-width: 100%; }
@@ -859,13 +884,13 @@ export default function Home() {
   .mini-calc { max-width: 100%; }
 }
 @media (max-width: 480px) {
-  .hero { padding: 50px 16px; }
+  .hero { padding: 28px 16px 12px; min-height: auto; margin-top: -20px; }
   .hero-h1 { font-size: 2rem; line-height: 1.15; }
-  .hero-sub { font-size: 0.95rem; }
+  .hero-sub { font-size: 0.95rem; margin-bottom: 18px;}
   .hero-eyebrow { font-size: 0.72rem; padding: 5px 12px; }
   .hero-actions { flex-direction: column; width: 100%; gap: 12px; }
   .btn-primary, .btn-secondary { width: 100%; }
-  .hero-trust { gap: 10px; flex-direction: column; align-items: center; }
+  .hero-trust { gap: 10px; flex-direction: row; align-items: center;  margin-top: 18px; margin-bottom: 18px; }
   .section { padding: 50px 16px; }
   .section-title { font-size: 1.8rem; }
   .section-sub { font-size: 0.92rem; }
@@ -890,6 +915,10 @@ export default function Home() {
   display: flex;
   justify-content: center;
   align-items: center;
+  margin-top: -12px;
+  position: relative;
+  z-index: 5;
+
 }
 
 .mini-section-inner {
@@ -913,8 +942,7 @@ export default function Home() {
                 Protect Yourself<br />From <span className="accent">Digital Scams</span>
               </h1>
               <p className="hero-sub">
-                India's scam landscape is evolving fast. Our intelligent risk engine helps senior citizens and banking users identify suspicious activity before financial harm occurs — in seconds, for free.
-              </p>
+                India's growing scam threats demand fast awareness. Our risk engine helps users quickly detect suspicious activity and stay protected from financial fraud.              </p>
               <div className="hero-actions">
                 <Link to="/calculator" className="btn-primary">⚡ Analyze Scam Risk</Link>
                 <Link to="/awareness" className="btn-secondary">📖 Learn About Scams</Link>
