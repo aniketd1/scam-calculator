@@ -70,6 +70,7 @@ export default function Report() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [refNumber] = useState(() => "SRC" + Date.now().toString().slice(-8));
+  const [result, setResult] = useState(null);
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
@@ -81,7 +82,28 @@ export default function Report() {
     return true;
   };
 
-  const handleSubmit = () => setSubmitted(true);
+  const handleSubmit = async () => {
+    try {
+      const response = await fetch("https://n8n.srv1711105.hstgr.cloud/webhook/scam-checking", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: form.description, // send main text for scam detection
+          fullReport: form,       // send entire form (VERY useful later)
+        }),
+      });
+
+      const data = await response.json();
+      console.log("Response from n8n:", data);
+
+      setSubmitted(true);
+    } catch (error) {
+      console.error("Error submitting report:", error);
+      alert("Something went wrong. Try again.");
+    }
+  };
 
   if (submitted) {
     return (
@@ -97,6 +119,13 @@ export default function Report() {
               <div className="success-ref">Reference #{refNumber}</div>
               <h2 className="success-title">Report Submitted Successfully</h2>
               <p className="success-msg">
+                  {result && (
+                  <div style={{ marginTop: "20px" }}>
+                    <h3>🔍 Scam Analysis</h3>
+                    <p><b>Risk Level:</b> {result.risk}</p>
+                    <p><b>Score:</b> {result.score}</p>
+                  </div>
+                )}
                 Your scam report has been recorded. Please save your reference number above for follow-up.
                 For immediate assistance, call the Cyber Crime Helpline.
               </p>
