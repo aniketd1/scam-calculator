@@ -1,0 +1,153 @@
+{
+  "category": "Fake Job Fraud",
+  "description": "A scam where fraudsters offer fake employment opportunities to trick victims into paying money or sharing sensitive personal information.",
+
+  "risk_level": "High",
+
+  "keywords": [
+    "work from home",
+    "data entry",
+    "part time job",
+    "online job",
+    "easy income",
+    "earn money online",
+    "daily income",
+    "job offer",
+    "telegram job",
+    "whatsapp job",
+    "typing work",
+    "captcha work",
+    "registration fee",
+    "training fee",
+    "activation fee",
+    "recruitment fee",
+    "joining fee",
+    "salary package"
+  ],
+
+  "target_victims": [
+    "students",
+    "fresh graduates",
+    "job seekers",
+    "unemployed individuals",
+    "homemakers",
+    "part-time workers",
+    "remote workers"
+  ],
+
+  "communication_channels": [
+    "WhatsApp",
+    "Telegram",
+    "SMS",
+    "Facebook",
+    "Instagram",
+    "LinkedIn",
+    "Email"
+  ],
+
+  "warning_signs": [
+    "No interview conducted",
+    "Very high salary for simple work",
+    "Guaranteed income",
+    "Payment requested before joining",
+    "Urgent joining pressure",
+    "Communication only through WhatsApp",
+    "Communication only through Telegram",
+    "Unknown company",
+    "Fake offer letter",
+    "Suspicious website",
+    "Poor grammar in messages"
+  ],
+
+  "payment_requests": [
+    "Registration fee",
+    "Training fee",
+    "Security deposit",
+    "Document verification fee",
+    "Membership fee",
+    "Account activation fee",
+    "Processing fee"
+  ],
+
+  "requested_information": [
+    "Aadhaar Number",
+    "PAN Number",
+    "Bank Account Details",
+    "UPI ID",
+    "OTP",
+    "Resume",
+    "Passport",
+    "Driving License"
+  ],
+
+  "scammer_behaviour": [
+    "Contacts victim unexpectedly",
+    "Promises high earnings",
+    "Uses urgency",
+    "Creates fake company identity",
+    "Demands advance payment",
+    "Uses fake HR profiles",
+    "Uses fake offer letters"
+  ],
+
+  "risk_scoring": {
+    "payment_before_joining": 40,
+    "no_interview": 20,
+    "whatsapp_only": 15,
+    "telegram_only": 15,
+    "high_salary": 15,
+    "guaranteed_income": 15,
+    "urgent_joining": 10,
+    "unknown_company": 10,
+    "requests_sensitive_data": 20
+  },
+
+  "risk_thresholds": {
+    "low": {
+      "min": 0,
+      "max": 30
+    },
+    "medium": {
+      "min": 31,
+      "max": 60
+    },
+    "high": {
+      "min": 61,
+      "max": 100
+    }
+  },
+
+  "recommended_actions": [
+    "Do not pay any money",
+    "Verify the company website",
+    "Verify recruiter identity",
+    "Search company reviews online",
+    "Block suspicious contacts",
+    "Report to cybercrime portal",
+    "Call 1930 if money has been transferred"
+  ],
+
+  "examples": [
+    {
+      "message": "Earn ₹5000 daily from home. Pay ₹999 registration fee.",
+      "classification": "Fake Job Fraud",
+      "risk": "High"
+    },
+    {
+      "message": "Part-time Telegram job. Complete tasks and earn ₹3000 daily.",
+      "classification": "Fake Job Fraud",
+      "risk": "High"
+    },
+    {
+      "message": "Congratulations! You have been selected. Pay activation fee immediately.",
+      "classification": "Fake Job Fraud",
+      "risk": "High"
+    }
+  ],
+
+  "ai_response_template": {
+    "low": "Some suspicious indicators were detected. Verify the employer before proceeding.",
+    "medium": "Multiple scam indicators were detected. Exercise caution and avoid sharing sensitive information.",
+    "high": "This strongly matches known Fake Job Fraud patterns. Do not send money or personal information."
+  }
+}
