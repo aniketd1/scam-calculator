@@ -2,7 +2,9 @@ import { BrowserRouter } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import AppRoutes from "./routes";
-import Chatbot from "./components/Chatbot";
+{/* import Chatbot from "./components/Chatbot"; */}
+import VoiceAgent from "./components/VoiceAgent";
+
 
 function App() {
   return (
@@ -13,10 +15,12 @@ function App() {
 
         <main className="main-content">
           <AppRoutes />
+          <VoiceAgent />
+
         </main>
 
         <Footer />
-        <Chatbot />
+        {/* <Chatbot /> */}
       </div>
     </BrowserRouter>
   );
