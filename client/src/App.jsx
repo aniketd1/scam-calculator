@@ -3,22 +3,24 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import AppRoutes from "./routes";
 import Chatbot from "./components/Chatbot";
-
+import PasswordGate from "./components/Password";
 function App() {
   return (
-    <BrowserRouter>
-      <div className="app-container">
-        
-        <Navbar />
+    <PasswordGate>
+      <BrowserRouter>
+        <div className="app-container">
+          
+          <Navbar />
 
-        <main className="main-content">
-          <AppRoutes />
-        </main>
+          <main className="main-content">
+            <AppRoutes />
+          </main>
 
-        <Footer />
-        <Chatbot />
-      </div>
-    </BrowserRouter>
+          <Footer />
+          <Chatbot />
+        </div>
+      </BrowserRouter>
+    </PasswordGate>
   );
 }
 
