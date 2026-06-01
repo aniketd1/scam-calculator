@@ -8,6 +8,8 @@ import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
 import Report from "./pages/Report";
 import VerifiedIndex from './pages/Verification';
+import Maintenance from "./pages/Maintenance";
+
 
 const AppRoutes = () => {
   return (
@@ -20,7 +22,7 @@ const AppRoutes = () => {
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/report" element={<Report />} />
       <Route path="/verified" element={<VerifiedIndex />} />
-
+      <Route path="/maintenance" element={<Maintenance />} />
     </Routes>
   );
 };
