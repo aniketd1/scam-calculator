@@ -4,6 +4,8 @@ import Footer from "./components/Footer";
 import AppRoutes from "./routes";
 import Chatbot from "./components/Chatbot";
 import PasswordGate from "./components/Password";
+import VoiceAgent from "./components/VoiceAgent";
+
 function App() {
   return (
     <PasswordGate>
@@ -14,6 +16,7 @@ function App() {
 
           <main className="main-content">
             <AppRoutes />
+            <VoiceAgent />
           </main>
 
           <Footer />
