@@ -73,7 +73,8 @@ const categories = [
 
     const filtered = companies.filter(c => {
         const matchCat = active === "All" || c.category === active;
-        const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.desc.toLowerCase().includes(search.toLowerCase());
+        const query = search.trim().toLowerCase();
+        const matchSearch = query === "" || c.name.toLowerCase().includes(query);
         return matchCat && matchSearch;
     });
 
