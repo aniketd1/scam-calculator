@@ -13,8 +13,8 @@ const categories = [
 
     const companies = [
         // Loan
-        { id: 1, category: "Loan", icon: "🏦", name: "BankBazaar", desc: "Compare and apply for verified loans and credit cards.", url: "https://www.bankbazaar.com", badge: "Verified Platform" },
-        { id: 2, category: "Loan", icon: "🏦", name: "Paisabazaar", desc: "Check credit score and apply for legitimate loans.", url: "https://www.paisabazaar.com", badge: "Verified Platform" },
+        { id: 1, category: "Loan", icon: "🏦", name: "BankBazaar", desc: "Compare and apply for verified loans and credit cards.", url: "https://www.bankbazaar.com", badge: "Highly Rated" },
+        { id: 2, category: "Loan", icon: "🏦", name: "Paisabazaar", desc: "Check credit score and apply for legitimate loans.", url: "https://www.paisabazaar.com", badge: "Highly Rated" },
         { id: 3, category: "Loan", icon: "🏦", name: "HDFC Bank Loans", desc: "Official HDFC Bank loan applications and services.", url: "https://www.hdfcbank.com/personal/borrow", badge: "Official" },
         { id: 4, category: "Loan", icon: "🏦", name: "SBI Loans", desc: "Official State Bank of India loan portal.", url: "https://sbi.co.in/web/personal-banking/loans", badge: "Government" },
         { id: 5, category: "Loan", icon: "🏦", name: "RBI", desc: "Verify lenders and report financial fraud.", url: "https://www.rbi.org.in", badge: "Official Regulator" },
@@ -22,26 +22,26 @@ const categories = [
         // E-commerce
         { id: 6, category: "E-commerce", icon: "🛒", name: "Amazon India", desc: "Official Amazon portal for shopping and order tracking.", url: "https://www.amazon.in", badge: "Official" },
         { id: 7, category: "E-commerce", icon: "🛒", name: "Flipkart", desc: "Trusted e-commerce platform for online purchases.", url: "https://www.flipkart.com", badge: "Official" },
-        { id: 8, category: "E-commerce", icon: "🛒", name: "Myntra", desc: "Official fashion and lifestyle shopping platform.", url: "https://www.myntra.com", badge: "Verified Platform" },
-        { id: 9, category: "E-commerce", icon: "🛒", name: "Meesho", desc: "Popular online shopping and reseller marketplace.", url: "https://www.meesho.com", badge: "Popular Platform" },
-        { id: 10, category: "E-commerce", icon: "🛒", name: "Ajio", desc: "Reliance-owned fashion and lifestyle marketplace.", url: "https://www.ajio.com", badge: "Verified Platform" },
+        { id: 8, category: "E-commerce", icon: "🛒", name: "Myntra", desc: "Official fashion and lifestyle shopping platform.", url: "https://www.myntra.com", badge: "Highly Rated" },
+        { id: 9, category: "E-commerce", icon: "🛒", name: "Meesho", desc: "Popular online shopping and reseller marketplace.", url: "https://www.meesho.com", badge: "Popular" },
+        { id: 10, category: "E-commerce", icon: "🛒", name: "Ajio", desc: "Reliance-owned fashion and lifestyle marketplace.", url: "https://www.ajio.com", badge: "Highly Rated" },
 
         // Share Market
         { id: 11, category: "Share Market", icon: "📈", name: "SEBI", desc: "Verify brokers and report investment fraud.", url: "https://www.sebi.gov.in", badge: "Official Regulator" },
         { id: 12, category: "Share Market", icon: "📈", name: "NSE India", desc: "Official stock exchange for market data.", url: "https://www.nseindia.com", badge: "Official" },
         { id: 13, category: "Share Market", icon: "📈", name: "BSE India", desc: "Official Bombay Stock Exchange website.", url: "https://www.bseindia.com", badge: "Official" },
-        { id: 14, category: "Share Market", icon: "📈", name: "Zerodha", desc: "SEBI-registered stock trading platform.", url: "https://zerodha.com", badge: "Verified Platform" },
-        { id: 15, category: "Share Market", icon: "📈", name: "Groww", desc: "Popular platform for stocks and mutual funds.", url: "https://groww.in", badge: "Popular Platform" },
-        { id: 16, category: "Share Market", icon: "📈", name: "Angel One", desc: "SEBI-registered stock broker and investment platform.", url: "https://www.angelone.in", badge: "Verified Platform" },
-        { id: 17, category: "Share Market", icon: "📈", name: "Upstox", desc: "Digital investment and stock trading platform.", url: "https://upstox.com", badge: "Verified Platform" },
+        { id: 14, category: "Share Market", icon: "📈", name: "Zerodha", desc: "SEBI-registered stock trading platform.", url: "https://zerodha.com", badge: "Highly Rated" },
+        { id: 15, category: "Share Market", icon: "📈", name: "Groww", desc: "Popular for stocks and mutual funds.", url: "https://groww.in", badge: "Popular" },
+        { id: 16, category: "Share Market", icon: "📈", name: "Angel One", desc: "SEBI-registered stock broker and investment platform.", url: "https://www.angelone.in", badge: "Highly Rated" },
+        { id: 17, category: "Share Market", icon: "📈", name: "Upstox", desc: "Digital investment and stock trading platform.", url: "https://upstox.com", badge: "Highly Rated" },
 
         // Dating
-        { id: 18, category: "Dating", icon: "💬", name: "Tinder", desc: "Official dating app — avoid moving chats off-platform quickly.", url: "https://tinder.com", badge: "Popular Platform" },
-        { id: 19, category: "Dating", icon: "💬", name: "Bumble", desc: "Dating platform with built-in safety features.", url: "https://bumble.com", badge: "Popular Platform" },
-        { id: 20, category: "Dating", icon: "💬", name: "Hinge", desc: "Popular relationship-focused dating platform.", url: "https://hinge.co", badge: "Popular Platform" },
-        { id: 21, category: "Dating", icon: "💬", name: "OkCupid", desc: "Online dating platform with profile verification features.", url: "https://www.okcupid.com", badge: "Verified Platform" },
-        { id: 22, category: "Dating", icon: "💬", name: "Aisle", desc: "Indian dating platform focused on serious relationships.", url: "https://www.aisle.co", badge: "Verified Platform" },
-        { id: 23, category: "Dating", icon: "💬", name: "TrulyMadly", desc: "Indian dating app with identity verification features.", url: "https://trulymadly.com", badge: "Verified Platform" },
+        { id: 18, category: "Dating", icon: "💬", name: "Tinder", desc: "Official dating app — avoid moving chats off-platform quickly.", url: "https://tinder.com", badge: "Popular" },
+        { id: 19, category: "Dating", icon: "💬", name: "Bumble", desc: "Dating platform with built-in safety features.", url: "https://bumble.com", badge: "Popular" },
+        { id: 20, category: "Dating", icon: "💬", name: "Hinge", desc: "Popular relationship-focused dating platform.", url: "https://hinge.co", badge: "Popular" },
+        { id: 21, category: "Dating", icon: "💬", name: "OkCupid", desc: "Online dating platform with profile verification features.", url: "https://www.okcupid.com", badge: "Highly Rated" },
+        { id: 22, category: "Dating", icon: "💬", name: "Aisle", desc: "Indian dating platform focused on serious relationships.", url: "https://www.aisle.co", badge: "Highly Rated" },
+        { id: 23, category: "Dating", icon: "💬", name: "TrulyMadly", desc: "Indian dating app with identity verification features.", url: "https://trulymadly.com", badge: "Highly Rated" },
 
         // Digital Arrest
         { id: 24, category: "Digital Arrest", icon: "🚨", name: "National Cyber Crime Portal", desc: "Report fraud, impersonation and digital arrest scams.", url: "https://cybercrime.gov.in", badge: "Official" },
@@ -50,21 +50,21 @@ const categories = [
         { id: 27, category: "Digital Arrest", icon: "🚨", name: "I4C", desc: "Indian Cyber Crime Coordination Centre.", url: "https://i4c.mha.gov.in", badge: "Government" },
 
         // Job
-        { id: 28, category: "Job", icon: "💼", name: "Naukri", desc: "Verified job listings across industries.", url: "https://www.naukri.com", badge: "Popular Platform" },
+        { id: 28, category: "Job", icon: "💼", name: "Naukri", desc: "Verified job listings across industries.", url: "https://www.naukri.com", badge: "Popular" },
         { id: 29, category: "Job", icon: "💼", name: "LinkedIn Jobs", desc: "Professional hiring platform with verified recruiters.", url: "https://www.linkedin.com/jobs", badge: "Official" },
-        { id: 30, category: "Job", icon: "💼", name: "Indeed India", desc: "Aggregated job listings from verified employers.", url: "https://in.indeed.com", badge: "Verified Platform" },
-        { id: 31, category: "Job", icon: "💼", name: "Foundit", desc: "Formerly Monster India, trusted recruitment platform.", url: "https://www.foundit.in", badge: "Verified Platform" },
-        { id: 32, category: "Job", icon: "💼", name: "Shine", desc: "Indian job portal with employer verification.", url: "https://www.shine.com", badge: "Verified Platform" },
-        { id: 33, category: "Job", icon: "💼", name: "Freshersworld", desc: "Entry-level and fresher job opportunities.", url: "https://www.freshersworld.com", badge: "Verified Platform" },
-        { id: 34, category: "Job", icon: "💼", name: "Internshala", desc: "Verified internships and student opportunities.", url: "https://internshala.com", badge: "Popular Platform" },
+        { id: 30, category: "Job", icon: "💼", name: "Indeed India", desc: "Aggregated job listings from verified employers.", url: "https://in.indeed.com", badge: "Highly Rated" },
+        { id: 31, category: "Job", icon: "💼", name: "Foundit", desc: "Formerly Monster India, trusted recruitment platform.", url: "https://www.foundit.in", badge: "Highly Rated" },
+        { id: 32, category: "Job", icon: "💼", name: "Shine", desc: "Indian job portal with employer verification.", url: "https://www.shine.com", badge: "Highly Rated" },
+        { id: 33, category: "Job", icon: "💼", name: "Freshersworld", desc: "Entry-level and fresher job opportunities.", url: "https://www.freshersworld.com", badge: "Highly Rated" },
+        { id: 34, category: "Job", icon: "💼", name: "Internshala", desc: "Verified internships and student opportunities.", url: "https://internshala.com", badge: "Popular" },
     ];
 
     const badgeColor = {
         "Official": { bg: "rgba(6,182,212,0.1)", border: "rgba(6,182,212,0.25)", color: "#06B6D4" },
         "Government": { bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.25)", color: "#22C55E" },
         "Official Regulator": { bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.25)", color: "#22C55E" },
-        "Verified Platform": { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.25)", color: "#F59E0B" },
-        "Popular Platform": { bg: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.25)", color: "#8B5CF6" },
+        "Highly Rated": { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.25)", color: "#F59E0B" },
+        "Popular": { bg: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.25)", color: "#8B5CF6" },
     };
 
     export default function VerifiedIndex() {
