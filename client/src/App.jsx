@@ -2,6 +2,7 @@ import { BrowserRouter } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import AppRoutes from "./routes";
+import Chatbot from "./components/Chatbot";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         </main>
 
         <Footer />
+        <Chatbot />
       </div>
     </BrowserRouter>
   );

@@ -7,6 +7,7 @@ import Calculator from "./pages/Calculator";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
 import Report from "./pages/Report";
+import VerifiedIndex from './pages/Verification';
 
 const AppRoutes = () => {
   return (
@@ -18,6 +19,8 @@ const AppRoutes = () => {
       <Route path="/contact" element={<Contact />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/report" element={<Report />} />
+      <Route path="/verified" element={<VerifiedIndex />} />
+
     </Routes>
   );
 };

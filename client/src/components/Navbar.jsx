@@ -6,7 +6,7 @@ const navLinks = [
   { label: "Calculator", path:"/calculator"},
   { label: "Awareness", path: "/awareness" },
   { label: "Report", path: "/report" },
-  { label: "About", path: "/about" },
+  { label: "Verified Sources", path: "/verified"},
   { label: "Contact", path: "/contact" },
 ];
 
@@ -81,7 +81,7 @@ export default function Navbar() {
           padding: 0;
         }
         .nav-links a {
-          display:block; padding:8px 16px; font-size:.95rem; font-weight:500;
+          display:block; padding:8px 16px; font-size:.85rem; font-weight:500;
           color:#0f172a; text-decoration:none; border-radius:8px; transition:color .2s, background .2s;
         }
         .nav-links a:hover,
