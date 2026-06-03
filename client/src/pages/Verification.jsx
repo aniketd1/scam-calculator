@@ -2,69 +2,69 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 const categories = [
-    "All", "Job Portals", "Loan & Finance", "Banking", "Government", "Insurance", "Investment", "Courier & Delivery"
-    ];
+    "All",
+    "Loan",
+    "E-commerce",
+    "Share Market",
+    "Dating",
+    "Digital Arrest",
+    "Job"
+];
 
     const companies = [
-    // Job Portals
-    { id: 1, category: "Job Portals", icon: "💼", name: "Naukri", desc: "India's largest job portal for professionals across all industries.", url: "https://www.naukri.com", badge: "Most Popular" },
-    { id: 2, category: "Job Portals", icon: "💼", name: "LinkedIn Jobs", desc: "Professional networking and job listings, verified employer profiles.", url: "https://www.linkedin.com/jobs", badge: null },
-    { id: 3, category: "Job Portals", icon: "💼", name: "Indeed India", desc: "Aggregated job listings from thousands of verified employer websites.", url: "https://in.indeed.com", badge: null },
-    { id: 4, category: "Job Portals", icon: "💼", name: "Shine.com", desc: "Job portal focused on Indian mid-level and senior professionals.", url: "https://www.shine.com", badge: null },
-    { id: 5, category: "Job Portals", icon: "💼", name: "Freshersworld", desc: "Dedicated portal for fresher and entry-level job seekers in India.", url: "https://www.freshersworld.com", badge: null },
+        // Loan
+        { id: 1, category: "Loan", icon: "🏦", name: "BankBazaar", desc: "Compare and apply for verified loans and credit cards.", url: "https://www.bankbazaar.com", badge: "Highly Rated" },
+        { id: 2, category: "Loan", icon: "🏦", name: "Paisabazaar", desc: "Check credit score and apply for legitimate loans.", url: "https://www.paisabazaar.com", badge: "Highly Rated" },
+        { id: 3, category: "Loan", icon: "🏦", name: "HDFC Bank Loans", desc: "Official HDFC Bank loan applications and services.", url: "https://www.hdfcbank.com/personal/borrow", badge: "Official" },
+        { id: 4, category: "Loan", icon: "🏦", name: "SBI Loans", desc: "Official State Bank of India loan portal.", url: "https://sbi.co.in/web/personal-banking/loans", badge: "Government" },
+        { id: 5, category: "Loan", icon: "🏦", name: "RBI", desc: "Verify lenders and report financial fraud.", url: "https://www.rbi.org.in", badge: "Official Regulator" },
 
-    // Loan & Finance
-    { id: 6, category: "Loan & Finance", icon: "🏦", name: "BankBazaar", desc: "RBI-registered platform to compare and apply for loans, cards, and insurance.", url: "https://www.bankbazaar.com", badge: "RBI Registered" },
-    { id: 7, category: "Loan & Finance", icon: "🏦", name: "Paisabazaar", desc: "Aggregator for personal loans, home loans, and credit score checks.", url: "https://www.paisabazaar.com", badge: null },
-    { id: 8, category: "Loan & Finance", icon: "🏦", name: "HDFC Bank Loans", desc: "Official HDFC Bank portal for personal, home, and vehicle loans.", url: "https://www.hdfcbank.com/personal/loans", badge: null },
-    { id: 9, category: "Loan & Finance", icon: "🏦", name: "SBI Loans", desc: "Official State Bank of India loan products and application portal.", url: "https://sbi.co.in/web/personal-banking/loans", badge: "Government Bank" },
-    { id: 10, category: "Loan & Finance", icon: "🏦", name: "MoneyControl Loans", desc: "Trusted finance platform for loan comparison and financial news.", url: "https://www.moneycontrol.com", badge: null },
+        // E-commerce
+        { id: 6, category: "E-commerce", icon: "🛒", name: "Amazon India", desc: "Official Amazon portal for shopping and order tracking.", url: "https://www.amazon.in", badge: "Official" },
+        { id: 7, category: "E-commerce", icon: "🛒", name: "Flipkart", desc: "Trusted e-commerce platform for online purchases.", url: "https://www.flipkart.com", badge: "Official" },
+        { id: 8, category: "E-commerce", icon: "🛒", name: "Myntra", desc: "Official fashion and lifestyle shopping platform.", url: "https://www.myntra.com", badge: "Highly Rated" },
+        { id: 9, category: "E-commerce", icon: "🛒", name: "Meesho", desc: "Popular online shopping and reseller marketplace.", url: "https://www.meesho.com", badge: "Popular" },
+        { id: 10, category: "E-commerce", icon: "🛒", name: "Ajio", desc: "Reliance-owned fashion and lifestyle marketplace.", url: "https://www.ajio.com", badge: "Highly Rated" },
 
-    // Banking
-    { id: 11, category: "Banking", icon: "🏛️", name: "SBI (State Bank of India)", desc: "Official online banking portal for India's largest public sector bank.", url: "https://www.onlinesbi.sbi", badge: "Government Bank" },
-    { id: 12, category: "Banking", icon: "🏛️", name: "HDFC Bank", desc: "Official portal for HDFC Bank accounts, cards, and digital banking.", url: "https://www.hdfcbank.com", badge: null },
-    { id: 13, category: "Banking", icon: "🏛️", name: "ICICI Bank", desc: "Official ICICI Bank internet and mobile banking platform.", url: "https://www.icicibank.com", badge: null },
-    { id: 14, category: "Banking", icon: "🏛️", name: "Axis Bank", desc: "Official Axis Bank digital banking and account management portal.", url: "https://www.axisbank.com", badge: null },
-    { id: 15, category: "Banking", icon: "🏛️", name: "RBI (Reserve Bank of India)", desc: "Central bank — file complaints, check registered NBFCs, and verify lenders.", url: "https://www.rbi.org.in", badge: "Central Bank" },
+        // Share Market
+        { id: 11, category: "Share Market", icon: "📈", name: "SEBI", desc: "Verify brokers and report investment fraud.", url: "https://www.sebi.gov.in", badge: "Official Regulator" },
+        { id: 12, category: "Share Market", icon: "📈", name: "NSE India", desc: "Official stock exchange for market data.", url: "https://www.nseindia.com", badge: "Official" },
+        { id: 13, category: "Share Market", icon: "📈", name: "BSE India", desc: "Official Bombay Stock Exchange website.", url: "https://www.bseindia.com", badge: "Official" },
+        { id: 14, category: "Share Market", icon: "📈", name: "Zerodha", desc: "SEBI-registered stock trading platform.", url: "https://zerodha.com", badge: "Highly Rated" },
+        { id: 15, category: "Share Market", icon: "📈", name: "Groww", desc: "Popular for stocks and mutual funds.", url: "https://groww.in", badge: "Popular" },
+        { id: 16, category: "Share Market", icon: "📈", name: "Angel One", desc: "SEBI-registered stock broker and investment platform.", url: "https://www.angelone.in", badge: "Highly Rated" },
+        { id: 17, category: "Share Market", icon: "📈", name: "Upstox", desc: "Digital investment and stock trading platform.", url: "https://upstox.com", badge: "Highly Rated" },
 
-    // Government
-    { id: 16, category: "Government", icon: "🇮🇳", name: "National Cyber Crime Portal", desc: "Official government portal to report online fraud and cybercrime.", url: "https://cybercrime.gov.in", badge: "Official" },
-    { id: 17, category: "Government", icon: "🇮🇳", name: "UIDAI (Aadhaar)", desc: "Official Aadhaar authority — update details, lock biometrics, check status.", url: "https://uidai.gov.in", badge: "Official" },
-    { id: 18, category: "Government", icon: "🇮🇳", name: "Income Tax e-Filing", desc: "Official portal for filing income tax returns and viewing refund status.", url: "https://www.incometax.gov.in", badge: "Official" },
-    { id: 19, category: "Government", icon: "🇮🇳", name: "Umang App / Portal", desc: "Government services aggregator — PF, PAN, Aadhaar and more in one place.", url: "https://web.umang.gov.in", badge: "Official" },
-    { id: 20, category: "Government", icon: "🇮🇳", name: "EPFO (PF Portal)", desc: "Official Employees' Provident Fund portal for balance, withdrawal, and KYC.", url: "https://www.epfindia.gov.in", badge: "Official" },
+        // Dating
+        { id: 18, category: "Dating", icon: "💬", name: "Tinder", desc: "Official dating app — avoid moving chats off-platform quickly.", url: "https://tinder.com", badge: "Popular" },
+        { id: 19, category: "Dating", icon: "💬", name: "Bumble", desc: "Dating platform with built-in safety features.", url: "https://bumble.com", badge: "Popular" },
+        { id: 20, category: "Dating", icon: "💬", name: "Hinge", desc: "Popular relationship-focused dating platform.", url: "https://hinge.co", badge: "Popular" },
+        { id: 21, category: "Dating", icon: "💬", name: "OkCupid", desc: "Online dating platform with profile verification features.", url: "https://www.okcupid.com", badge: "Highly Rated" },
+        { id: 22, category: "Dating", icon: "💬", name: "Aisle", desc: "Indian dating platform focused on serious relationships.", url: "https://www.aisle.co", badge: "Highly Rated" },
+        { id: 23, category: "Dating", icon: "💬", name: "TrulyMadly", desc: "Indian dating app with identity verification features.", url: "https://trulymadly.com", badge: "Highly Rated" },
 
-    // Insurance
-    { id: 21, category: "Insurance", icon: "🛡️", name: "PolicyBazaar", desc: "IRDAI-registered aggregator for comparing health, life, and vehicle insurance.", url: "https://www.policybazaar.com", badge: "IRDAI Registered" },
-    { id: 22, category: "Insurance", icon: "🛡️", name: "LIC India", desc: "Official Life Insurance Corporation of India portal for policy and claims.", url: "https://licindia.in", badge: "Government" },
-    { id: 23, category: "Insurance", icon: "🛡️", name: "IRDAI (Regulator)", desc: "Official insurance regulator — verify your insurer and file complaints.", url: "https://irdai.gov.in", badge: "Official Regulator" },
-    { id: 24, category: "Insurance", icon: "🛡️", name: "Star Health Insurance", desc: "Official portal for health insurance plans and cashless claim requests.", url: "https://www.starhealth.in", badge: null },
+        // Digital Arrest
+        { id: 24, category: "Digital Arrest", icon: "🚨", name: "National Cyber Crime Portal", desc: "Report fraud, impersonation and digital arrest scams.", url: "https://cybercrime.gov.in", badge: "Official" },
+        { id: 25, category: "Digital Arrest", icon: "🚨", name: "Cyber Dost", desc: "Official cyber safety awareness initiative.", url: "https://cyberdost.gov.in", badge: "Government" },
+        { id: 26, category: "Digital Arrest", icon: "🚨", name: "Ministry of Home Affairs", desc: "Official advisories and public safety announcements.", url: "https://www.mha.gov.in", badge: "Government" },
+        { id: 27, category: "Digital Arrest", icon: "🚨", name: "I4C", desc: "Indian Cyber Crime Coordination Centre.", url: "https://i4c.mha.gov.in", badge: "Government" },
 
-    // Investment
-    { id: 25, category: "Investment", icon: "📈", name: "SEBI (Regulator)", desc: "Official market regulator — verify brokers, file complaints, investor education.", url: "https://www.sebi.gov.in", badge: "Official Regulator" },
-    { id: 26, category: "Investment", icon: "📈", name: "NSE India", desc: "Official National Stock Exchange portal for market data and investor tools.", url: "https://www.nseindia.com", badge: null },
-    { id: 27, category: "Investment", icon: "📈", name: "Zerodha", desc: "SEBI-registered discount broker and investment platform for stocks and MF.", url: "https://zerodha.com", badge: "SEBI Registered" },
-    { id: 28, category: "Investment", icon: "📈", name: "Groww", desc: "SEBI-registered platform for mutual funds, stocks, and digital gold.", url: "https://groww.in", badge: "SEBI Registered" },
-    { id: 29, category: "Investment", icon: "📈", name: "AMFI (Mutual Funds)", desc: "Official mutual fund regulator — verify fund houses and distributor credentials.", url: "https://www.amfiindia.com", badge: "Official" },
-
-    // Courier & Delivery
-    { id: 30, category: "Courier & Delivery", icon: "📦", name: "India Post", desc: "Official India Post tracking and postal service portal.", url: "https://www.indiapost.gov.in", badge: "Government" },
-    { id: 31, category: "Courier & Delivery", icon: "📦", name: "DTDC", desc: "Official DTDC courier tracking and shipment booking portal.", url: "https://www.dtdc.in", badge: null },
-    { id: 32, category: "Courier & Delivery", icon: "📦", name: "Blue Dart", desc: "Official Blue Dart express delivery and parcel tracking portal.", url: "https://www.bluedart.com", badge: null },
-    { id: 33, category: "Courier & Delivery", icon: "📦", name: "Amazon Tracking", desc: "Track Amazon India orders — official and only legitimate source for Amazon parcels.", url: "https://www.amazon.in/gp/your-account/order-history", badge: null },
-    { id: 34, category: "Courier & Delivery", icon: "📦", name: "Delhivery", desc: "Official Delhivery parcel tracking for e-commerce shipments.", url: "https://www.delhivery.com", badge: null },
+        // Job
+        { id: 28, category: "Job", icon: "💼", name: "Naukri", desc: "Verified job listings across industries.", url: "https://www.naukri.com", badge: "Popular" },
+        { id: 29, category: "Job", icon: "💼", name: "LinkedIn Jobs", desc: "Professional hiring platform with verified recruiters.", url: "https://www.linkedin.com/jobs", badge: "Official" },
+        { id: 30, category: "Job", icon: "💼", name: "Indeed India", desc: "Aggregated job listings from verified employers.", url: "https://in.indeed.com", badge: "Highly Rated" },
+        { id: 31, category: "Job", icon: "💼", name: "Foundit", desc: "Formerly Monster India, trusted recruitment platform.", url: "https://www.foundit.in", badge: "Highly Rated" },
+        { id: 32, category: "Job", icon: "💼", name: "Shine", desc: "Indian job portal with employer verification.", url: "https://www.shine.com", badge: "Highly Rated" },
+        { id: 33, category: "Job", icon: "💼", name: "Freshersworld", desc: "Entry-level and fresher job opportunities.", url: "https://www.freshersworld.com", badge: "Highly Rated" },
+        { id: 34, category: "Job", icon: "💼", name: "Internshala", desc: "Verified internships and student opportunities.", url: "https://internshala.com", badge: "Popular" },
     ];
 
     const badgeColor = {
-    "Official": { bg: "rgba(6,182,212,0.1)", border: "rgba(6,182,212,0.25)", color: "#06B6D4" },
-    "Official Regulator": { bg: "rgba(6,182,212,0.1)", border: "rgba(6,182,212,0.25)", color: "#06B6D4" },
-    "Government": { bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.25)", color: "#22C55E" },
-    "Government Bank": { bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.25)", color: "#22C55E" },
-    "Central Bank": { bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.25)", color: "#22C55E" },
-    "RBI Registered": { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.25)", color: "#F59E0B" },
-    "IRDAI Registered": { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.25)", color: "#F59E0B" },
-    "SEBI Registered": { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.25)", color: "#F59E0B" },
-    "Most Popular": { bg: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.25)", color: "#8B5CF6" },
+        "Official": { bg: "rgba(6,182,212,0.1)", border: "rgba(6,182,212,0.25)", color: "#06B6D4" },
+        "Government": { bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.25)", color: "#22C55E" },
+        "Official Regulator": { bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.25)", color: "#22C55E" },
+        "Highly Rated": { bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.25)", color: "#F59E0B" },
+        "Popular": { bg: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.25)", color: "#8B5CF6" },
     };
 
     export default function VerifiedIndex() {
@@ -73,7 +73,8 @@ const categories = [
 
     const filtered = companies.filter(c => {
         const matchCat = active === "All" || c.category === active;
-        const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.desc.toLowerCase().includes(search.toLowerCase());
+        const query = search.trim().toLowerCase();
+        const matchSearch = query === "" || c.name.toLowerCase().includes(query);
         return matchCat && matchSearch;
     });
 
@@ -385,7 +386,9 @@ const categories = [
             <div style={{ position: "relative" }}>
                 <div className="pg-tag">✅ Verified Sources</div>
                 <h1 className="pg-h1">Go to the <span className="accent">Right Place</span>, Not a Fake One</h1>
-                <p className="pg-sub">Official links to trusted Indian portals for jobs, loans, banking, investments, and government services — so you're never redirected to a scam site.</p>
+                <p className="pg-sub">
+                    Verified links grouped by common scam types — so you can quickly find the real platform and avoid fake ones.
+                </p>
                 <div className="vi-search-wrap">
                 <span className="vi-search-icon">🔍</span>
                 <input

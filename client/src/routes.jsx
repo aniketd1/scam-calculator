@@ -23,7 +23,6 @@ const AppRoutes = () => {
       <Route path="/report" element={<Report />} />
       <Route path="/verified" element={<VerifiedIndex />} />
       <Route path="/maintenance" element={<Maintenance />} />
-
     </Routes>
   );
 };

@@ -229,7 +229,7 @@ function MiniCalculator() {
           </>
         )}
       </div>
-      <VoiceAgent/>
+      <VoiceAgent />
     </div>
   );
 }

@@ -9,7 +9,6 @@ const navLinks = [
   { label: "Verified Sources", path: "/verified"},
   { label: "Contact", path: "/contact" },
   { label: "Maintenance", path: "/maintenance" },
-
 ];
 
 export default function Navbar() {

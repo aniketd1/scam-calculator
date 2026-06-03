@@ -10,7 +10,7 @@ export default function Maintenance() {
           SYSTEM MAINTENANCE
         </div>
 
-        <h1>Coming Soon! <br/>Under Maintenance</h1>
+        <h1>Under Maintenance</h1>
 
         <p>
           We're currently improving Scam2Safe to provide a

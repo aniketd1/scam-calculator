@@ -20,7 +20,6 @@ export default function VoiceAgent() {
   return (
     <elevenlabs-convai
       agent-id="agent_7901ksvwgy3ceg4tn11gxwhgd777"
-                
     />
   );
 }
