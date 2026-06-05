@@ -11,8 +11,10 @@ import { Colors, Fonts, Radius } from '../constants/theme';
 
 const quickLinks = [
   { label: 'Home', path: '/' },
-  { label: 'Scam Risk Calculator', path: '/calculator' },
+  { label: 'Calculator', path: '/calculator' },
+  { label: 'Awareness', path: '/awareness' },
   { label: 'Report a Scam', path: '/report' },
+  { label: 'Verification', path: '/verification' },
 ];
 
 export default function Footer() {

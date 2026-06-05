@@ -22,7 +22,11 @@ interface NavLink {
 const navLinks: NavLink[] = [
   { label: 'Home', path: '/' },
   { label: 'Calculator', path: '/calculator' },
+  { label: 'Awareness', path: '/awareness' },
+  { label: 'Verification', path: '/verification' },
   { label: 'Report', path: '/report' },
+  { label: 'Contact', path: '/contact' },
+  { label: 'Maintenance', path: '/maintenance' },
 ];
 
 export default function Header() {
