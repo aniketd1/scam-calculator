@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors, Fonts, Radius } from '../constants/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const quickLinks = [
   { label: 'Home', path: '/' },
@@ -27,6 +28,7 @@ export default function Footer() {
   };
 
   return (
+    <SafeAreaView edges={['bottom']}>
     <View style={styles.root}>
       {/* Main 3 columns stacked on mobile */}
       <View style={styles.main}>
@@ -89,6 +91,7 @@ export default function Footer() {
         </Text>
       </View>
     </View>
+    </SafeAreaView>
   );
 }
 

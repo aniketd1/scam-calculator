@@ -4,12 +4,15 @@ import { Text } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { Colors } from '@/constants/theme';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function TabIcon({ emoji }: { emoji: string }) {
   return <Text style={{ fontSize: 20 }}>{emoji}</Text>;
 }
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -21,13 +24,14 @@ export default function TabLayout() {
           backgroundColor: '#fbf7f0',
           borderTopColor: '#e6e9ef',
           borderTopWidth: 1,
-          paddingBottom: 4,
-          height: 60,
+           height: 60 + insets.bottom,
+            paddingBottom: insets.bottom,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontFamily: 'Inter_500Medium',
           marginTop: 2,
+          marginBottom: 10,
         },
       }}
     >

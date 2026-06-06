@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, StyleSheet } from 'react-native';
 import {
   useFonts,
@@ -41,6 +42,7 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
+    <SafeAreaProvider>
     <View style={styles.root}>
       <StatusBar style="dark" backgroundColor={Colors.bg} />
       <Stack
@@ -53,8 +55,10 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="calculator" />
         <Stack.Screen name="report" />
+        <Stack.Screen name="privacy" />
       </Stack>
     </View>
+    </SafeAreaProvider>
   );
 }
 
