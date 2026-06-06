@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "scam2safe-mobile",
+    "name": "Scam2safe",
     "slug": "scam2safe-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.scam2safe.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -43,6 +44,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ebf236dc-1ef8-4842-974b-f6b7412dc416"
+      }
     }
   }
 }
