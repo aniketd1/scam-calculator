@@ -4,19 +4,34 @@ import dotenv from "dotenv";
 import { classifyScam } from "./classifier.js";
 import { scamKB } from "./scamKB.js";
 import { getResponse } from "./llm.js";
+import connectDB from "./config/db.js";
+import authRoutes from "./routes/authRoutes.js";
+import app from "./app.js";
 
 dotenv.config();
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(
+    `Server running on port ${PORT}`
+  );
+});
+connectDB();
 
 function buildSafetyPrompt(userText, context) {
   return `You are a scam safety assistant.\n\nUser message:\n${userText}\n\nContext:\n${context}\n\nSafety rules:\n- Use calm, caring, and professional language.\n- Clearly say whether it looks like a scam or not.\n- Explain the scam indicators gently.\n- Give practical safety advice and next steps.\n- If you are unsure, tell the user to verify and avoid sharing sensitive information.\n`;
 }
 
-const app = express();
-
 app.use(cors());
 app.use(express.json());
+app.use("/api/auth", authRoutes);
 
-app.post("/chat", async (req, res) => {
+
+app.get("/", (req, res) => {
+  res.json({
+    message: "Scam2Safe API Running"
+  });
+});
+app.post("/Home", async (req, res) => {
   try {
     const userText = req.body.message;
 
