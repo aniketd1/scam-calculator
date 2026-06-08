@@ -1,4 +1,18 @@
 {
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+}
+{
   "cli": {
     "version": ">= 20.0.0",
     "appVersionSource": "remote"

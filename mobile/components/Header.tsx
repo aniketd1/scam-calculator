@@ -27,6 +27,8 @@ const navLinks: NavLink[] = [
   { label: 'Report', path: '/report' },
   { label: 'Contact', path: '/contact' },
   { label: 'Maintenance', path: '/maintenance' },
+  { label: 'Privacy', path: '/privacy' },
+
 ];
 
 export default function Header() {
@@ -143,7 +145,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 20,    
+    paddingTop: 18,    
     paddingBottom: 14,
     zIndex: 100,
   },
