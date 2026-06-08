@@ -5,10 +5,7 @@ const navLinks = [
   { label: "Home", path: "/" },
   { label: "Calculator", path:"/calculator"},
   { label: "Awareness", path: "/awareness" },
-  { label: "Report", path: "/report" },
-  { label: "Verified Sources", path: "/verified"},
-  { label: "Contact", path: "/contact" },
-  { label: "Maintenance", path: "/maintenance" },
+  { label: "Report", path: "/report" },  { label: "Secure Login", path: "/auth" },  { label: "Verified Sources", path: "/verified"},
 ];
 
 export default function Navbar() {
