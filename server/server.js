@@ -48,7 +48,6 @@ function extractNouns(sentence) {
 app.post("/auth/signup", async (req, res) => {
   try {
     const { email, password, selectedSentence, lockerCodes } = req.body;
-    const lockerCodes = Object.fromEntries(user.lockerCodes);
     // lockerCodes = { noun: "42", noun2: "7", … }  (plain numbers from client)
 
     if (!email || !password || !selectedSentence || !lockerCodes) {
@@ -170,7 +169,7 @@ app.post("/auth/verify", async (req, res) => {
     const results = await Promise.all(
       user.nouns.map(async (noun) => {
         const submitted = String(lockerCodes[noun] || "");
-        const storedHash = lockerCodes[noun];
+        const storedHash = user.lockerCodes.get(noun);
         if (!storedHash) return false;
         return bcrypt.compare(submitted, storedHash);
       })
