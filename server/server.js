@@ -11,6 +11,13 @@ import { AuthSession } from "./models/AuthSession.js";
 import { VISUAL_PASSWORD_SENTENCES } from "./authData.js";
 
 dotenv.config();
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(
+    `Server running on port ${PORT}`
+  );
+});
+connectDB();
 
 await connectDB();
 
@@ -18,10 +25,10 @@ function buildSafetyPrompt(userText, context) {
   return `You are a scam safety assistant.\n\nUser message:\n${userText}\n\nContext:\n${context}\n\nSafety rules:\n- Use calm, caring, and professional language.\n- Clearly say whether it looks like a scam or not.\n- Explain the scam indicators gently.\n- Give practical safety advice and next steps.\n- If you are unsure, tell the user to verify and avoid sharing sensitive information.\n`;
 }
 
-const app = express();
-
 app.use(cors());
 app.use(express.json());
+app.use("/api/auth", authRoutes);
+
 
 const SESSION_TTL_MINUTES = 15;
 
