@@ -1,36 +1,37 @@
 import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema(
+const UserSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true
-    },
-
     email: {
       type: String,
       required: true,
-      unique: true
+      unique: true,
+      lowercase: true,
+      trim: true,
     },
-
-    phone: {
+    passwordHash: {
       type: String,
-      required: true
+      required: true,
     },
-
-    visualPasswordHash: {
+    visualPasswordSentence: {
       type: String,
-      required: true
-    }
+      required: true,
+    },
+    // Ordered list of nouns from the chosen sentence
+    // e.g. ["teacher", "bus", "school"]
+    nouns: {
+      type: [String],
+      default: [],
+    },
+    // Per-noun bcrypt-hashed locker codes
+    // e.g. { teacher: "$2b$10$...", bus: "$2b$10$...", school: "$2b$10$..." }
+    lockerCodes: {
+      type: Map,
+      of: String,
+      default: {},
+    },
   },
-  {
-    timestamps: true
-  }
+  { timestamps: true }
 );
 
-const User = mongoose.model(
-  "User",
-  userSchema
-);
-
-export default User;
+export const User = mongoose.model("User", UserSchema);
