@@ -6,6 +6,7 @@ import { scamKB } from "./scamKB.js";
 import { getResponse } from "./llm.js";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
+import authRouter from "./routes/auth.js";
 import app from "./app.js";
 
 dotenv.config();
@@ -55,10 +56,6 @@ app.post("/Home", async (req, res) => {
       reply: "Something went wrong. Please try again."
     });
   }
-});
-
-app.listen(3001, () => {
-  console.log("Server running on port 3001");
 });
 
 // Streamed chat using Server-Sent Events (EventSource on client)

@@ -3,43 +3,23 @@ import express from "express";
 import {
   signup,
   login,
-  profile
+  verify
 } from "../controllers/authController.js";
 
-import protect from "../middleware/authMiddleware.js";
-
 const router = express.Router();
-router.get(
-  "/test",
-  (req, res) => {
-    res.json({
-      message:
-        "Auth Route Working"
-    });
-  }
-);
-router.post("/dummy", (req, res) => {
-  console.log(req.body);
 
+router.post("/signup", signup);
+
+router.post("/login", login);
+
+//router.post("/register", buildRegisterRoute);
+
+router.post("/verify", verify);
+
+router.get("/test", (req, res) => {
   res.json({
-    success: true,
-    body: req.body,
+    message: "Auth Route Working"
   });
 });
-router.post(
-  "/signup",
-  signup
-);
-
-router.post(
-  "/login",
-  login
-);
-
-router.get(
-  "/profile",
-  protect,
-  profile
-);
 
 export default router;

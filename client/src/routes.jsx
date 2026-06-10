@@ -9,7 +9,8 @@ import Privacy from "./pages/Privacy";
 import Report from "./pages/Report";
 import VerifiedIndex from './pages/Verification';
 import Maintenance from "./pages/Maintenance";
-
+import SignIn from "./pages/SignIn";
+import Auth from "./pages/Auth";
 
 const AppRoutes = () => {
   return (
@@ -23,6 +24,8 @@ const AppRoutes = () => {
       <Route path="/report" element={<Report />} />
       <Route path="/verified" element={<VerifiedIndex />} />
       <Route path="/maintenance" element={<Maintenance />} />
+      <Route path="/signin" element={<SignIn />} />
+      <Route path="/Auth" element={<Auth />} />
     </Routes>
   );
 };

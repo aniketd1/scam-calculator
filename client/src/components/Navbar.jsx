@@ -7,8 +7,7 @@ const navLinks = [
   { label: "Awareness", path: "/awareness" },
   { label: "Report", path: "/report" },
   { label: "Verified Sources", path: "/verified"},
-  { label: "Contact", path: "/contact" },
-  { label: "Maintenance", path: "/maintenance" },
+  { label: "Auth", path: "/auth" },
 ];
 
 export default function Navbar() {
