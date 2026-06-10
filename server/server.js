@@ -9,15 +9,17 @@ import { connectDB } from "./db.js";
 import { User } from "./models/User.js";
 import { AuthSession } from "./models/AuthSession.js";
 import { VISUAL_PASSWORD_SENTENCES } from "./authData.js";
+import authRoutes from "./routes/authRoutes.js";
 
 dotenv.config();
+
+const app = express(); 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(
     `Server running on port ${PORT}`
   );
 });
-connectDB();
 
 await connectDB();
 

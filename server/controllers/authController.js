@@ -1,4 +1,4 @@
-import User from "../models/User.js";
+import { User } from "../models/User.js";
 import generateToken from "../utils/jwt.js";
 import {hashVisualPassword, verifyVisualPassword} from "../services/VisualPasswordService.js";
 
