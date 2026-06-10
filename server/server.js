@@ -229,11 +229,6 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-const port = process.env.PORT || 3001;
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
-
 // Streamed chat using Server-Sent Events (EventSource on client)
 app.get("/chat/stream", async (req, res) => {
   const userText = req.query.message || "";
