@@ -11,7 +11,6 @@ import Auth from "./pages/Auth";
 import VerifiedIndex from './pages/Verification';
 import Maintenance from "./pages/Maintenance";
 import SignIn from "./pages/SignIn";
-import Auth from "./pages/Auth";
 
 const AppRoutes = () => {
   return (
