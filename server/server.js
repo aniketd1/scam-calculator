@@ -1,19 +1,19 @@
 import express from "express";
+const app = express();
 import cors from "cors";
 import dotenv from "dotenv";
 import bcrypt from "bcrypt";
-import { classifyScam } from "./classifier.js";
-import { scamKB } from "./scamKB.js";
-import { getResponse } from "./llm.js";
-import { connectDB } from "./db.js";
-import { User } from "./models/User.js";
-import { AuthSession } from "./models/AuthSession.js";
-import { VISUAL_PASSWORD_SENTENCES } from "./authData.js";
-import authRoutes from "./routes/authRoutes.js";
+//import { classifyScam } from "./classifier.js";
+//import { scamKB } from "./scamKB.js";
+//import { getResponse } from "./llm.js";
+import connectDB from "./config/db.js";
+//import User from "./models/User.js";
+//import { AuthSession } from "./models/AuthSession.js";
+//import { VISUAL_PASSWORD_SENTENCES } from "./authData.js";
+import authRouter from "./routes/auth.js";
+
 
 dotenv.config();
-
-const app = express(); 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(
@@ -29,8 +29,7 @@ function buildSafetyPrompt(userText, context) {
 
 app.use(cors());
 app.use(express.json());
-app.use("/api/auth", authRoutes);
-
+app.use("/api/auth", authRouter);
 
 const SESSION_TTL_MINUTES = 15;
 
@@ -228,6 +227,8 @@ app.post("/chat", async (req, res) => {
     });
   }
 });
+
+
 
 // Streamed chat using Server-Sent Events (EventSource on client)
 app.get("/chat/stream", async (req, res) => {
