@@ -115,37 +115,98 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password)
-      return res.status(400).json({ success: false, error: "Email and password are required." });
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: "Email and password are required."
+      });
+    }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user)
-      return res.status(401).json({ success: false, error: "Invalid email or password." });
+    const user = await User.findOne({
+      email: email.toLowerCase().trim()
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password."
+      });
+    }
 
     const match = await bcrypt.compare(password, user.password);
-    if (!match)
-      return res.status(401).json({ success: false, error: "Invalid email or password." });
 
+    if (!match) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid email or password."
+      });
+    }
+
+    // 1. Generate challenge grid
     const { challengeGrid, chosenSecret } = generateChallengeGrid(user.secretNouns);
-    const revealedItem = challengeGrid.find(item => item.noun === chosenSecret);
 
+    const revealedItem = challengeGrid.find(
+      item => item.noun === chosenSecret
+    );
+
+    if (!revealedItem) {
+      return res.status(500).json({
+        success: false,
+        error: "Failed to generate challenge."
+      });
+    }
+
+    // 2. Create session id
     const sessionId = uuidv4();
 
+    // 3. Build register (THIS FIXES YOUR BUG)
+    const expected = revealedItem.value + user.offset;
+
+    const d1 = Math.floor(expected / 10) % 10;
+    const d2 = expected % 10;
+
+    const register = Array.from({ length: 15 }, () =>
+      Math.floor(Math.random() * 10)
+    );
+
+    const pos1 = POSITIONS.indexOf(user.secretPositions[0]);
+    const pos2 = POSITIONS.indexOf(user.secretPositions[1]);
+
+    if (pos1 === -1 || pos2 === -1) {
+      return res.status(500).json({
+        success: false,
+        error: "User secret positions are corrupted."
+      });
+    }
+
+    register[pos1] = d1;
+    register[pos2] = d2;
+
+    // 4. Save session INCLUDING register
     await LoginSession.create({
       sessionId,
       userId: user._id,
       challengeGrid,
+      register, // 👈 CRITICAL FIX
       revealedItem: {
         noun: revealedItem.noun,
         value: revealedItem.value
-      },
+      }
     });
 
-    return res.json({ success: true, sessionId, challengeGrid });
+    // 5. Respond
+    return res.json({
+      success: true,
+      sessionId,
+      challengeGrid
+    });
 
   } catch (err) {
     console.error("[login]", err);
-    return res.status(500).json({ success: false, error: "Server error during login." });
+    return res.status(500).json({
+      success: false,
+      error: "Server error during login."
+    });
   }
 });
 
