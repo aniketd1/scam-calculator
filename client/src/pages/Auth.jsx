@@ -1,8 +1,23 @@
-import { useState } from "react";
+// Auth.jsx — Scam2Safe visual-sentence authentication
+// Theme  : warm cream #f7efe6 · navy #0f172a · cyan #06B6D4
+// Fonts  : Space Grotesk (headings) · Inter (body)
+// Layout : single wide card, no right panel
+//
+// KEY CHANGES FROM v1:
+//  • Asset glob now points to ../assets/nouns/  (real PNGs, no emojis)
+//  • Explicit NOUN_IMAGE_MAP for every PNG in the folder (handles mixed-case filenames)
+//  • Signup is ONE step: email + password + sentence card containing offset + positions
+//  • Challenge grid is 4 cols × 3 rows = 12 cards
+//  • Login Step 3 shows EDITABLE input boxes A-O; user types their digits; Verify sends them
+//  • /api/auth/verify now receives { sessionId, registerInputs }
 
-const API_BASE = "http://187.127.174.150:5000";
+import { useState, useCallback, useRef } from "react";
 
-/* ── SENTENCES ─────────────────────────────────────────────── */
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+
+/* ═══════════════════════════════════════════════════════════════
+   1. SENTENCE DATABASE
+═══════════════════════════════════════════════════════════════ */
 const SENTENCES = [
   "The teacher goes to school by bus in India morning time.",
   "The doctor works in hospital with mobile in USA today shift.",
@@ -16,54 +31,185 @@ const SENTENCES = [
   "The driver drives car on road near ocean sea view.",
   "The boy eats apple in park with banana fruit time.",
   "The girl drinks milk in house with bread food time.",
+  "The teacher sits on chair in school with table class.",
+  "The doctor uses TV in hospital for patient health care.",
+  "The farmer sees dog in field near river green land.",
+  "The student reads book in university with mobile study time.",
+  "The child watches TV in house with mobile entertainment time.",
+  "The teacher plays guitar in school with piano music class.",
+  "The doctor hears drums in hospital with guitar sound time.",
+  "The farmer eats rice in house with milk food meal.",
+  "The boy plays cricket in park with football game time.",
+  "The girl plays tennis in university with cricket sport fun.",
+  "The teacher draws sunflower in school with rose art work.",
+  "The doctor plants rose in hospital garden near river view.",
+  "The farmer plants spinach in field near ocean green farm.",
+  "The student uses laptop in university with mobile study work.",
+  "The child eats banana in park with mango fruit snack.",
+  "The teacher uses TV in school with mobile lesson work.",
+  "The doctor checks ear in hospital with eye medical care.",
+  "The farmer works in field near mountain green farm land.",
+  "The boy sits on bed in house with chair rest time.",
+  "The girl sleeps on bed in house near ocean sea view.",
+  "The teacher travels by train to university in Japan city.",
+  "The doctor travels by bus to hospital in USA city.",
+  "The farmer travels by car to park in India land.",
+  "The student sees parrot in park with pigeon bird view.",
+  "The child hears sparrow in house near river sound time.",
+  "The teacher sees pigeon in school near ocean bird view.",
+  "The doctor sees elephant in hospital near park animal care.",
+  "The farmer sees cat in field with dog farm animal.",
+  "The boy uses mobile in park with laptop device time.",
+  "The girl uses laptop in university with mobile device work.",
+  "The teacher uses mobile in school with TV lesson work.",
+  "The doctor uses laptop in hospital with TV report work.",
+  "The farmer uses mobile in house near river communication tool.",
+  "The child draws house in school with mountain art work.",
+  "The student draws ocean in university with beach study art.",
+  "The teacher draws river in school with mountain teaching art.",
+  "The doctor draws beach in hospital with ocean sketch work.",
+  "The farmer draws mountain in house with river farm art.",
 ];
 
-/* ── NOUN EXTRACTOR ────────────────────────────────────────── */
-const NOUNS = new Set([
-  "teacher","doctor","farmer","student","child","engineer","driver","boy","girl",
-  "school","hospital","house","university","park","field","road","ocean","mountain",
-  "river","bus","train","car","laptop","mobile","tv","table","chair","bed","guitar",
-  "drum","drums","piano","cricket","football","tennis","apple","banana","mango","carrot",
-  "rice","milk","bread","dog","cat","parrot","pigeon","sparrow","elephant",
-  "sunflower","rose","spinach","eye","ear","hand","book","beach","lotus",
-]);
+/* ═══════════════════════════════════════════════════════════════
+   2. NOUN IMAGE MAP
+   Maps every noun string → the exact filename (without .png extension)
+   as it exists in client/src/assets/nouns/
+   Filenames sourced from the screenshots provided.
+═══════════════════════════════════════════════════════════════ */
 
-function extractNouns(sentence) {
-  return [...new Set(
-    sentence
-      .toLowerCase()
-      .replace(/[^a-z\s]/g, "")
-      .split(/\s+/)  
-      .filter(w => NOUNS.has(w))
-  )];
+// Vite glob — loads every PNG from the nouns folder eagerly
+const _nounGlob = import.meta.glob("../assets/nouns/*.png", { eager: true, as: "url" });
+
+// Build a lookup from lowercase-filename-stem → URL
+const _fileMap = {};
+for (const [fullPath, url] of Object.entries(_nounGlob)) {
+  // e.g. "../assets/nouns/School building.png"  →  stem = "school building"
+  const stem = fullPath.split("/").pop().replace(/\.png$/i, "").toLowerCase();
+  _fileMap[stem] = url;
 }
 
-/* ── ASSET MAP — matches actual filenames in /assets ─────────
-   Keys are lowercase noun names, values are the real filename.  */
-const assetModules = import.meta.glob("../assets/*", { eager: true, as: "url" });
-
-// Build a map: lowercase-basename → url
-const ASSET_URLS = {};
-for (const [path, url] of Object.entries(assetModules)) {
-  const fileName = path.split("/").pop();            // e.g. "Bread.png"
-  const key = fileName.replace(/\.[^.]+$/, "").toLowerCase(); // "bread"
-  ASSET_URLS[key] = url;
-}
-
-// Some nouns map to differently-named files
-const NOUN_FILE_ALIAS = {
-  drum:   "drums",
-  tv:     "tv",
-  mobile: "mobile",
-  school: "school_building",  // there are two school images; prefer the building
+// Explicit noun → filename-stem mapping (handles every PNG from the screenshots)
+const NOUN_STEM = {
+  // People
+  doctor      : "doctor",
+  teacher     : "teacher",
+  farmer      : "farmer",
+  student     : "student",
+  child       : "child",
+  engineer    : "engineer",
+  driver      : "driver",
+  boy         : "boy",
+  girl        : "girl",
+  // Places
+  school      : "school building",   // file = "School building.png"
+  hospital    : "hospital",
+  house       : "house",
+  university  : "university",
+  park        : "park",
+  field       : "field",
+  road        : "road",
+  ocean       : "ocean",
+  mountain    : "mountain",
+  river       : "river",
+  beach       : "beach",
+  // Transport
+  bus         : "bus",
+  train       : "train",
+  car         : "car",
+  // Technology
+  laptop      : "laptop",
+  mobile      : "mobile",
+  tv          : "tv",
+  // Furniture
+  table       : "table",
+  chair       : "chair",
+  bed         : "bed",
+  // Music
+  guitar      : "guitar",
+  drums       : "drums",
+  piano       : "piano",
+  // Sports
+  cricket     : "cricket",
+  football    : "football",
+  tennis      : "tennis",
+  // Food & Drink
+  apple       : "apple",
+  banana      : "banana",
+  mango       : "mango",
+  carrot      : "carrot",
+  rice        : "rice",
+  milk        : "milk",
+  bread       : "bread",
+  spinach     : "spinach",
+  potato      : "potato",
+  // Animals
+  dog         : "dog",
+  cat         : "cat",
+  parrot      : "parrot",
+  pigeon      : "pigeon",
+  sparrow     : "sparrow",
+  elephant    : "elephant",
+  // Flowers
+  sunflower   : "sunflower",
+  rose        : "rose",
+  lotus       : "lotus",
+  // Body
+  eye         : "eye",
+  ear         : "ear",
+  hand        : "hand",
+  // Colours
+  red         : "red",
+  blue        : "blue",
+  green       : "green",
+  yellow      : "yellow",
+  black       : "black",
+  purple      : "purple",
+  // Clothes
+  shirt       : "shirt",
+  tshirt      : "tshirt",
+  dress       : "dress",
+  // Countries / flags
+  japan       : "japan flag",     // file = "Japan Flag.png"
+  usa         : "usa flag",       // file = "USA flag.png"
+  india       : "india flag",     // file = "India flag.png"
 };
 
+/** Return the imported PNG URL for a noun, or null if not found. */
 function getNounImage(noun) {
-  const key = NOUN_FILE_ALIAS[noun] ?? noun;
-  return ASSET_URLS[key] ?? ASSET_URLS[noun] ?? null;
+  const stem = NOUN_STEM[noun.toLowerCase()];
+  if (!stem) return null;
+  // Try exact stem first, then try stem without spaces
+  return _fileMap[stem] ?? _fileMap[stem.replace(/\s+/g, "")] ?? null;
 }
 
-/* ── API HELPER ────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   3. NOUN LEXICON (for noun extraction from sentences)
+═══════════════════════════════════════════════════════════════ */
+const NOUNS = new Set(Object.keys(NOUN_STEM));
+
+function extractNouns(sentence) {
+  return [
+    ...new Set(
+      sentence
+        .toLowerCase()
+        .replace(/[^a-z\s]/g, "")
+        .split(/\s+/)
+        .filter((w) => NOUNS.has(w))
+    ),
+  ];
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   4. CONSTANTS
+═══════════════════════════════════════════════════════════════ */
+const POSITIONS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O"];
+const DEFAULT_OFFSET = "5";
+const DEFAULT_POS = ["A","D"];
+
+/* ═══════════════════════════════════════════════════════════════
+   5. API HELPER
+═══════════════════════════════════════════════════════════════ */
 async function postJson(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
@@ -73,525 +219,882 @@ async function postJson(path, body) {
   return res.json();
 }
 
-/* ── LOCKER CARD ───────────────────────────────────────────── */
-function LockerCard({ noun, value, onChange }) {
-  const [show, setShow] = useState(false);
-  const imgUrl = getNounImage(noun);
-  const isSet  = (value || "").length > 0;
+/* ═══════════════════════════════════════════════════════════════
+   6. SUB-COMPONENTS
+═══════════════════════════════════════════════════════════════ */
 
+/** Single challenge grid card — real image from assets/nouns/ */
+function GridCard({ noun, value }) {
+  const imgSrc = getNounImage(noun);
   return (
-    <div className="locker-card" style={{ borderColor: isSet ? "rgba(6,182,212,0.35)" : undefined }}>
-      <div className="locker-img-wrap">
-        {imgUrl
-          ? <img src={imgUrl} alt={noun} className="locker-img" />
-          : <div className="locker-img-placeholder">{noun[0].toUpperCase()}</div>
-        }
+    <div className="gc-card">
+      <div className="gc-img-wrap">
+        {imgSrc
+          ? <img src={imgSrc} alt={noun} className="gc-img" />
+          : <div className="gc-fallback">{noun.charAt(0).toUpperCase()}</div>}
       </div>
+      <div className="gc-noun">{noun}</div>
+      <div className="gc-value">{value}</div>
+    </div>
+  );
+}
 
-      <div className="locker-meta">
-        <div className="locker-noun">{noun}</div>
-        <div className="locker-label">Secret number code for this locker</div>
-        <div className="locker-input-row">
+/** Register bar with editable inputs A–O */
+function RegisterInputBar({ inputs, onChange }) {
+  const refs = useRef([]);
+  const handleKey = (e, idx) => {
+    if (e.key === "Backspace" && !inputs[idx] && idx > 0) {
+      refs.current[idx - 1]?.focus();
+    }
+  };
+  const handleChange = (idx, val) => {
+    const digit = val.replace(/\D/, "").slice(-1);
+    onChange(idx, digit);
+    if (digit && idx < 14) refs.current[idx + 1]?.focus();
+  };
+  return (
+    <div className="reg-wrap">
+      {/* Header */}
+      <div className="reg-header">
+        {POSITIONS.map((p) => (
+          <div key={p} className="reg-head-cell">{p}</div>
+        ))}
+      </div>
+      {/* Inputs */}
+      <div className="reg-inputs">
+        {POSITIONS.map((p, i) => (
           <input
-            className="locker-input"
-            type={show ? "text" : "password"}
+            key={p}
+            ref={(el) => (refs.current[i] = el)}
+            className="reg-input-cell"
+            type="text"
             inputMode="numeric"
-            maxLength={6}
-            placeholder="e.g. 42"
-            value={value}
-            onChange={e => onChange(e.target.value.replace(/\D/g, ""))}
+            maxLength={1}
+            value={inputs[i] ?? ""}
+            onChange={(e) => handleChange(i, e.target.value)}
+            onKeyDown={(e) => handleKey(e, i)}
+            placeholder="·"
           />
-          <button type="button" className="locker-eye" onClick={() => setShow(s => !s)}>
-            {show ? "🙈" : "👁️"}
-          </button>
-        </div>
-      </div>
-
-      <div className={`locker-status ${isSet ? "locker-status-set" : ""}`}>
-        {isSet ? "🔒 Set" : "🔓"}
+        ))}
       </div>
     </div>
   );
 }
 
-/* ── MAIN ──────────────────────────────────────────────────── */
-export default function Auth() {
-  const [mode, setMode]   = useState("signup"); // "signup" | "login"
-  const [step, setStep]   = useState("creds");  // creds | lockers | verify | success
+/** Toast notification */
+function Toast({ toast, onClose }) {
+  if (!toast) return null;
+  return (
+    <div className={`toast toast-${toast.type}`} role="alert" onClick={onClose}>
+      <span>{toast.type === "success" ? "✓" : "✕"}</span>
+      <span>{toast.message}</span>
+    </div>
+  );
+}
 
+/* ═══════════════════════════════════════════════════════════════
+   7. MAIN AUTH COMPONENT
+═══════════════════════════════════════════════════════════════ */
+export default function Auth() {
+  /* ── mode ─────────────────────────────────────────────── */
+  const [mode, setMode] = useState("signup"); // "signup" | "login"
+
+  /* ── shared ───────────────────────────────────────────── */
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState("");
+  const [toast,    setToast]    = useState(null);
 
-  // signup
+  /* ── signup ───────────────────────────────────────────── */
+  // All signup info lives on a single step
   const [sentence,     setSentence]     = useState("");
-  const [lockerCodes,  setLockerCodes]  = useState({});
+  const [offset,       setOffset]       = useState(DEFAULT_OFFSET);
+  const [positions,    setPositions]    = useState([...DEFAULT_POS]); // [pos1, pos2]
 
-  // login
-  const [sessionId,   setSessionId]   = useState("");
-  const [loginNouns,  setLoginNouns]  = useState([]);
-  const [loginCodes,  setLoginCodes]  = useState({});
+  /* ── login ────────────────────────────────────────────── */
+  // "creds" → "grid" → "register" → "success"
+  const [loginStep,     setLoginStep]     = useState("creds");
+  const [sessionId,     setSessionId]     = useState("");
+  const [challengeGrid, setChallengeGrid] = useState([]);
+  const [regInputs,     setRegInputs]     = useState(Array(15).fill("")); // user types here
 
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error,   setError]   = useState("");
+  const signupNouns = sentence ? extractNouns(sentence) : [];
 
-  const signupNouns    = sentence ? extractNouns(sentence) : [];
-  const allLockersSet  = signupNouns.length > 0 && signupNouns.every(n => (lockerCodes[n] || "").length >= 1);
-  const allLoginFilled = loginNouns.length > 0 && loginNouns.every(n => (loginCodes[n] || "").length >= 1);
-
-  /* ── reset ── */
-  const reset = (newMode) => {
-    setMode(newMode); setStep("creds");
-    setEmail(""); setPassword("");
-    setSentence(""); setLockerCodes({});
-    setSessionId(""); setLoginNouns([]); setLoginCodes({});
-    setMessage(""); setError("");
+  /* ── helpers ──────────────────────────────────────────── */
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4500);
   };
 
-  /* ── signup: step 1 → 2 ── */
-  const toCreds = () => {
-    if (!email.trim() || !password.trim()) { setError("Enter email and password."); return; }
-    if (!sentence)                          { setError("Choose a visual password sentence."); return; }
-    setError(""); setStep("lockers");
+  const resetAll = useCallback((newMode) => {
+    setMode(newMode);
+    setEmail(""); setPassword(""); setError(""); setToast(null);
+    setSentence(""); setOffset(DEFAULT_OFFSET); setPositions([...DEFAULT_POS]);
+    setLoginStep("creds"); setSessionId("");
+    setChallengeGrid([]); setRegInputs(Array(15).fill(""));
+  }, []);
+
+  const updateRegInput = (idx, digit) => {
+    setRegInputs((prev) => {
+      const next = [...prev];
+      next[idx] = digit;
+      return next;
+    });
   };
 
-  /* ── signup: step 2 submit ── */
+  /* ── position dropdowns ───────────────────────────────── */
+  const setPos = (slot, val) => {
+    setPositions((prev) => {
+      const next = [...prev];
+      next[slot] = val;
+      return next;
+    });
+  };
+
+  /* ══════════════════════════════════════════════════════════
+     SIGNUP HANDLER — single step
+  ══════════════════════════════════════════════════════════ */
   const handleSignup = async () => {
-    if (!allLockersSet) { setError("Set a code for every locker before continuing."); return; }
-    setLoading(true); setError("");
+    setError("");
+    if (!email.trim())    { setError("Enter your email address."); return; }
+    if (!password.trim()) { setError("Enter a password."); return; }
+    if (!sentence)        { setError("Select a visual password sentence."); return; }
+
+    const off = parseInt(offset, 10);
+    if (isNaN(off) || off < 1 || off > 99) {
+      setError("Offset must be a number between 1 and 99."); return;
+    }
+    if (positions[0] === positions[1]) {
+      setError("The two register positions must be different."); return;
+    }
+
+    setLoading(true);
     try {
-      const data = await postJson("/auth/signup", {
-        email, password,
+      const data = await postJson("/api/auth/signup", {
+        email,
+        password,
         selectedSentence: sentence,
-        lockerCodes,           // { noun: "42", noun2: "7", … }
+        secretPositions: positions,
+        offset: off,
       });
       if (!data.success) { setError(data.error || "Could not create account."); return; }
-      reset("login");
-      setMessage("Account created! Sign in below.");
-    } catch { setError("Server error. Try again."); }
-    finally { setLoading(false); }
+      if (data.token) localStorage.setItem("token", data.token);
+      showToast("success", "Account created! You can now sign in.");
+      resetAll("login");
+    } catch {
+      setError("Server error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /* ── login: step 1 ── */
-  const handleLogin = async () => {
+  /* ══════════════════════════════════════════════════════════
+     LOGIN HANDLERS
+  ══════════════════════════════════════════════════════════ */
+  const handleLoginCreds = async () => {
+    setError("");
     if (!email.trim() || !password.trim()) { setError("Enter email and password."); return; }
-    setLoading(true); setError("");
+    setLoading(true);
     try {
-      const data = await postJson("/auth/login", { email, password });
-      if (!data.success) { setError(data.error || "Could not sign in."); return; }
+      const data = await postJson("/api/auth/login", { email, password });
+      console.log("LOGIN RESPONSE:", data);
+      console.log("GRID:", data.challengeGrid);
+      if (!data.success) { setError(data.error || "Invalid credentials."); return; }
       setSessionId(data.sessionId);
-      setLoginNouns(data.nouns || []);   // ← server now sends noun list, not image filenames
-      setStep("verify");
-      setMessage("Enter the code for each of your image lockers.");
-    } catch { setError("Server error. Try again."); }
-    finally { setLoading(false); }
+      setChallengeGrid(data.challengeGrid || []);
+      setRegInputs(Array(15).fill(""));
+      setLoginStep("grid");
+    } catch {
+      setError("Server error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /* ── login: step 2 verify ── */
+  const handleContinueToRegister = () => {
+    setRegInputs(Array(15).fill(""));
+    setLoginStep("register");
+  };
+
   const handleVerify = async () => {
-    if (!allLoginFilled) { setError("Enter a code for every locker."); return; }
-    setLoading(true); setError("");
+    setError("");
+    const allFilled = regInputs.every((v) => v !== "");
+    if (!allFilled) { setError("Fill in all 15 positions (A – O)."); return; }
+
+    setLoading(true);
     try {
-      const data = await postJson("/auth/verify", {
+      const data = await postJson("/api/auth/verify", {
         sessionId,
-        lockerCodes: loginCodes,   // { noun: code }
+        registerInputs: regInputs.map((v) => parseInt(v, 10)),
       });
-      if (!data.success) { setError(data.error || "Wrong codes. Try again."); return; }
-      setStep("success");
-      setMessage(data.message || "Identity verified. Welcome back!");
-    } catch { setError("Server error. Try again."); }
-    finally { setLoading(false); }
+      if (!data.success) {
+        setError(data.error || "Register verification failed. Please start over.");
+        // Session is deleted server-side on failure — full restart
+        setLoginStep("creds");
+        setChallengeGrid([]); setSessionId("");
+        return;
+      }
+      if (data.token) localStorage.setItem("token", data.token);
+      showToast("success", data.message || "Identity verified. Welcome back!");
+      setLoginStep("success");
+    } catch {
+      setError("Server error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /* ── render ── */
+  /* ══════════════════════════════════════════════════════════
+     RENDER
+  ══════════════════════════════════════════════════════════ */
   return (
     <>
-      <style>{`
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      {/* ── ALL STYLES inline ── */}
+      <style>{CSS}</style>
 
-.auth-page {
-  min-height: 100vh;
-  background: #f7efe6;
-  color: #0f172a;
-  font-family: 'Inter', sans-serif;
-  padding: 80px 24px;
-}
-
-/* HERO */
-.auth-hero { text-align: center; margin-bottom: 48px; }
-.auth-eyebrow {
-  display: inline-block; padding: 4px 14px;
-  background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25);
-  border-radius: 20px; font-size: 0.75rem; font-weight: 600; color: #F59E0B;
-  letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 18px;
-}
-.auth-title {
-  font-family: 'Space Grotesk', sans-serif; font-weight: 800;
-  font-size: clamp(1.9rem, 4vw, 2.8rem); letter-spacing: -0.03em;
-  line-height: 1.15; margin-bottom: 14px;
-}
-.auth-title .accent { color: #06B6D4; }
-.auth-copy { max-width: 520px; margin: 0 auto; color: #64748b; line-height: 1.7; font-size: 0.95rem; }
-
-/* SHELL */
-.auth-shell {
-  max-width: 1100px; margin: 0 auto;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;
-}
-@media (max-width: 860px) { .auth-shell { grid-template-columns: 1fr; } }
-
-/* PANELS */
-.auth-panel, .explain-panel {
-  background: #fbf7f0; border: 1px solid #e6e9ef;
-  border-radius: 16px; padding: 28px;
-  display: flex; flex-direction: column; gap: 16px;
-}
-
-/* MODE TOGGLE */
-.mode-toggle { display: flex; gap: 10px; }
-.toggle-btn {
-  flex: 1; padding: 10px; border-radius: 999px;
-  background: #fff; border: 1px solid #e6e9ef;
-  color: #475569; font-family: 'Inter', sans-serif;
-  font-weight: 500; font-size: 0.88rem; cursor: pointer;
-  transition: all 0.2s;
-}
-.toggle-btn:hover { border-color: rgba(6,182,212,0.4); color: #06B6D4; }
-.toggle-btn.active {
-  background: linear-gradient(135deg, #06B6D4, #0891b2);
-  color: #fff; border-color: transparent; font-weight: 700;
-}
-
-/* STEP BADGE */
-.step-badge {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px;
-  background: rgba(6,182,212,0.07); border: 1px solid rgba(6,182,212,0.15);
-  border-radius: 10px; font-size: 0.84rem; color: #0891b2; font-weight: 500;
-}
-.step-dot { width: 8px; height: 8px; border-radius: 50%; background: #06B6D4; flex-shrink: 0; }
-
-/* INPUTS */
-.field-group { display: flex; flex-direction: column; gap: 6px; }
-.field-label { font-size: 0.78rem; font-weight: 600; color: #475569; letter-spacing: 0.04em; }
-.auth-input {
-  width: 100%; padding: 11px 14px; border-radius: 10px;
-  border: 1px solid #e6e9ef; background: #fff;
-  font-family: 'Inter', sans-serif; font-size: 0.9rem; color: #0f172a;
-  outline: none; transition: border-color 0.2s, box-shadow 0.2s;
-}
-.auth-input:focus { border-color: #06B6D4; box-shadow: 0 0 0 3px rgba(6,182,212,0.1); }
-.auth-input::placeholder { color: #94A3B8; }
-
-/* SENTENCE PICKER */
-.sentence-list {
-  max-height: 260px; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 8px; padding-right: 4px;
-}
-.sentence-list::-webkit-scrollbar { width: 4px; }
-.sentence-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
-
-.sentence-btn {
-  width: 100%; padding: 13px 16px; border-radius: 10px;
-  background: #fff; border: 1px solid #e6e9ef;
-  cursor: pointer; text-align: left; font-family: 'Inter', sans-serif;
-  transition: border-color 0.18s, background 0.18s, transform 0.15s;
-}
-.sentence-btn:hover { border-color: rgba(6,182,212,0.35); transform: translateY(-1px); }
-.sentence-btn.selected { border-color: #06B6D4; background: rgba(6,182,212,0.06); }
-.sentence-text { font-size: 0.86rem; color: #334155; line-height: 1.5; }
-.noun-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.noun-chip {
-  padding: 2px 8px; border-radius: 20px;
-  background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.2);
-  font-size: 0.7rem; color: #0891b2; font-weight: 600;
-}
-
-/* LOCKER CARDS */
-.lockers-list { display: flex; flex-direction: column; gap: 12px; }
-.locker-card {
-  display: flex; align-items: center; gap: 14px;
-  background: #fff; border: 1px solid #e6e9ef;
-  border-radius: 14px; padding: 14px 16px;
-  transition: border-color 0.2s;
-}
-.locker-img-wrap {
-  width: 68px; height: 68px; border-radius: 10px;
-  background: #f3efe9; display: flex; align-items: center;
-  justify-content: center; flex-shrink: 0; overflow: hidden;
-}
-.locker-img { width: 100%; height: 100%; object-fit: contain; }
-.locker-img-placeholder {
-  font-size: 1.8rem; font-weight: 700; color: #94A3B8;
-  font-family: 'Space Grotesk', sans-serif;
-}
-.locker-meta { flex: 1; min-width: 0; }
-.locker-noun {
-  font-family: 'Space Grotesk', sans-serif; font-weight: 700;
-  font-size: 0.95rem; color: #0f172a; text-transform: capitalize; margin-bottom: 2px;
-}
-.locker-label { font-size: 0.73rem; color: #94A3B8; margin-bottom: 8px; }
-.locker-input-row { display: flex; gap: 6px; align-items: center; }
-.locker-input {
-  width: 90px; padding: 8px 12px; border-radius: 8px;
-  border: 1px solid #e6e9ef; background: #f7efe6;
-  font-family: 'Space Grotesk', sans-serif; font-size: 1.05rem;
-  font-weight: 700; letter-spacing: 0.2em; color: #0f172a; outline: none;
-  transition: border-color 0.2s;
-}
-.locker-input:focus { border-color: #06B6D4; }
-.locker-input::placeholder { letter-spacing: 0.05em; font-weight: 400; color: #94A3B8; font-size: 0.82rem; }
-.locker-eye {
-  background: none; border: none; cursor: pointer;
-  font-size: 1rem; padding: 2px; opacity: 0.55; transition: opacity 0.2s;
-}
-.locker-eye:hover { opacity: 1; }
-.locker-status {
-  font-size: 0.7rem; font-weight: 600;
-  padding: 3px 10px; border-radius: 20px;
-  background: #f3efe9; border: 1px solid #e6e9ef;
-  color: #94A3B8; white-space: nowrap; flex-shrink: 0;
-}
-.locker-status.locker-status-set {
-  background: rgba(34,197,94,0.09); border-color: rgba(34,197,94,0.25); color: #22C55E;
-}
-
-/* BUTTONS */
-.btn-primary {
-  width: 100%; padding: 13px; border-radius: 10px; border: none;
-  background: linear-gradient(135deg, #06B6D4, #0891b2);
-  color: #0F172A; font-family: 'Space Grotesk', sans-serif;
-  font-weight: 700; font-size: 0.95rem; cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
-  box-shadow: 0 0 16px rgba(6,182,212,0.2);
-}
-.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 0 28px rgba(6,182,212,0.38); }
-.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
-.btn-outline {
-  width: 100%; padding: 12px; border-radius: 10px;
-  border: 1px solid #e6e9ef; background: transparent;
-  color: #475569; font-family: 'Inter', sans-serif;
-  font-weight: 500; font-size: 0.9rem; cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
-}
-.btn-outline:hover { border-color: #06B6D4; color: #06B6D4; }
-
-/* ALERTS */
-.alert-info {
-  padding: 12px 14px; border-radius: 10px;
-  background: rgba(6,182,212,0.07); border: 1px solid rgba(6,182,212,0.15);
-  font-size: 0.86rem; color: #0891b2; line-height: 1.55;
-}
-.alert-error {
-  padding: 10px 14px; border-radius: 10px;
-  background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2);
-  color: #dc2626; font-size: 0.85rem; line-height: 1.5;
-}
-.alert-success {
-  padding: 20px; border-radius: 12px;
-  background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);
-  color: #15803d; font-size: 0.9rem; line-height: 1.6; text-align: center;
-}
-.alert-success .success-icon { font-size: 2.5rem; display: block; margin-bottom: 10px; }
-.hint { font-size: 0.82rem; color: #94A3B8; line-height: 1.6; }
-
-/* EXPLAINER */
-.explain-step { display: flex; gap: 14px; align-items: flex-start; }
-.explain-num {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: rgba(6,182,212,0.12); border: 1px solid rgba(6,182,212,0.2);
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Space Grotesk', sans-serif; font-weight: 700;
-  font-size: 0.8rem; color: #06B6D4; flex-shrink: 0; margin-top: 1px;
-}
-.explain-text { font-size: 0.87rem; color: #475569; line-height: 1.65; }
-.explain-text strong { color: #0f172a; }
-.explain-title {
-  font-family: 'Space Grotesk', sans-serif; font-weight: 700;
-  font-size: 1rem; color: #0f172a; margin-bottom: 14px;
-}
-.security-note {
-  background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.18);
-  border-radius: 12px; padding: 14px 16px;
-  font-size: 0.84rem; color: #334155; line-height: 1.65;
-}
-.security-note strong { color: #15803d; }
-.tips { font-size: 0.84rem; color: #475569; line-height: 1.85; }
-      `}</style>
+      <Toast toast={toast} onClose={() => setToast(null)} />
 
       <div className="auth-page">
-
         {/* HERO */}
-        <div className="auth-hero">
-          <div className="auth-eyebrow">🔐 Visual Locker Auth</div>
-          <h1 className="auth-title">Sign in with your <span className="accent">Image Lockers</span></h1>
-          <p className="auth-copy">
-            Pick a visual sentence — each noun becomes a picture locker. Assign a secret number to each image. On every login, your pictures appear and you type the codes. Password + images + codes = nothing a hacker can guess.
+        <header className="auth-hero">
+          <p className="hero-eyebrow">Visual Sentence Password</p>
+          <h1 className="hero-title">
+            Sign in with your <span className="hero-accent">Visual Sentence</span>
+          </h1>
+          <p className="hero-sub">
+            Your sentence's nouns become secret images. Pick two register positions and a private
+            offset. At login: spot your image, add your offset, enter the two digits at your positions.
           </p>
-        </div>
+        </header>
 
         <div className="auth-shell">
+          <div className="auth-card">
 
-          {/* ── LEFT: AUTH PANEL ── */}
-          <div className="auth-panel">
-
-            {/* ── SUCCESS ── */}
-            {step === "success" && (
-              <div className="alert-success">
-                <span className="success-icon">✅</span>
-                <strong>Identity verified!</strong><br />{message}
+            {/* ══ SUCCESS ══ */}
+            {loginStep === "success" && (
+              <div className="success-box">
+                <div className="success-check">✓</div>
+                <h2 className="success-title">Identity Verified</h2>
+                <p className="success-msg">
+                  Your visual sentence login succeeded. JWT stored in localStorage.
+                </p>
+                <button className="btn-outline" onClick={() => resetAll("login")}>
+                  Sign in again
+                </button>
               </div>
             )}
 
-            {/* ── STEP: CREDS ── */}
-            {step === "creds" && (
+            {loginStep !== "success" && (
               <>
-                <div className="mode-toggle">
-                  <button className={`toggle-btn${mode === "signup" ? " active" : ""}`} onClick={() => reset("signup")}>Create account</button>
-                  <button className={`toggle-btn${mode === "login"  ? " active" : ""}`} onClick={() => reset("login")}>Sign in</button>
-                </div>
-
-                {message && <div className="alert-info">{message}</div>}
-
-                <div className="step-badge">
-                  <span className="step-dot" />
-                  Step 1 of {mode === "signup" ? "2" : "2"} —{" "}
-                  {mode === "signup" ? "Create account & choose your visual sentence" : "Sign in to reveal your image lockers"}
-                </div>
-
-                <div className="field-group">
-                  <label className="field-label">Email Address</label>
-                  <input className="auth-input" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} />
-                </div>
-                <div className="field-group">
-                  <label className="field-label">Password</label>
-                  <input className="auth-input" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
-                </div>
-
-                {mode === "signup" && (
-                  <div className="field-group">
-                    <label className="field-label">Visual Password Sentence</label>
-                    <p className="hint">The nouns highlighted below become your image lockers. Pick one you'll remember.</p>
-                    <div className="sentence-list">
-                      {SENTENCES.map(s => {
-                        const nouns = extractNouns(s);
-                        return (
-                          <button
-                            key={s} type="button"
-                            className={`sentence-btn${sentence === s ? " selected" : ""}`}
-                            onClick={() => { setSentence(s); setLockerCodes({}); }}
-                          >
-                            <div className="sentence-text">{s}</div>
-                            <div className="noun-chips">
-                              {nouns.map(n => <span key={n} className="noun-chip">{n}</span>)}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                {/* ── MODE TABS ── */}
+                {(mode === "signup" || loginStep === "creds") && (
+                  <div className="mode-tabs">
+                    <button
+                      className={`mode-tab${mode === "signup" ? " mode-tab--active" : ""}`}
+                      onClick={() => resetAll("signup")}
+                    >
+                      Create account
+                    </button>
+                    <button
+                      className={`mode-tab${mode === "login" ? " mode-tab--active" : ""}`}
+                      onClick={() => resetAll("login")}
+                    >
+                      Sign in
+                    </button>
                   </div>
                 )}
 
-                {error && <div className="alert-error">{error}</div>}
+                {/* ════════════ SIGNUP ════════════ */}
+                {mode === "signup" && (
+                  <div className="form-stack">
+                    {/* Credentials */}
+                    <div className="field-row">
+                      <div className="field-group">
+                        <label className="field-label">Email address</label>
+                        <input
+                          className="field-input"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                        />
+                      </div>
+                      <div className="field-group">
+                        <label className="field-label">Password</label>
+                        <input
+                          className="field-input"
+                          type="password"
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                        />
+                      </div>
+                    </div>
 
-                <button className="btn-primary" disabled={loading} onClick={mode === "signup" ? toCreds : handleLogin}>
-                  {loading ? "Please wait…"
-                    : mode === "signup" ? "Continue → Set Locker Codes"
-                    : "Sign In → Show My Lockers"}
-                </button>
+                    {/* Sentence picker */}
+                    <div>
+                      <p className="section-label">Choose your visual password sentence</p>
+                      <p className="section-hint">
+                        The highlighted nouns in your sentence become your secret images. One will appear
+                        in the login grid; spot it, add your offset, enter two digits at your positions.
+                      </p>
+                      <div className="sentence-list">
+                        {SENTENCES.map((s) => {
+                          const ns = extractNouns(s);
+                          const isSelected = sentence === s;
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              className={`sentence-card${isSelected ? " sentence-card--selected" : ""}`}
+                              onClick={() => setSentence(s)}
+                            >
+                              {/* Sentence text */}
+                              <div className="sentence-text">{s}</div>
+
+                              {/* Noun chips */}
+                              <div className="noun-chips">
+                                {ns.map((n) => (
+                                  <span key={n} className="noun-chip">{n}</span>
+                                ))}
+                              </div>
+
+                              {/* Offset + Positions — only visible on selected card */}
+                              {isSelected && (
+                                <div className="card-controls" onClick={(e) => e.stopPropagation()}>
+                                  <div className="control-row">
+                                    <label className="ctrl-label">Offset</label>
+                                    <input
+                                      className="ctrl-offset"
+                                      type="text"
+                                      inputMode="numeric"
+                                      maxLength={2}
+                                      value={offset}
+                                      onChange={(e) =>
+                                        setOffset(e.target.value.replace(/\D/, "").slice(0, 2))
+                                      }
+                                    />
+                                    <span className="ctrl-hint">1 – 99</span>
+                                  </div>
+                                  <div className="control-row">
+                                    <label className="ctrl-label">Positions</label>
+                                    <select
+                                      className="ctrl-select"
+                                      value={positions[0]}
+                                      onChange={(e) => setPos(0, e.target.value)}
+                                    >
+                                      {POSITIONS.map((p) => (
+                                        <option key={p} value={p}>{p}</option>
+                                      ))}
+                                    </select>
+                                    <span className="ctrl-plus">+</span>
+                                    <select
+                                      className="ctrl-select"
+                                      value={positions[1]}
+                                      onChange={(e) => setPos(1, e.target.value)}
+                                    >
+                                      {POSITIONS.map((p) => (
+                                        <option key={p} value={p}>{p}</option>
+                                      ))}
+                                    </select>
+                                    <span className="ctrl-hint">
+                                      e.g. A + D → digits of ({offset || 5} + image value)
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {error && <div className="alert-error">{error}</div>}
+
+                    <button
+                      className="btn-primary"
+                      disabled={loading}
+                      onClick={handleSignup}
+                    >
+                      {loading ? "Creating account…" : "Create Account"}
+                    </button>
+                  </div>
+                )}
+
+                {/* ════════════ LOGIN ════════════ */}
+                {mode === "login" && (
+                  <>
+                    {/* ── STEP 1: credentials ── */}
+                    {loginStep === "creds" && (
+                      <div className="form-stack">
+                        <div className="step-badge">Step 1 of 3 — Credentials</div>
+                        <div className="field-group">
+                          <label className="field-label">Email address</label>
+                          <input
+                            className="field-input"
+                            type="email"
+                            placeholder="you@example.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                          />
+                        </div>
+                        <div className="field-group">
+                          <label className="field-label">Password</label>
+                          <input
+                            className="field-input"
+                            type="password"
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                          />
+                        </div>
+                        {error && <div className="alert-error">{error}</div>}
+                        <button className="btn-primary" disabled={loading} onClick={handleLoginCreds}>
+                          {loading ? "Please wait…" : "Next →"}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* ── STEP 2: challenge grid ── */}
+                    {loginStep === "grid" && (
+                      <div className="form-stack">
+                        <div className="step-badge">Step 2 of 3 — Find your secret image</div>
+
+                        <div className="info-box">
+                          <strong>Look for your image.</strong> Find the image that matches a noun from
+                          your sentence. Note the number beneath it. Add your private offset to it mentally.
+                          Keep that result in mind — you will enter its digits in the next step.
+                        </div>
+
+                        {/* 4 × 3 grid */}
+                        <div className="cg-grid">
+  {challengeGrid && challengeGrid.length > 0 ? (
+    challengeGrid.map((item, idx) => (
+      <GridCard
+        key={idx}
+        noun={item.noun}
+        value={item.value}
+      />
+    ))
+  ) : (
+    <div
+      style={{
+        padding: "40px",
+        textAlign: "center",
+        gridColumn: "1/-1",
+        color: "red",
+        fontWeight: "bold",
+      }}
+    >
+      No challenge images received from server
+    </div>
+  )}
+</div>
+
+                        {error && <div className="alert-error">{error}</div>}
+
+                        <button
+                          className="btn-primary"
+                          disabled={loading}
+                          onClick={handleContinueToRegister}
+                        >
+                          {loading ? "Please wait…" : "Continue to Register →"}
+                        </button>
+                        <button className="btn-outline" onClick={() => resetAll("login")}>
+                          ← Start over
+                        </button>
+                      </div>
+                    )}
+
+                    {/* ── STEP 3: register bar with editable inputs ── */}
+                    {loginStep === "register" && (
+                      <div className="form-stack">
+                        <div className="step-badge">Step 3 of 3 — Enter your register</div>
+
+                        <div className="info-box">
+                          <strong>Fill all 15 boxes (A – O).</strong> At your two secret positions
+                          (which only you know), enter the two digits of your computed result
+                          (image value + your offset). All other boxes: enter any digit.
+                        </div>
+
+                        <RegisterInputBar inputs={regInputs} onChange={updateRegInput} />
+
+                        <p className="field-hint">
+                          Example: image showed 62, offset = 5 → result = 67 → enter 6 at position A,
+                          7 at position D. The server will check only your secret positions.
+                        </p>
+
+                        {error && <div className="alert-error">{error}</div>}
+
+                        <button
+                          className="btn-primary"
+                          disabled={loading}
+                          onClick={handleVerify}
+                        >
+                          {loading ? "Verifying…" : "Verify →"}
+                        </button>
+                        <button
+                          className="btn-outline"
+                          onClick={() => setLoginStep("grid")}
+                        >
+                          ← Back to grid
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </>
             )}
-
-            {/* ── STEP: LOCKERS (signup) ── */}
-            {step === "lockers" && (
-              <>
-                <div className="step-badge">
-                  <span className="step-dot" />
-                  Step 2 of 2 — Assign a secret number to each image locker
-                </div>
-                <p className="hint">
-                  One image per noun from your sentence. Set a numeric code for each — these are what you'll type at every login instead of selecting images.
-                </p>
-                <div className="lockers-list">
-                  {signupNouns.map(noun => (
-                    <LockerCard
-                      key={noun} noun={noun}
-                      value={lockerCodes[noun] || ""}
-                      onChange={val => setLockerCodes(p => ({ ...p, [noun]: val }))}
-                    />
-                  ))}
-                </div>
-                {error && <div className="alert-error">{error}</div>}
-                <button className="btn-primary" disabled={loading || !allLockersSet} onClick={handleSignup}>
-                  {loading ? "Creating account…" : "🔒 Create Account with Locker Codes"}
-                </button>
-                <button className="btn-outline" onClick={() => setStep("creds")}>← Back</button>
-              </>
-            )}
-
-            {/* ── STEP: VERIFY (login) ── */}
-            {step === "verify" && (
-              <>
-                <div className="step-badge">
-                  <span className="step-dot" />
-                  Step 2 of 2 — Enter the code for each image locker
-                </div>
-                {message && <div className="alert-info">{message}</div>}
-                <div className="lockers-list">
-                  {loginNouns.map(noun => (
-                    <LockerCard
-                      key={noun} noun={noun}
-                      value={loginCodes[noun] || ""}
-                      onChange={val => setLoginCodes(p => ({ ...p, [noun]: val }))}
-                    />
-                  ))}
-                </div>
-                {error && <div className="alert-error">{error}</div>}
-                <button className="btn-primary" disabled={loading || !allLoginFilled} onClick={handleVerify}>
-                  {loading ? "Verifying…" : "⚡ Verify Locker Codes"}
-                </button>
-                <button className="btn-outline" onClick={() => reset("login")}>← Start over</button>
-              </>
-            )}
-
           </div>
-
-          {/* ── RIGHT: EXPLAINER ── */}
-          <div className="explain-panel">
-            <div>
-              <div className="explain-title">🔐 How Image Locker Auth Works</div>
-              {[
-                { n:"1", content: <><strong>Choose a sentence.</strong> Its nouns (teacher, bus, hospital…) become your image lockers — shown visually, not as text.</> },
-                { n:"2", content: <><strong>Set a code per locker.</strong> You assign a secret number to each noun image. Only you know which number belongs to which picture.</> },
-                { n:"3", content: <><strong>Login = password + codes.</strong> After signing in, your images appear and you type the number for each one. No selecting — just entering.</> },
-                { n:"4", content: <><strong>Screenshots are useless.</strong> A hacker who sees your screen only sees images — they can't know which numbers you set for them.</> },
-              ].map(({ n, content }) => (
-                <div className="explain-step" key={n} style={{ marginBottom: 16 }}>
-                  <div className="explain-num">{n}</div>
-                  <div className="explain-text">{content}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="security-note">
-              <strong>🛡️ Why it's harder to hack:</strong><br />
-              Credential stuffing, phishing, and keyloggers only get your password. Without the exact locker codes per image, access is still blocked. Each user's locker layout is unique to their sentence choice.
-            </div>
-
-            <div>
-              <div className="explain-title" style={{ marginBottom: 8 }}>🔢 Code Tips</div>
-              <div className="tips">
-                • Use different codes for each locker — never repeat<br />
-                • 2–6 digits is enough; avoid 1234 or 0000<br />
-                • Use personal associations: your cat's age for the "cat" locker<br />
-                • The order the images appear is always the same for you
-              </div>
-            </div>
-          </div>
-
         </div>
+
+        <p className="page-footer">
+          ScamRisk — Sentence Password is phishing-resistant. Your secret never leaves this device.
+        </p>
       </div>
     </>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   STYLES  (all inline — no external CSS file needed)
+═══════════════════════════════════════════════════════════════ */
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+button,input,select{font-family:inherit;}
+
+/* ── PAGE ── */
+.auth-page{
+  min-height:100vh;
+  background:#f7efe6;
+  color:#0f172a;
+  font-family:'Inter',sans-serif;
+  padding:48px 20px 72px;
+  position:relative;overflow:hidden;
+}
+.auth-page::before{
+  content:'';position:fixed;top:-140px;right:-140px;
+  width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(6,182,212,0.06) 0%,transparent 70%);
+  pointer-events:none;z-index:0;
+}
+.auth-page::after{
+  content:'';position:fixed;bottom:-120px;left:-120px;
+  width:400px;height:400px;border-radius:50%;
+  background:radial-gradient(circle,rgba(37,99,235,0.04) 0%,transparent 70%);
+  pointer-events:none;z-index:0;
+}
+
+/* ── HERO ── */
+.auth-hero{
+  text-align:center;
+  max-width:680px;margin:0 auto 36px;
+  position:relative;z-index:1;
+}
+.hero-eyebrow{
+  display:inline-block;
+  padding:4px 14px;border-radius:99px;
+  background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);
+  font-size:0.72rem;font-weight:600;color:#d97706;
+  letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px;
+}
+.hero-title{
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:800;font-size:clamp(1.6rem,3.2vw,2.4rem);
+  letter-spacing:-0.04em;line-height:1.12;
+  color:#0f172a;margin-bottom:10px;
+}
+.hero-accent{color:#06B6D4;}
+.hero-sub{
+  font-size:0.88rem;color:#64748b;line-height:1.7;
+}
+
+/* ── SHELL + CARD ── */
+.auth-shell{max-width:920px;margin:0 auto;position:relative;z-index:1;}
+
+.auth-card{
+  background:#fbf7f0;
+  border:1px solid #e2d9cc;border-radius:20px;
+  padding:36px 40px;
+  display:flex;flex-direction:column;gap:20px;
+  box-shadow:0 4px 28px rgba(15,23,42,0.06);
+}
+@media(max-width:600px){.auth-card{padding:24px 18px;}}
+
+/* ── MODE TABS ── */
+.mode-tabs{display:flex;gap:8px;}
+.mode-tab{
+  flex:1;padding:11px;border-radius:99px;
+  background:#fff;border:1.5px solid #e2d9cc;
+  color:#475569;font-size:0.9rem;font-weight:500;cursor:pointer;
+  transition:all 0.18s;
+}
+.mode-tab:hover{border-color:rgba(6,182,212,0.4);color:#0891b2;}
+.mode-tab--active{
+  background:linear-gradient(135deg,#06B6D4,#0891b2);
+  color:#fff;border-color:transparent;font-weight:700;
+  box-shadow:0 4px 14px rgba(6,182,212,0.22);
+}
+
+/* ── STEP BADGE ── */
+.step-badge{
+  padding:9px 14px;border-radius:9px;
+  background:rgba(6,182,212,0.07);border:1px solid rgba(6,182,212,0.15);
+  font-size:0.83rem;color:#0891b2;font-weight:600;
+}
+
+/* ── INFO BOX ── */
+.info-box{
+  padding:13px 16px;border-radius:11px;
+  background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);
+  font-size:0.84rem;color:#92400e;line-height:1.65;
+}
+.info-box strong{font-weight:700;color:#78350f;}
+
+/* ── FORM HELPERS ── */
+.form-stack{display:flex;flex-direction:column;gap:16px;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:540px){.field-row{grid-template-columns:1fr;}}
+.field-group{display:flex;flex-direction:column;gap:5px;}
+.field-label{font-size:0.73rem;font-weight:600;color:#475569;letter-spacing:0.05em;text-transform:uppercase;}
+.field-hint{font-size:0.79rem;color:#94a3b8;line-height:1.6;}
+.field-input{
+  width:100%;padding:11px 13px;border-radius:10px;
+  border:1.5px solid #e2d9cc;background:#fff;
+  font-size:0.91rem;color:#0f172a;outline:none;
+  transition:border-color 0.18s,box-shadow 0.18s;
+}
+.field-input:focus{border-color:#06B6D4;box-shadow:0 0 0 3px rgba(6,182,212,0.1);}
+.field-input::placeholder{color:#94a3b8;}
+
+/* ── SECTION LABELS ── */
+.section-label{font-size:0.73rem;font-weight:700;color:#475569;letter-spacing:0.06em;text-transform:uppercase;}
+.section-hint{font-size:0.79rem;color:#94a3b8;line-height:1.6;margin-top:4px;margin-bottom:10px;}
+
+/* ── SENTENCE PICKER ── */
+.sentence-list{
+  display:flex;flex-direction:column;gap:8px;
+  max-height:380px;overflow-y:auto;padding-right:4px;
+}
+.sentence-list::-webkit-scrollbar{width:4px;}
+.sentence-list::-webkit-scrollbar-thumb{background:#d1c4b0;border-radius:2px;}
+
+/* Each sentence card is full-width */
+.sentence-card{
+  width:100%;padding:13px 16px;border-radius:12px;
+  background:#fff;border:1.5px solid #e2d9cc;
+  cursor:pointer;text-align:left;
+  transition:border-color 0.16s,box-shadow 0.16s,transform 0.14s;
+}
+.sentence-card:hover{border-color:rgba(6,182,212,0.4);transform:translateY(-1px);box-shadow:0 3px 12px rgba(6,182,212,0.08);}
+.sentence-card--selected{
+  border-color:#06B6D4;background:rgba(6,182,212,0.04);
+  box-shadow:0 0 0 3px rgba(6,182,212,0.1);
+}
+.sentence-text{font-size:0.87rem;color:#334155;line-height:1.55;}
+.noun-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.noun-chip{
+  padding:2px 9px;border-radius:99px;
+  background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);
+  font-size:0.67rem;color:#0891b2;font-weight:600;letter-spacing:0.03em;
+}
+
+/* Controls inside selected card */
+.card-controls{
+  margin-top:12px;padding-top:12px;
+  border-top:1px dashed rgba(6,182,212,0.25);
+  display:flex;flex-direction:column;gap:10px;
+}
+.control-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.ctrl-label{font-size:0.73rem;font-weight:700;color:#475569;letter-spacing:0.05em;text-transform:uppercase;white-space:nowrap;width:60px;}
+.ctrl-offset{
+  width:60px;padding:7px 10px;border-radius:8px;
+  border:1.5px solid #e2d9cc;background:#fff;
+  font-family:'Space Grotesk',sans-serif;
+  font-size:1.1rem;font-weight:800;color:#0f172a;
+  text-align:center;outline:none;
+  transition:border-color 0.18s;
+}
+.ctrl-offset:focus{border-color:#06B6D4;}
+.ctrl-select{
+  padding:7px 10px;border-radius:8px;
+  border:1.5px solid #e2d9cc;background:#fff;
+  font-family:'Space Grotesk',sans-serif;
+  font-size:0.9rem;font-weight:700;color:#0f172a;
+  cursor:pointer;outline:none;
+  transition:border-color 0.18s;
+}
+.ctrl-select:focus{border-color:#06B6D4;}
+.ctrl-plus{font-family:'Space Grotesk',sans-serif;font-weight:800;color:#06B6D4;font-size:1.1rem;}
+.ctrl-hint{font-size:0.75rem;color:#94a3b8;line-height:1.5;}
+
+/* ── CHALLENGE GRID  4 × 3 ── */
+.cg-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(180px,1fr));
+  gap:20px;
+  width:100%;
+  margin-top:20px;
+}
+@media(max-width:540px){.cg-grid{grid-template-columns:repeat(3,1fr);gap:8px;}}
+@media(max-width:900px){
+  .cg-grid{
+    grid-template-columns:repeat(3,1fr);
+  }
+}
+
+@media(max-width:600px){
+  .cg-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+.gc-card{
+  background:#fff;
+  border:1px solid #ddd;
+  border-radius:12px;
+  padding:15px;
+  min-height:220px;
+
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+
+  box-shadow:0 2px 10px rgba(0,0,0,0.08);
+}
+.gc-card:hover{border-color:rgba(6,182,212,0.35);box-shadow:0 3px 10px rgba(6,182,212,0.07);}
+
+.gc-img-wrap{
+  width:120px;
+  height:120px;
+  margin-bottom:10px;
+  background:#f3efe9;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+@media(max-width:540px){.gc-img-wrap{width:56px;height:56px;}}
+
+.gc-img{width:100%;height:100%;object-fit:contain;}
+.gc-fallback{
+  font-size:1.5rem;font-weight:800;color:#94a3b8;
+  font-family:'Space Grotesk',sans-serif;
+}
+.gc-noun{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:0.72rem;font-weight:600;color:#475569;
+  text-transform:capitalize;text-align:center;
+}
+.gc-value{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:1.15rem;font-weight:800;color:#0f172a;
+}
+
+/* ── REGISTER INPUT BAR ── */
+.reg-wrap{
+  width:100%;
+  border:1px solid #e2d9cc;
+  border-radius:12px;
+  overflow:hidden;
+}
+
+.reg-header,
+.reg-inputs{
+  display:grid;
+  grid-template-columns:repeat(15,minmax(55px,1fr));
+}
+
+.reg-head-cell{
+  height:40px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.reg-input-cell{
+  height:52px;
+  width:100%;
+  text-align:center;
+  border:none;
+  border-right:1px solid #e2d9cc;
+  font-size:18px;
+  font-weight:700;
+}
+
+.reg-input-cell:last-child{
+  border-right:none;
+}
+.reg-inputs{
+  display:grid;grid-template-columns:repeat(15,1fr);
+  background:#fff;min-width:420px;
+}
+.reg-input-cell{
+  border:none;border-right:1px solid #e2d9cc;border-top:1.5px solid #e2d9cc;
+  padding:12px 0;text-align:center;
+  font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:#0f172a;
+  background:#fff;outline:none;
+  transition:background 0.15s;
+}
+.reg-input-cell:last-child{border-right:none;}
+.reg-input-cell:focus{background:rgba(6,182,212,0.07);}
+.reg-input-cell::placeholder{color:#d1c4b0;font-weight:400;}
+
+/* ── BUTTONS ── */
+.btn-primary{
+  width:100%;padding:13px;border-radius:10px;border:none;
+  background:linear-gradient(135deg,#06B6D4,#0891b2);
+  color:#fff;font-family:'Space Grotesk',sans-serif;
+  font-weight:700;font-size:0.94rem;cursor:pointer;
+  box-shadow:0 0 18px rgba(6,182,212,0.22);
+  transition:transform 0.18s,box-shadow 0.18s,opacity 0.18s;
+}
+.btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 26px rgba(6,182,212,0.36);}
+.btn-primary:disabled{opacity:0.36;cursor:not-allowed;box-shadow:none;transform:none;}
+.btn-outline{
+  width:100%;padding:12px;border-radius:10px;
+  border:1.5px solid #e2d9cc;background:transparent;
+  color:#475569;font-size:0.9rem;font-weight:500;cursor:pointer;
+  transition:border-color 0.18s,color 0.18s;
+}
+.btn-outline:hover{border-color:#06B6D4;color:#0891b2;}
+
+/* ── ALERTS ── */
+.alert-error{
+  padding:11px 14px;border-radius:9px;
+  background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);
+  color:#dc2626;font-size:0.84rem;line-height:1.5;
+}
+
+/* ── SUCCESS ── */
+.success-box{
+  display:flex;flex-direction:column;align-items:center;
+  gap:14px;padding:32px 20px;text-align:center;
+}
+.success-check{
+  width:64px;height:64px;border-radius:50%;
+  background:rgba(34,197,94,0.12);border:2px solid rgba(34,197,94,0.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.8rem;font-weight:700;color:#16a34a;
+}
+.success-title{font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;color:#0f172a;}
+.success-msg{font-size:0.88rem;color:#64748b;line-height:1.65;max-width:380px;}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:26px;right:22px;z-index:9999;
+  display:flex;align-items:center;gap:10px;
+  padding:13px 18px;border-radius:11px;max-width:340px;
+  font-size:0.87rem;font-weight:500;cursor:pointer;
+  box-shadow:0 8px 28px rgba(15,23,42,0.13);
+  animation:slideUp 0.28s ease;
+}
+.toast-success{background:#f0fdf4;border:1px solid rgba(34,197,94,0.3);color:#15803d;}
+.toast-error  {background:#fef2f2;border:1px solid rgba(239,68,68,0.28);color:#dc2626;}
+@keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ── PAGE FOOTER ── */
+.page-footer{
+  text-align:center;margin-top:28px;
+  font-size:0.75rem;color:#94a3b8;position:relative;z-index:1;
+}
+`;
