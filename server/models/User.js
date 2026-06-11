@@ -12,65 +12,29 @@ const UserSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-
-    password: {
+    passwordHash: {
       type: String,
       required: true,
     },
-
-    selectedSentence: {
+    visualPasswordSentence: {
       type: String,
       required: true,
     },
-
-    secretNouns: {
+    // Ordered list of nouns from the chosen sentence
+    // e.g. ["teacher", "bus", "school"]
+    nouns: {
       type: [String],
-      required: true,
+      default: [],
     },
-
-    secretPositions: {
-      type: [String],
-      required: true,
-      validate: {
-        validator: (v) => v.length === 2,
-        message: "Exactly 2 positions required.",
-      },
-    },
-
-    offset: {
-      type: Number,
-      required: true,
-      min: 1,
-      max: 99,
+    // Per-noun bcrypt-hashed locker codes
+    // e.g. { teacher: "$2b$10$...", bus: "$2b$10$...", school: "$2b$10$..." }
+    lockerCodes: {
+      type: Map,
+      of: String,
+      default: {},
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-/* Hash password before saving */
-UserSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
-
-  this.password = await bcrypt.hash(
-    this.password,
-    10
-  );
-});
-
-/* Compare login password with stored hash */
-UserSchema.methods.comparePassword =
-  async function (enteredPassword) {
-    return await bcrypt.compare(
-      enteredPassword,
-      this.password
-    );
-  };
-
-const User = mongoose.model(
-  "User",
-  UserSchema
-);
-
-export default User;
+export const User = mongoose.model("User", UserSchema);
