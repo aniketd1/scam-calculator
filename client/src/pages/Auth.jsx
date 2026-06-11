@@ -13,7 +13,7 @@
 
 import { useState, useCallback, useRef } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = "https://api.scam2safe.com";
 
 /* ═══════════════════════════════════════════════════════════════
    1. SENTENCE DATABASE
