@@ -1,23 +1,9 @@
 // Auth.jsx — Scam2Safe visual-sentence authentication
-// Theme  : warm cream #f7efe6 · navy #0f172a · cyan #06B6D4
-// Fonts  : Space Grotesk (headings) · Inter (body)
-// Layout : single wide card, no right panel
-//
-// KEY CHANGES FROM v1:
-//  • Asset glob now points to ../assets/nouns/  (real PNGs, no emojis)
-//  • Explicit NOUN_IMAGE_MAP for every PNG in the folder (handles mixed-case filenames)
-//  • Signup is ONE step: email + password + sentence card containing offset + positions
-//  • Challenge grid is 4 cols × 3 rows = 12 cards
-//  • Login Step 3 shows EDITABLE input boxes A-O; user types their digits; Verify sends them
-//  • /api/auth/verify now receives { sessionId, registerInputs }
 
 import { useState, useCallback, useRef } from "react";
 
 const API_BASE = "https://api.scam2safe.com";
 
-/* ═══════════════════════════════════════════════════════════════
-   1. SENTENCE DATABASE
-═══════════════════════════════════════════════════════════════ */
 const SENTENCES = [
   "The teacher goes to school by bus in India morning time.",
   "The doctor works in hospital with mobile in USA today shift.",

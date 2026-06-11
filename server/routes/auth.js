@@ -130,10 +130,7 @@ function generateChallengeGrid(secretNouns) {
   };
 }
 
-/* ─────────────────────────────────────────────────────────────
-   POST /api/auth/signup
-   Body: { email, password, selectedSentence, secretPositions, offset }
-───────────────────────────────────────────────────────────── */
+
 router.post("/signup", async (req, res) => {
   try {
     const { email, password, selectedSentence, secretPositions, offset } = req.body;
@@ -199,12 +196,7 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-/* ─────────────────────────────────────────────────────────────
-   POST /api/auth/login   — Step 1: verify credentials
-   Body: { email, password }
-   Returns: { success, sessionId, challengeGrid }
-   NOTE: secretPositions and offset are NEVER sent to the client.
-───────────────────────────────────────────────────────────── */
+
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;

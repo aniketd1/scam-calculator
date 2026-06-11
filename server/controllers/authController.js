@@ -110,15 +110,6 @@ function buildChallengeGrid(secretNouns) {
   }));
 }
 
-/* ─────────────────────────────────────────────────────────────────
-   REGISTER BUILDER
-   Given secretImageValue (e.g. 20), offset (e.g. 5), secretPositions (e.g. ["A","D"]):
-     result = 20 + 5 = 25
-     d1 = 2  (tens digit)
-     d2 = 5  (units digit)
-   Place d1 at position A (index 0), d2 at position D (index 3).
-   Everything else is random 0–9.
-───────────────────────────────────────────────────────────────── */
 function buildRegister(secretImageValue, offset, secretPositions) {
   const result = secretImageValue + offset;
   const d1     = Math.floor(result / 10) % 10;
@@ -131,10 +122,6 @@ function buildRegister(secretImageValue, offset, secretPositions) {
   return reg;
 }
 
-/* ═════════════════════════════════════════════════════════════════
-   POST  /auth/signup
-   Body: { email, password, selectedSentence, secretPositions, offset }
-═════════════════════════════════════════════════════════════════ */
 const signup = async (req, res) => {
   try {
     const { email, password, selectedSentence, secretPositions, offset } = req.body;
