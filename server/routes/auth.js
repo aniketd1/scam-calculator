@@ -197,9 +197,14 @@ router.post("/verify", async (req, res) => {
       return res.status(404).json({ success: false, error: "Session not found." });
 
     const user = await User.findById(session.userId);
+    if (!user || !user.secretPositions || user.secretPositions.length < 2)
+      return res.status(400).json({ success: false, error: "User account not properly configured. Please sign up again." });
 
     const posIdx1 = POSITIONS.indexOf(user.secretPositions[0]);
     const posIdx2 = POSITIONS.indexOf(user.secretPositions[1]);
+
+    if (posIdx1 === -1 || posIdx2 === -1)
+      return res.status(400).json({ success: false, error: "Invalid secret positions configured." });
 
     const actual1 = parseInt(registerInputs[posIdx1], 10);
     const actual2 = parseInt(registerInputs[posIdx2], 10);
