@@ -103,20 +103,31 @@ function extractNouns(sentence) {
  * Each card gets a fresh random value 10–99.
  */
 function generateChallengeGrid(secretNouns) {
-  const needed = secretNouns.filter((n) => ALL_NOUNS.includes(n));
+
+  const chosenSecret =
+    secretNouns[
+      Math.floor(Math.random() * secretNouns.length)
+    ];
 
   const distractors = ALL_NOUNS
-    .filter((n) => !needed.includes(n))
+    .filter((n) => n !== chosenSecret)
     .sort(() => Math.random() - 0.5)
-    .slice(0, Math.max(0, GRID_SIZE - needed.length));
+    .slice(0, GRID_SIZE - 1);
 
-  return [...needed, ...distractors]
+  const challengeGrid = [
+    chosenSecret,
+    ...distractors,
+  ]
     .sort(() => Math.random() - 0.5)
-    .slice(0, GRID_SIZE)
     .map((noun) => ({
       noun,
       value: Math.floor(Math.random() * 90) + 10,
     }));
+
+  return {
+    challengeGrid,
+    chosenSecret,
+  };
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -162,7 +173,7 @@ router.post("/signup", async (req, res) => {
     // Save user
     const user = await User.create({
       email: email.toLowerCase().trim(),
-      password: hashedPassword,
+      password,
       selectedSentence,
       secretNouns,
       secretPositions,
@@ -213,24 +224,17 @@ router.post("/login", async (req, res) => {
     }
 
     // Generate 12-card challenge grid
-const challengeGrid = [
-  { noun: "teacher", value: 62 },
-  { noun: "school", value: 15 },
-  { noun: "bus", value: 41 },
-  { noun: "doctor", value: 28 },
-  { noun: "hospital", value: 37 },
-  { noun: "mobile", value: 84 },
-  { noun: "river", value: 55 },
-  { noun: "mountain", value: 11 },
-  { noun: "football", value: 90 },
-  { noun: "apple", value: 33 },
-  { noun: "car", value: 71 },
-  { noun: "laptop", value: 24 }
-];    console.log("USER NOUNS:", user.secretNouns);
-    // Identify which grid entry is the user's primary secret noun
-    const revealedItem = challengeGrid.find((item) =>
-      user.secretNouns.includes(item.noun)
-    ) || challengeGrid[0];
+const {
+  challengeGrid,
+  chosenSecret,
+} = generateChallengeGrid(
+  user.secretNouns
+);
+
+const revealedItem =
+  challengeGrid.find(
+    (item) => item.noun === chosenSecret
+  );
 
     // Create session — stores grid + revealedItem server-side
     const sessionId = uuidv4();
@@ -300,7 +304,16 @@ router.post("/verify", async (req, res) => {
 
     const actualD1  = parseInt(registerInputs[posIdx1], 10);
     const actualD2  = parseInt(registerInputs[posIdx2], 10);
+console.log("secretValue:", secretValue);
+console.log("offset:", user.offset);
 
+console.log("expected:", expected);
+
+console.log("positions:", user.secretPositions);
+
+console.log("expected digits:", expD1, expD2);
+
+console.log("received:", registerInputs);
     if (isNaN(actualD1) || isNaN(actualD2) || actualD1 !== expD1 || actualD2 !== expD2) {
       // Delete session on failure — force full restart
       await LoginSession.deleteOne({ sessionId });
