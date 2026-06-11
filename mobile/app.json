@@ -46,11 +46,27 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
+     "cli": {
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "ebf236dc-1ef8-4842-974b-f6b7412dc416"
+        "projectId": "137f154b-6884-443f-9723-5b937db662f3"
       }
-    }
+    },
+    "owner": "wallnetsafe-technologies-private-limited"
   }
 }
