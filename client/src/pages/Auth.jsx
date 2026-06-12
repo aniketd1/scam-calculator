@@ -1,9 +1,23 @@
 // Auth.jsx — Scam2Safe visual-sentence authentication
+// Theme  : warm cream #f7efe6 · navy #0f172a · cyan #06B6D4
+// Fonts  : Space Grotesk (headings) · Inter (body)
+// Layout : single wide card, no right panel
+//
+// KEY CHANGES FROM v1:
+//  • Asset glob now points to ../assets/nouns/  (real PNGs, no emojis)
+//  • Explicit NOUN_IMAGE_MAP for every PNG in the folder (handles mixed-case filenames)
+//  • Signup is ONE step: email + password + sentence card containing offset + positions
+//  • Challenge grid is 4 cols × 3 rows = 12 cards
+//  • Login Step 3 shows EDITABLE input boxes A-O; user types their digits; Verify sends them
+//  • /api/auth/verify now receives { sessionId, registerInputs }
 
 import { useState, useCallback, useRef } from "react";
 
-const API_BASE = "https://api.scam2safe.com";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
+/* ═══════════════════════════════════════════════════════════════
+   1. SENTENCE DATABASE
+═══════════════════════════════════════════════════════════════ */
 const SENTENCES = [
   "The teacher goes to school by bus in India morning time.",
   "The doctor works in hospital with mobile in USA today shift.",
@@ -65,14 +79,22 @@ const SENTENCES = [
 ═══════════════════════════════════════════════════════════════ */
 
 // Vite glob — loads every PNG from the nouns folder eagerly
-const _nounGlob = import.meta.glob("../assets/nouns/*.png", { eager: true, as: "url" });
-
+const _nounGlob = import.meta.glob(
+  "../assets/nouns/*.png",
+  {
+    eager: true
+  }
+);
 // Build a lookup from lowercase-filename-stem → URL
 const _fileMap = {};
-for (const [fullPath, url] of Object.entries(_nounGlob)) {
-  // e.g. "../assets/nouns/School building.png"  →  stem = "school building"
-  const stem = fullPath.split("/").pop().replace(/\.png$/i, "").toLowerCase();
-  _fileMap[stem] = url;
+for (const [fullPath, module] of Object.entries(_nounGlob)) {
+  const stem = fullPath
+    .split("/")
+    .pop()
+    .replace(/\.png$/i, "")
+    .toLowerCase();
+
+  _fileMap[stem] = module.default;
 }
 
 // Explicit noun → filename-stem mapping (handles every PNG from the screenshots)
