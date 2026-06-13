@@ -1,6 +1,4 @@
-// routes/auth.js — ESM (type:"module")
-// Single source of truth for auth. authController.js is NOT used.
-
+// routes/auth.js  — ESM (type:"module")
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -8,80 +6,176 @@ import { v4 as uuidv4 } from "uuid";
 import User from "../models/User.js";
 import LoginSession from "../models/LoginSession.js";
 
-const router = express.Router();
 
-/* ── CONSTANTS ──────────────────────────────────────────────── */
+const router = express.Router();
+/*import {
+  signup,
+  login,
+  verify
+} from "../controllers/authController.js";*/
+/* ─────────────────────────────────────────────────────────────
+   CONSTANTS
+───────────────────────────────────────────────────────────── */
 const POSITIONS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O"];
+
+// Grid is 4 cols × 3 rows = 12 cards (matches screenshots)
 const GRID_SIZE = 12;
 
+// All nouns that have images in client/src/assets/nouns/
+// Matches every PNG listed in the screenshots
 const ALL_NOUNS = [
-  "teacher","doctor","farmer","student","child","engineer","driver","boy","girl",
-  "school","hospital","house","university","park","field","road","ocean","mountain",
-  "river","bus","train","car","laptop","mobile","tv","table","chair","bed","guitar",
-  "drums","piano","cricket","football","tennis","apple","banana","mango","carrot",
-  "rice","milk","bread","dog","cat","parrot","pigeon","sparrow","elephant",
-  "sunflower","rose","spinach","eye","ear","hand","beach","lotus",
+  "apple",
+  "banana",
+  "beach",
+  "bed",
+  "black",
+  "blue",
+  "bread",
+  "bus",
+  "car",
+  "carrot",
+  "cat",
+  "chair",
+  "cricket",
+  "doctor",
+  "dog",
+  "dress",
+  "drums",
+  "ear",
+  "elephant",
+  "eye",
+  "farmer",
+  "football",
+  "green",
+  "guitar",
+  "hand",
+  "hospital",
+  "house",
+  "laptop",
+  "lotus",
+  "mango",
+  "milk",
+  "mobile",
+  "mountain",
+  "ocean",
+  "park",
+  "parrot",
+  "piano",
+  "pigeon",
+  "potato",
+  "purple",
+  "red",
+  "rice",
+  "river",
+  "rose",
+  "school",
+  "shirt",
+  "sparrow",
+  "spinach",
+  "sunflower",
+  "table",
+  "teacher",
+  "tennis",
+  "train",
+  "tshirt",
+  "tv",
+  "yellow"
 ];
 
-/* ── HELPERS ────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────────────────────── */
 function extractNouns(sentence) {
-  const nounSet = new Set(ALL_NOUNS);
+  const normalized = sentence
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
   return [...new Set(
-    sentence.toLowerCase()
-      .replace(/[^a-z\s]/g, "")
-      .split(/\s+/)
-      .filter(w => nounSet.has(w))
+    ALL_NOUNS.filter(noun =>
+      normalized.includes(noun.toLowerCase())
+    )
   )];
 }
 
+/**
+ * Build a 12-card challenge grid.
+ * Guarantees every secretNoun appears. Rest are random distractors.
+ * Each card gets a fresh random value 10–99.
+ */
 function generateChallengeGrid(secretNouns) {
-  const chosenSecret = secretNouns[Math.floor(Math.random() * secretNouns.length)];
+  const chosenSecret =
+    secretNouns[
+      Math.floor(Math.random() * secretNouns.length)
+    ];
 
   const distractors = ALL_NOUNS
-    .filter(n => n !== chosenSecret)
+    .filter(
+      (n) =>
+        n !== chosenSecret &&
+        !secretNouns.includes(n)
+    )
     .sort(() => Math.random() - 0.5)
     .slice(0, GRID_SIZE - 1);
 
-  const challengeGrid = [chosenSecret, ...distractors]
+  const challengeGrid = [
+    chosenSecret,
+    ...distractors,
+  ]
     .sort(() => Math.random() - 0.5)
-    .map(noun => ({
+    .map((noun) => ({
       noun,
-      value: Math.floor(Math.random() * 90) + 10
+      value: Math.floor(Math.random() * 90) + 10,
     }));
 
-  return { challengeGrid, chosenSecret };
+  return {
+    challengeGrid,
+    chosenSecret,
+  };
 }
 
-/* ── POST /api/auth/signup ──────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   POST /api/auth/signup
+   Body: { email, password, selectedSentence, secretPositions, offset }
+───────────────────────────────────────────────────────────── */
 router.post("/signup", async (req, res) => {
   try {
     const { email, password, selectedSentence, secretPositions, offset } = req.body;
 
-    if (!email || !password || !selectedSentence || !secretPositions || offset == null)
+    // Validate
+    if (!email || !password || !selectedSentence || !secretPositions || offset == null) {
       return res.status(400).json({ success: false, error: "All fields are required." });
-
-    if (!Array.isArray(secretPositions) || secretPositions.length !== 2)
+    }
+    if (!Array.isArray(secretPositions) || secretPositions.length !== 2) {
       return res.status(400).json({ success: false, error: "Exactly 2 positions required." });
-
-    if (secretPositions[0] === secretPositions[1])
-      return res.status(400).json({ success: false, error: "Positions must be different." });
-
+    }
     const off = parseInt(offset, 10);
-    if (isNaN(off) || off < 1 || off > 99)
+    if (isNaN(off) || off < 1 || off > 99) {
       return res.status(400).json({ success: false, error: "Offset must be 1–99." });
-
-    for (const p of secretPositions)
-      if (!POSITIONS.includes(p))
+    }
+    for (const p of secretPositions) {
+      if (!POSITIONS.includes(p)) {
         return res.status(400).json({ success: false, error: `Invalid position: ${p}` });
+      }
+    }
 
+    // Duplicate check
     const existing = await User.findOne({ email: email.toLowerCase().trim() });
-    if (existing)
+    if (existing) {
       return res.status(409).json({ success: false, error: "An account with that email already exists." });
+    }
 
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Extract nouns
     const secretNouns = extractNouns(selectedSentence);
-    if (!secretNouns.length)
+    if (secretNouns.length === 0) {
       return res.status(400).json({ success: false, error: "No recognisable nouns found in that sentence." });
+    }
 
+    // Save user
     const user = await User.create({
       email: email.toLowerCase().trim(),
       password,
@@ -110,174 +204,131 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-/* ── POST /api/auth/login ───────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   POST /api/auth/login   — Step 1: verify credentials
+   Body: { email, password }
+   Returns: { success, sessionId, challengeGrid }
+   NOTE: secretPositions and offset are NEVER sent to the client.
+───────────────────────────────────────────────────────────── */
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: "Email and password are required."
-      });
+      return res.status(400).json({ success: false, error: "Email and password are required." });
     }
 
-    const user = await User.findOne({
-      email: email.toLowerCase().trim()
-    });
-
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        error: "Invalid email or password."
-      });
+      return res.status(401).json({ success: false, error: "Invalid email or password." });
     }
 
     const match = await bcrypt.compare(password, user.password);
-
     if (!match) {
-      return res.status(401).json({
-        success: false,
-        error: "Invalid email or password."
-      });
+      return res.status(401).json({ success: false, error: "Invalid email or password." });
     }
 
-    // 1. Generate challenge grid
-    const { challengeGrid, chosenSecret } = generateChallengeGrid(user.secretNouns);
+    // Generate 12-card challenge grid
+const {
+  challengeGrid,
+  chosenSecret,
+} = generateChallengeGrid(
+  user.secretNouns
+);
 
-    const revealedItem = challengeGrid.find(
-      item => item.noun === chosenSecret
-    );
+const revealedItem =
+  challengeGrid.find(
+    (item) => item.noun === chosenSecret
+  );
 
-    if (!revealedItem) {
-      return res.status(500).json({
-        success: false,
-        error: "Failed to generate challenge."
-      });
-    }
-
-    // 2. Create session id
+    // Create session — stores grid + revealedItem server-side
     const sessionId = uuidv4();
-
-    // 3. Build register (THIS FIXES YOUR BUG)
-    const expected = revealedItem.value + user.offset;
-
-    const d1 = Math.floor(expected / 10) % 10;
-    const d2 = expected % 10;
-
-    const register = Array.from({ length: 15 }, () =>
-      Math.floor(Math.random() * 10)
-    );
-
-    const pos1 = POSITIONS.indexOf(user.secretPositions[0]);
-    const pos2 = POSITIONS.indexOf(user.secretPositions[1]);
-
-    if (pos1 === -1 || pos2 === -1) {
-      return res.status(500).json({
-        success: false,
-        error: "User secret positions are corrupted."
-      });
-    }
-
-    register[pos1] = d1;
-    register[pos2] = d2;
-
-    // 4. Save session INCLUDING register
     await LoginSession.create({
       sessionId,
       userId: user._id,
       challengeGrid,
-      register, // 👈 CRITICAL FIX
-      revealedItem: {
-        noun: revealedItem.noun,
-        value: revealedItem.value
-      }
+      revealedItem: { noun: revealedItem.noun, value: revealedItem.value },
     });
 
-    // 5. Respond
+    // Return sessionId + grid to client.
+    // Never return secretPositions or offset.
     return res.json({
       success: true,
       sessionId,
-      challengeGrid
+      challengeGrid,
     });
 
   } catch (err) {
     console.error("[login]", err);
-    return res.status(500).json({
-      success: false,
-      error: "Server error during login."
-    });
+    return res.status(500).json({ success: false, error: "Server error during login." });
   }
 });
 
-/* ── POST /api/auth/register ────────────────────────────────── */
-router.post("/register", async (req, res) => {
-  try {
-    const { sessionId, challengeGrid } = req.body;
+/* ─────────────────────────────────────────────────────────────
+   POST /api/auth/verify   — Step 2: user submits filled register
+   Body: { sessionId, registerInputs }
+   registerInputs: array of 15 digits the user typed (index 0=A, 1=B, …)
 
-    if (!sessionId || !Array.isArray(challengeGrid) || !challengeGrid.length)
-      return res.status(400).json({ success: false, error: "sessionId and challengeGrid are required." });
-
-    const session = await LoginSession.findOne({ sessionId });
-    if (!session)
-      return res.status(404).json({ success: false, error: "Session not found." });
-
-    const user = await User.findById(session.userId);
-    if (!user)
-      return res.status(404).json({ success: false, error: "User not found." });
-
-    const secretValue = session.revealedItem.value;
-    const expected = secretValue + user.offset;
-
-    const d1 = Math.floor(expected / 10) % 10;
-    const d2 = expected % 10;
-
-    const register = Array.from({ length: 15 }, () => Math.floor(Math.random() * 10));
-
-    register[POSITIONS.indexOf(user.secretPositions[0])] = d1;
-    register[POSITIONS.indexOf(user.secretPositions[1])] = d2;
-
-    session.register = register;
-    await session.save();
-
-    return res.json({ success: true, register });
-
-  } catch (err) {
-    console.error("[register]", err);
-    return res.status(500).json({ success: false, error: "Server error building register." });
-  }
-});
-
-/* ── POST /api/auth/verify ──────────────────────────────────── */
+   Server logic:
+     1. Load session → get revealedItem.value
+     2. Load user    → get offset, secretPositions
+     3. Compute expected = revealedItem.value + offset
+     4. Split into d1 (tens) and d2 (units)
+     5. Check registerInputs[posIdx1] === d1  AND  registerInputs[posIdx2] === d2
+     6. If match → issue JWT and delete session
+───────────────────────────────────────────────────────────── */
 router.post("/verify", async (req, res) => {
   try {
     const { sessionId, registerInputs } = req.body;
 
-    const session = await LoginSession.findOne({ sessionId });
-    if (!session)
-      return res.status(404).json({ success: false, error: "Session not found." });
-
-    const user = await User.findById(session.userId);
-    if (!user || !user.secretPositions || user.secretPositions.length < 2)
-      return res.status(400).json({ success: false, error: "User account not properly configured. Please sign up again." });
-
-    const posIdx1 = POSITIONS.indexOf(user.secretPositions[0]);
-    const posIdx2 = POSITIONS.indexOf(user.secretPositions[1]);
-
-    if (posIdx1 === -1 || posIdx2 === -1)
-      return res.status(400).json({ success: false, error: "Invalid secret positions configured." });
-
-    const actual1 = parseInt(registerInputs[posIdx1], 10);
-    const actual2 = parseInt(registerInputs[posIdx2], 10);
-
-    const correct1 = session.register[posIdx1];
-    const correct2 = session.register[posIdx2];
-
-    if (actual1 !== correct1 || actual2 !== correct2) {
-      await LoginSession.deleteOne({ sessionId });
-      return res.status(401).json({ success: false, error: "Verification failed." });
+    if (!sessionId || !Array.isArray(registerInputs)) {
+      return res.status(400).json({ success: false, error: "sessionId and registerInputs are required." });
+    }
+    if (registerInputs.length !== 15) {
+      return res.status(400).json({ success: false, error: "registerInputs must have exactly 15 values." });
     }
 
+    const session = await LoginSession.findOne({ sessionId });
+    if (!session) {
+      return res.status(404).json({ success: false, error: "Session not found or expired. Please start over." });
+    }
+
+    const user = await User.findById(session.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found." });
+    }
+
+    // Derive expected digits
+    const { value: secretValue } = session.revealedItem;
+    const expected  = secretValue + user.offset;      // e.g. 62 + 5 = 67
+    const expD1     = Math.floor(expected / 10) % 10; // tens  digit → 6
+    const expD2     = expected % 10;                   // units digit → 7
+
+    const posIdx1   = POSITIONS.indexOf(user.secretPositions[0]);
+    const posIdx2   = POSITIONS.indexOf(user.secretPositions[1]);
+
+    const actualD1  = parseInt(registerInputs[posIdx1], 10);
+    const actualD2  = parseInt(registerInputs[posIdx2], 10);
+console.log("secretValue:", secretValue);
+console.log("offset:", user.offset);
+
+console.log("expected:", expected);
+
+console.log("positions:", user.secretPositions);
+
+console.log("expected digits:", expD1, expD2);
+
+console.log("received:", registerInputs);
+    if (isNaN(actualD1) || isNaN(actualD2) || actualD1 !== expD1 || actualD2 !== expD2) {
+      // Delete session on failure — force full restart
+      await LoginSession.deleteOne({ sessionId });
+      return res.status(401).json({
+        success: false,
+        error: "Register verification failed. Check your positions and offset, then try again.",
+      });
+    }
+
+    // Verified — clean up session and issue JWT
     await LoginSession.deleteOne({ sessionId });
 
     const token = jwt.sign(
@@ -288,14 +339,14 @@ router.post("/verify", async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Identity verified.",
+      message: "Identity verified. Welcome back!",
       token,
-      user: { id: user._id, email: user.email }
+      user: { id: user._id, email: user.email },
     });
 
   } catch (err) {
     console.error("[verify]", err);
-    return res.status(500).json({ success: false, error: "Server error." });
+    return res.status(500).json({ success: false, error: "Server error during verification." });
   }
 });
 
