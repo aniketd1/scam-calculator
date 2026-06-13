@@ -251,16 +251,24 @@ function GridCard({ noun, value }) {
 function RegisterInputBar({ inputs, onChange }) {
   const refs = useRef([]);
   const handleKey = (e, idx) => {
-    if (e.key === "Backspace" && !inputs[idx] && idx > 0) {
+  if (e.key === "Backspace") {
+    if (!inputs[idx] && idx > 0) {
       refs.current[idx - 1]?.focus();
     }
-  };
-  const handleChange = (idx, val) => {
-    const digit = val.replace(/\D/, "").slice(-1);
-    onChange(idx, digit);
-    if (digit && idx < 14) refs.current[idx + 1]?.focus();
-  };
-  return (
+  }
+};
+ const handleChange = (idx, val) => {
+  const digit = val.replace(/\D/g, "").slice(-1);
+
+  onChange(idx, digit);
+
+  if (digit && idx < 14) {
+    requestAnimationFrame(() => {
+      refs.current[idx + 1]?.focus();
+    });
+  }
+};
+return (
     <div className="reg-wrap">
       {/* Header */}
       <div className="reg-header">
@@ -279,6 +287,7 @@ function RegisterInputBar({ inputs, onChange }) {
             inputMode="numeric"
             maxLength={1}
             value={inputs[i] ?? ""}
+            disabled={i > 0 && !inputs[i - 1]}
             onChange={(e) => handleChange(i, e.target.value)}
             onKeyDown={(e) => handleKey(e, i)}
             placeholder="·"
@@ -427,8 +436,9 @@ export default function Auth() {
 
   const handleVerify = async () => {
     setError("");
-    const allFilled = regInputs.every((v) => v !== "");
-    if (!allFilled) { setError("Fill in all 15 positions (A – O)."); return; }
+const allFilled = regInputs.every(
+  (v) => /^[0-9]$/.test(v)
+);    if (!allFilled) { setError("Fill in all 15 positions (A – O)."); return; }
 
     setLoading(true);
     try {
@@ -1027,6 +1037,12 @@ button,input,select{font-family:inherit;}
   border-right:1px solid #e2d9cc;
   font-size:18px;
   font-weight:700;
+}
+
+.reg-input-cell:disabled{
+  background:#f1f5f9;
+  color:#cbd5e1;
+  cursor:not-allowed;
 }
 
 .reg-input-cell:last-child{
