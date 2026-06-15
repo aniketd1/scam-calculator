@@ -251,24 +251,34 @@ function GridCard({ noun, value }) {
 function RegisterInputBar({ inputs, onChange }) {
   const refs = useRef([]);
   const handleKey = (e, idx) => {
-  if (e.key === "Backspace") {
-    if (!inputs[idx] && idx > 0) {
-      refs.current[idx - 1]?.focus();
+    if (e.key === "Backspace") {
+      if (!inputs[idx] && idx > 0) {
+        refs.current[idx - 1]?.focus();
+      }
     }
-  }
-};
- const handleChange = (idx, val) => {
-  const digit = val.replace(/\D/g, "").slice(-1);
+  };
+  const handleChange = (idx, val) => {
+    const digit = val.replace(/\D/g, "").slice(-1);
+    const existingCounts = inputs.reduce((counts, value, position) => {
+      if (value !== "" && position !== idx) {
+        counts[value] = (counts[value] || 0) + 1;
+      }
+      return counts;
+    }, {});
 
-  onChange(idx, digit);
+    if (digit && existingCounts[digit] >= 2) {
+      return;
+    }
 
-  if (digit && idx < 14) {
-    requestAnimationFrame(() => {
-      refs.current[idx + 1]?.focus();
-    });
-  }
-};
-return (
+    onChange(idx, digit);
+
+    if (digit && idx < 14) {
+      requestAnimationFrame(() => {
+        refs.current[idx + 1]?.focus();
+      });
+    }
+  };
+  return (
     <div className="reg-wrap">
       {/* Header */}
       <div className="reg-header">
@@ -356,6 +366,11 @@ export default function Auth() {
     setRegInputs((prev) => {
       const next = [...prev];
       next[idx] = digit;
+      if (!digit) {
+        for (let j = idx + 1; j < next.length; j += 1) {
+          next[j] = "";
+        }
+      }
       return next;
     });
   };
@@ -496,7 +511,7 @@ const allFilled = regInputs.every(
                 <div className="success-check">✓</div>
                 <h2 className="success-title">Identity Verified</h2>
                 <p className="success-msg">
-                  Your visual sentence login succeeded. JWT stored in localStorage.
+                  Your visual sentence login succeeded. Welcome back!
                 </p>
                 <button className="btn-outline" onClick={() => resetAll("login")}>
                   Sign in again
@@ -570,6 +585,26 @@ const allFilled = regInputs.every(
                               className={`sentence-card${isSelected ? " sentence-card--selected" : ""}`}
                               onClick={() => setSentence(s)}
                             >
+                              {/* Sentence images */}
+                              {ns.length > 0 && (
+                                <div className="sentence-images">
+                                  {ns.map((n) => {
+                                    const imgSrc = getNounImage(n);
+                                    return imgSrc ? (
+                                      <img
+                                        key={n}
+                                        src={imgSrc}
+                                        alt={n}
+                                        className="sentence-image"
+                                      />
+                                    ) : (
+                                      <span key={n} className="sentence-image sentence-image--fallback">
+                                        {n.charAt(0).toUpperCase()}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
                               {/* Sentence text */}
                               <div className="sentence-text">{s}</div>
 
@@ -682,9 +717,9 @@ const allFilled = regInputs.every(
                         <div className="step-badge">Step 2 of 3 — Find your secret image</div>
 
                         <div className="info-box">
-                          <strong>Look for your image.</strong> Find the image that matches a noun from
-                          your sentence. Note the number beneath it. Add your private offset to it mentally.
-                          Keep that result in mind — you will enter its digits in the next step.
+                          <strong>Look for your image.</strong> Only one image from your sentence appears
+                          in this login grid. Find it, note the number beneath it, then add your private offset
+                          mentally so you can enter the resulting two digits in the next step.
                         </div>
 
                         {/* 4 × 3 grid */}
@@ -916,9 +951,22 @@ button,input,select{font-family:inherit;}
 .sentence-text{font-size:0.87rem;color:#334155;line-height:1.55;}
 .noun-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
 .noun-chip{
-  padding:2px 9px;border-radius:99px;
-  background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);
-  font-size:0.67rem;color:#0891b2;font-weight:600;letter-spacing:0.03em;
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:4px 8px;border-radius:999px;
+  background:rgba(15,23,42,0.05);color:#475569;
+  font-size:0.72rem;font-weight:600;text-transform:capitalize;
+}
+.sentence-images{
+  display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;
+}
+.sentence-image{
+  width:34px;height:34px;object-fit:contain;
+  border-radius:12px;border:1px solid #e2d9cc;
+  background:#fff;
+}
+.sentence-image--fallback{
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:0.85rem;color:#475569;background:#f8fafc;
 }
 
 /* Controls inside selected card */

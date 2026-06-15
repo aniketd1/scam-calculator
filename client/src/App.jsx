@@ -15,7 +15,6 @@ function App() {
 
           <main className="main-content">
             <AppRoutes />
-            <VoiceAgent />
           </main>
 
           <Footer />
