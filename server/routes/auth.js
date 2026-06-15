@@ -105,24 +105,15 @@ function extractNouns(sentence) {
  * Each card gets a fresh random value 10–99.
  */
 function generateChallengeGrid(secretNouns) {
-  const chosenSecret =
-    secretNouns[
-      Math.floor(Math.random() * secretNouns.length)
-    ];
+  const secrets = [...new Set(secretNouns.filter(Boolean))];
+  const chosenSecret = secrets[Math.floor(Math.random() * secrets.length)];
 
   const distractors = ALL_NOUNS
-    .filter(
-      (n) =>
-        n !== chosenSecret &&
-        !secretNouns.includes(n)
-    )
+    .filter((n) => !secrets.includes(n))
     .sort(() => Math.random() - 0.5)
     .slice(0, GRID_SIZE - 1);
 
-  const challengeGrid = [
-    chosenSecret,
-    ...distractors,
-  ]
+  const challengeGrid = [chosenSecret, ...distractors]
     .sort(() => Math.random() - 0.5)
     .map((noun) => ({
       noun,

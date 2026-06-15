@@ -13,7 +13,7 @@
 
 import { useState, useCallback, useRef } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
 /* ═══════════════════════════════════════════════════════════════
    1. SENTENCE DATABASE
@@ -481,8 +481,9 @@ const allFilled = regInputs.every(
             Sign in with your <span className="hero-accent">Visual Sentence</span>
           </h1>
           <p className="hero-sub">
-            Your sentence's nouns become secret images. Pick two register positions and a private
-            offset. At login: spot your image, add your offset, enter the two digits at your positions.
+            Your sentence's nouns become possible secret images. Pick two register positions and a private
+            offset. At login: only one of those images will appear in the grid, then spot it, add your offset,
+            and enter the two digits at your positions.
           </p>
         </header>
 
@@ -554,8 +555,9 @@ const allFilled = regInputs.every(
                     <div>
                       <p className="section-label">Choose your visual password sentence</p>
                       <p className="section-hint">
-                        The highlighted nouns in your sentence become your secret images. One will appear
-                        in the login grid; spot it, add your offset, enter two digits at your positions.
+                        The highlighted nouns in your sentence become possible secret images. Only one of them
+                        will appear in the login grid; spot that image, add your offset, and enter the resulting
+                        two digits at your positions.
                       </p>
                       <div className="sentence-list">
                         {SENTENCES.map((s) => {
