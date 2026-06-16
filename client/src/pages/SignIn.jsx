@@ -31,15 +31,15 @@ function getNounImage(noun) {
   return _fileMap[stem] ?? _fileMap[stem.replace(/\s+/g, "")] ?? null;
 }
 
-const POSITIONS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O"];
+const POSITIONS = ["A","B","C","D","E","F","G","H","I","J"];
 
-/* ── Register input bar (A–O) ─────────────────────────────── */
+/* ── Register input bar (A–J) ─────────────────────────────── */
 function RegisterBar({ inputs, onChange }) {
   const refs = useRef([]);
   const handleChange = (idx, val) => {
     const digit = val.replace(/\D/, "").slice(-1);
     onChange(idx, digit);
-    if (digit && idx < 14) refs.current[idx + 1]?.focus();
+    if (digit && idx < 9) refs.current[idx + 1]?.focus();
   };
   const handleKey = (e, idx) => {
     if (e.key === "Backspace" && !inputs[idx] && idx > 0)
@@ -97,7 +97,7 @@ export default function SignIn() {
   const [password,      setPassword]      = useState("");
   const [sessionId,     setSessionId]     = useState("");
   const [challengeGrid, setChallengeGrid] = useState([]);
-  const [regInputs,     setRegInputs]     = useState(Array(15).fill(""));
+  const [regInputs,     setRegInputs]     = useState(Array(10).fill(""));
   const [loading,       setLoading]       = useState(false);
   const [error,         setError]         = useState("");
 
@@ -126,7 +126,7 @@ export default function SignIn() {
       if (!data.success) { setError(data.error || "Login failed."); return; }
       setSessionId(data.sessionId);
       setChallengeGrid(data.challengeGrid || []);
-      setRegInputs(Array(15).fill(""));
+      setRegInputs(Array(10).fill(""));
       setStep("grid");
     } catch (err) {
       setError(err.response?.data?.error || "Server error. Try again.");
@@ -150,7 +150,7 @@ export default function SignIn() {
         setStep("creds"); // session gone, restart
         return;
       }
-      setRegInputs(Array(15).fill(""));
+      setRegInputs(Array(10).fill(""));
       setStep("register");
     } catch (err) {
       setError(err.response?.data?.error || "Server error. Try again.");
@@ -187,7 +187,7 @@ export default function SignIn() {
   const restart = () => {
     setStep("creds"); setEmail(""); setPassword("");
     setSessionId(""); setChallengeGrid([]);
-    setRegInputs(Array(15).fill("")); setError("");
+    setRegInputs(Array(10).fill("")); setError("");
   };
 
   /* ── Render ─────────────────────────────────────────────── */
@@ -270,7 +270,7 @@ export default function SignIn() {
           <div style={S.stack}>
             <div style={S.stepBadge}>Step 3 of 3 — Enter your register</div>
             <div style={S.infoBox}>
-              <strong>Fill all 15 boxes (A – O).</strong> At your two secret positions enter the
+              <strong>Fill all 10 boxes (A – J).</strong> At your two secret positions enter the
               two digits of your result (image value + your offset). All other boxes: any digit.
               Only your two positions are checked.
             </div>

@@ -65,7 +65,7 @@ function extractNouns(sentence) {
 /* ─────────────────────────────────────────────────────────────────
    POSITIONS
 ───────────────────────────────────────────────────────────────── */
-const POSITIONS = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O"];
+const POSITIONS = ["A","B","C","D","E","F","G","H","I","J"];
 
 /* ─────────────────────────────────────────────────────────────────
    ALL NOUNS POOL — used to fill the challenge grid with distractors
@@ -115,7 +115,7 @@ function buildRegister(secretImageValue, offset, secretPositions) {
   const d1     = Math.floor(result / 10) % 10;
   const d2     = result % 10;
 
-  const reg = Array.from({ length: 15 }, () => Math.floor(Math.random() * 10));
+  const reg = Array.from({ length: 10 }, () => Math.floor(Math.random() * 10));
   reg[POSITIONS.indexOf(secretPositions[0])] = d1;
   reg[POSITIONS.indexOf(secretPositions[1])] = d2;
 
@@ -302,8 +302,8 @@ const verify = async (req, res) => {
     if (!session.verifyPayload) {
       return res.json({ success: false, error: "Register not yet built. Complete the challenge step first." });
     }
-    if (!Array.isArray(registerInputs) || registerInputs.length !== 15) {
-      return res.json({ success: false, error: "All 15 register positions are required." });
+    if (!Array.isArray(registerInputs) || registerInputs.length !== 10) {
+      return res.json({ success: false, error: "All 10 register positions are required." });
     }
 
     const { secretPositions } = session;
