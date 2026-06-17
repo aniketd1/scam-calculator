@@ -313,10 +313,21 @@ const verify = async (req, res) => {
     const pos0 = POSITIONS.indexOf(secretPositions[0]);
     const pos1 = POSITIONS.indexOf(secretPositions[1]);
 
-    const d0Correct = Number(registerInputs[pos0]) === register[pos0];
-    const d1Correct = Number(registerInputs[pos1]) === register[pos1];
+    const expectedDigit1 = register[pos0];
+    const expectedDigit2 = register[pos1];
 
-    if (!d0Correct || !d1Correct) {
+    const userDigit1 = Number(registerInputs[pos0]);
+    const userDigit2 = Number(registerInputs[pos1]);
+
+    const normalOrder =
+      userDigit1 === expectedDigit1 &&
+      userDigit2 === expectedDigit2;
+
+    const reverseOrder =
+      userDigit1 === expectedDigit2 &&
+      userDigit2 === expectedDigit1;
+
+    if (!normalOrder && !reverseOrder) {
       // Invalidate session on failure — must start over
       sessions.delete(sessionId);
       return res.json({ success: false, error: "Register digits do not match. Please sign in again." });
