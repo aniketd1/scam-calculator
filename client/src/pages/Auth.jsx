@@ -6,56 +6,56 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
    SENTENCES
 ═══════════════════════════════════════════════════════════════ */
 const SENTENCES = [
-  "The teacher goes to school by bus in India morning time.",
-  "The doctor works in hospital with mobile in USA today shift.",
-  "The farmer lives in house near river in India village life.",
-  "The student studies in university by train in Japan city.",
-  "The child plays football in park with dog and cat fun.",
-  "The teacher writes on table in school with laptop notes work.",
-  "The doctor checks eye in hospital with hand patient care.",
-  "The farmer grows carrot in field near mountain green land.",
-  "The engineer works in university with laptop in USA office.",
-  "The driver drives car on road near ocean sea view.",
-  "The boy eats apple in park with banana fruit time.",
-  "The girl drinks milk in house with bread food time.",
-  "The teacher sits on chair in school with table class.",
-  "The doctor uses TV in hospital for patient health care.",
-  "The farmer sees dog in field near river green land.",
-  "The student reads book in university with mobile study time.",
-  "The child watches TV in house with mobile entertainment time.",
-  "The teacher plays guitar in school with piano music class.",
-  "The doctor hears drums in hospital with guitar sound time.",
-  "The farmer eats rice in house with milk food meal.",
-  "The boy plays cricket in park with football game time.",
-  "The girl plays tennis in university with cricket sport fun.",
-  "The teacher draws sunflower in school with rose art work.",
-  "The doctor plants rose in hospital garden near river view.",
-  "The farmer plants spinach in field near ocean green farm.",
-  "The student uses laptop in university with mobile study work.",
-  "The child eats banana in park with mango fruit snack.",
-  "The teacher uses TV in school with mobile lesson work.",
-  "The doctor checks ear in hospital with eye medical care.",
-  "The farmer works in field near mountain green farm land.",
-  "The boy sits on bed in house with chair rest time.",
-  "The girl sleeps on bed in house near ocean sea view.",
-  "The teacher travels by train to university in Japan city.",
-  "The doctor travels by bus to hospital in USA city.",
-  "The farmer travels by car to park in India land.",
-  "The student sees parrot in park with pigeon bird view.",
-  "The child hears sparrow in house near river sound time.",
-  "The teacher sees pigeon in school near ocean bird view.",
-  "The doctor sees elephant in hospital near park animal care.",
-  "The farmer sees cat in field with dog farm animal.",
-  "The boy uses mobile in park with laptop device time.",
-  "The girl uses laptop in university with mobile device work.",
-  "The teacher uses mobile in school with TV lesson work.",
-  "The doctor uses laptop in hospital with TV report work.",
-  "The farmer uses mobile in house near river communication tool.",
-  "The child draws house in school with mountain art work.",
-  "The student draws ocean in university with beach study art.",
-  "The teacher draws river in school with mountain teaching art.",
-  "The doctor draws beach in hospital with ocean sketch work.",
-  "The farmer draws mountain in house with river farm art.",
+  "The teacher goes to school by bus near river.",
+  "The doctor works in hospital with mobile.",
+  "The farmer lives in house near river with dog.",
+  "The teacher travels by train to school near park.",
+  "The doctor plays football in park with dog and cat.",
+  "The teacher writes on table in school with laptop.",
+  "The doctor checks eye in hospital with hand.",
+  "The farmer grows carrot near mountain green land.",
+  "The doctor uses laptop in hospital with mobile.",
+  "The farmer drives car near ocean with dog.",
+  "The teacher eats apple in park with banana.",
+  "The doctor drinks milk in house with bread.",
+  "The teacher sits on chair in school with table.",
+  "The doctor uses tv in hospital.",
+  "The farmer sees dog near river.",
+  "The teacher uses laptop with mobile.",
+  "The doctor watches tv in house with mobile.",
+  "The teacher plays guitar in school with piano.",
+  "The doctor hears drums in hospital with guitar.",
+  "The farmer eats rice in house with milk.",
+  "The teacher plays cricket in park with football.",
+  "The doctor plays tennis with cricket in park.",
+  "The teacher draws sunflower in school with rose.",
+  "The doctor plants rose near river.",
+  "The farmer plants spinach near ocean.",
+  "The teacher uses laptop and mobile.",
+  "The doctor eats banana with mango.",
+  "The teacher uses tv in school with mobile.",
+  "The doctor checks ear with eye.",
+  "The farmer works near mountain.",
+  "The teacher sits on bed with chair.",
+  "The doctor sleeps on bed near ocean.",
+  "The teacher travels by train.",
+  "The doctor travels by bus.",
+  "The farmer travels by car.",
+  "The teacher sees parrot with pigeon.",
+  "The doctor hears sparrow near river.",
+  "The teacher sees pigeon near ocean.",
+  "The doctor sees elephant near park.",
+  "The farmer sees cat with dog.",
+  "The teacher uses mobile with laptop.",
+  "The doctor uses laptop with mobile.",
+  "The teacher uses mobile with tv.",
+  "The doctor uses laptop with tv.",
+  "The farmer uses mobile in house near river.",
+  "The teacher draws house with mountain.",
+  "The doctor draws ocean with beach.",
+  "The teacher draws river with mountain.",
+  "The doctor draws beach with ocean.",
+  "The farmer draws mountain with river."
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -68,26 +68,81 @@ for (const [fullPath, module] of Object.entries(_nounGlob)) {
   _fileMap[stem] = module.default;
 }
 const NOUN_STEM = {
-  doctor:"doctor", teacher:"teacher", farmer:"farmer", student:"student",
-  child:"child", engineer:"engineer", driver:"driver", boy:"boy", girl:"girl",
-  school:"school building", hospital:"hospital", house:"house",
-  university:"university", park:"park", field:"field", road:"road",
-  ocean:"ocean", mountain:"mountain", river:"river", beach:"beach",
-  bus:"bus", train:"train", car:"car", laptop:"laptop", mobile:"mobile",
-  tv:"tv", table:"table", chair:"chair", bed:"bed", guitar:"guitar",
-  drums:"drums", piano:"piano", cricket:"cricket", football:"football",
-  tennis:"tennis", apple:"apple", banana:"banana", mango:"mango",
-  carrot:"carrot", rice:"rice", milk:"milk", bread:"bread", spinach:"spinach",
-  dog:"dog", cat:"cat", parrot:"parrot", pigeon:"pigeon", sparrow:"sparrow",
-  elephant:"elephant", sunflower:"sunflower", rose:"rose", lotus:"lotus",
-  eye:"eye", ear:"ear", hand:"hand", japan:"japan flag", usa:"usa flag", india:"india flag",
+  apple: "apple",
+  banana: "banana",
+  beach: "beach",
+  bed: "bed",
+  black: "black",
+  blue: "blue",
+  bread: "bread",
+  bus: "bus",
+  car: "car",
+  carrot: "carrot",
+  cat: "cat",
+  chair: "chair",
+  cricket: "cricket",
+  doctor: "doctor",
+  dog: "dog",
+  dress: "dress",
+  drums: "drums",
+  ear: "ear",
+  elephant: "elephant",
+  eye: "eye",
+  farmer: "farmer",
+  football: "football",
+  green: "green",
+  guitar: "guitar",
+  hand: "hand",
+  hospital: "hospital",
+  house: "house",
+  laptop: "laptop",
+  lotus: "lotus",
+  mango: "mango",
+  milk: "milk",
+  mobile: "mobile",
+  mountain: "mountain",
+  ocean: "ocean",
+  park: "park",
+  parrot: "parrot",
+  piano: "piano",
+  pigeon: "pigeon",
+  potato: "potato",
+  purple: "purple",
+  red: "red",
+  rice: "rice",
+  river: "river",
+  rose: "rose",
+  school: "school",
+  shirt: "shirt",
+  sparrow: "sparrow",
+  spinach: "spinach",
+  sunflower: "sunflower",
+  table: "table",
+  teacher: "teacher",
+  tennis: "tennis",
+  train: "train",
+  tshirt: "tshirt",
+  tv: "tv",
+  yellow: "yellow",
 };
 function getNounImage(noun) {
   const stem = NOUN_STEM[noun?.toLowerCase()];
-  if (!stem) return null;
-  return _fileMap[stem] ?? _fileMap[stem.replace(/\s+/g, "")] ?? null;
-}
 
+  if (!stem) {
+    console.log("Missing NOUN_STEM mapping:", noun);
+    return null;
+  }
+
+  const image =
+    _fileMap[stem] ??
+    _fileMap[stem.replace(/\s+/g, "")];
+
+  if (!image) {
+    console.log("Missing PNG file:", noun, "->", stem);
+  }
+
+  return image || null;
+}
 /* ═══════════════════════════════════════════════════════════════
    CONSTANTS  — A through J only (10 positions)
 ══════════════════════════════════════════════════════════════════════════════ */
@@ -164,7 +219,8 @@ function RegisterDropdownBar({ inputs, onChange }) {
               key={p}
               className="reg-select"
               value={current}
-              onChange={e => onChange(i, e.target.value)}
+              disabled={i > 0 && inputs[i - 1] === ""}
+              onChange={(e) => onChange(i, e.target.value)}
             >
               <option value="">·</option>
               {DIGITS.map(d => {
