@@ -169,7 +169,7 @@ router.post("/signup", async (req, res) => {
     // Save user
     const user = await User.create({
       email: email.toLowerCase().trim(),
-      password,
+      password: hashedPassword,
       selectedSentence,
       secretNouns,
       secretPositions,
@@ -238,7 +238,13 @@ const revealedItem =
       sessionId,
       userId: user._id,
       challengeGrid,
-      revealedItem: { noun: revealedItem.noun, value: revealedItem.value },
+      revealedItem: {
+        noun: revealedItem.noun,
+        value: revealedItem.value
+      },
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 2 * 60 * 1000), // 2 min
+      attempts: 0
     });
 
     // Return sessionId + grid to client.
@@ -270,6 +276,20 @@ const revealedItem =
 ───────────────────────────────────────────────────────────── */
 router.post("/verify", async (req, res) => {
   try {
+
+    if (session.expiresAt < Date.now()) {
+      await LoginSession.deleteOne({ sessionId });
+      return res.status(410).json({ success: false, error: "Session expired" });
+    }
+
+    session.attempts += 1;
+    await session.save();
+
+    if (session.attempts > 3) {
+      await LoginSession.deleteOne({ sessionId });
+      return res.status(429).json({ success: false, error: "Too many attempts" });
+    }
+
     const { sessionId, registerInputs } = req.body;
 
     if (!sessionId || !Array.isArray(registerInputs)) {
@@ -291,7 +311,7 @@ router.post("/verify", async (req, res) => {
 
     // Derive expected digits
     const { value: secretValue } = session.revealedItem;
-    const expected  = secretValue + user.offset;      // e.g. 62 + 5 = 67
+    const expected = (secretValue + user.offset) % 100;      // e.g. 62 + 5 = 67
     const expD1     = Math.floor(expected / 10) % 10; // tens  digit → 6
     const expD2     = expected % 10;                   // units digit → 7
 
@@ -300,16 +320,7 @@ router.post("/verify", async (req, res) => {
 
     const actualD1  = parseInt(registerInputs[posIdx1], 10);
     const actualD2  = parseInt(registerInputs[posIdx2], 10);
-console.log("secretValue:", secretValue);
-console.log("offset:", user.offset);
 
-console.log("expected:", expected);
-
-console.log("positions:", user.secretPositions);
-
-console.log("expected digits:", expD1, expD2);
-
-console.log("received:", registerInputs);
     if (isNaN(actualD1) || isNaN(actualD2) || actualD1 !== expD1 || actualD2 !== expD2) {
       // Delete session on failure — force full restart
       await LoginSession.deleteOne({ sessionId });

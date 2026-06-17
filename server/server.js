@@ -6,7 +6,10 @@ import authRouter from "./routes/authRoutes.js";
 
 dotenv.config();
 
+import helmet from "helmet";
+
 const app = express();
+app.use(helmet());
 
 // ── Middleware ────────────────────────────────────────────────
 app.use(cors({
