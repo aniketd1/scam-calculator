@@ -30,18 +30,12 @@ export default function VisualPasswordGrid({
   return (
     <div style={styles.grid}>
       {images.map((img) => (
-        <button
+        <div
           key={img}
-          onClick={() => handleClick(img)}
-          style={{
-            ...styles.item,
-            background: selected.includes(img)
-              ? "#06B6D4"
-              : "#fff",
-          }}
+          style={styles.item}
         >
           {img}
-        </button>
+        </div>
       ))}
     </div>
   );

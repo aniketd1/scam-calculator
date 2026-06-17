@@ -125,14 +125,14 @@ async function postJson(path, body) {
 function GridCard({ noun, value, isSelected, onSelect }) {
   const img = getNounImage(noun);
   return (
-    <button type="button" className={`gc-card${isSelected ? " gc-card--selected" : ""}`} onClick={onSelect}>
+    <div type="button" className="gc-card">
       <div className="gc-img-wrap">
         {img ? <img src={img} alt={noun} className="gc-img" />
               : <div className="gc-fallback">{noun?.[0]?.toUpperCase()}</div>}
       </div>
       <div className="gc-noun">{noun}</div>
       <div className="gc-value">{value}</div>
-    </button>
+    </div>
   );
 }
 
@@ -187,7 +187,7 @@ function RegisterDropdownBar({ inputs, onChange }) {
 function Toast({ toast, onClose }) {
   if (!toast) return null;
   return (
-    <div className={`toast toast-${toast.type}`} onClick={onClose}>
+    <div className={`toast toast-${toast.type}`}>
       <span>{toast.type === "success" ? "✓" : "✕"}</span>
       <span>{toast.message}</span>
     </div>
@@ -216,7 +216,6 @@ export default function Auth() {
   const [loginStep,         setLoginStep]         = useState("creds");
   const [sessionId,         setSessionId]         = useState("");
   const [challengeGrid,     setChallengeGrid]     = useState([]);
-  const [selectedGridIndex, setSelectedGridIndex] = useState(null);
   // 10 dropdowns A–J
   const [regInputs,         setRegInputs]         = useState(Array(10).fill(""));
 
@@ -239,7 +238,6 @@ export default function Auth() {
     setSentence(""); setOffset("5"); setPositions(["A","D"]);
     setSentencePreview(null);
     setLoginStep("creds"); setSessionId(""); setChallengeGrid([]);
-    setSelectedGridIndex(null);
     setRegInputs(Array(10).fill("")); setOverlay(null);
     if (newMode === "signup") setShuffledSentences(shuffle([...SENTENCES]));
   }, []);
@@ -280,7 +278,6 @@ export default function Auth() {
       setSessionId(data.sessionId);
       setChallengeGrid(data.challengeGrid || []);
       setRegInputs(Array(10).fill(""));
-      setSelectedGridIndex(null);
       setLoginStep("grid");
     } catch { setError("Server error. Try again."); }
     finally { setLoading(false); }
@@ -289,10 +286,6 @@ export default function Auth() {
   /* ── LOGIN STEP 2 → call /register, show overlay, scroll to bar ── */
   const handleContinueToRegister = async () => {
     setError("");
-    if (selectedGridIndex === null) {
-      setError("Tap the image you found before continuing.");
-      return;
-    }
     setLoading(true);
     try {
       const data = await postJson("/api/auth/register", { sessionId, challengeGrid });
@@ -554,8 +547,6 @@ export default function Auth() {
                                   key={i}
                                   noun={item.noun}
                                   value={item.value}
-                                  isSelected={selectedGridIndex === i}
-                                  onSelect={() => setSelectedGridIndex(i)}
                                 />
                               ))
                             : <div style={{gridColumn:"1/-1",textAlign:"center",color:"#dc2626",padding:40}}>No grid received — start over.</div>
@@ -699,7 +690,6 @@ button,input,select{font-family:inherit;}
 @media(max-width:540px){.cg-grid{grid-template-columns:repeat(2,1fr);gap:10px;}}
 .gc-card{background:#fff;border:1px solid #e2d9cc;border-radius:12px;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:border-color 0.18s,box-shadow 0.18s;cursor:pointer;}
 .gc-card:hover{border-color:rgba(6,182,212,0.35);box-shadow:0 3px 10px rgba(6,182,212,0.07);}
-.gc-card--selected{border-color:#06B6D4;box-shadow:0 0 0 4px rgba(6,182,212,0.18);}
 .gc-img-wrap{width:90px;height:90px;background:#f3efe9;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;}
 @media(max-width:540px){.gc-img-wrap{width:56px;height:56px;}}
 .gc-img{width:100%;height:100%;object-fit:contain;}
