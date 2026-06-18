@@ -3,7 +3,6 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import AppRoutes from "./routes";
 import PasswordGate from "./components/Password";
-import VoiceAgent from "./components/VoiceAgent";
 
 function App() {
   return (
