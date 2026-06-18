@@ -146,9 +146,17 @@ function getNounImage(noun) {
 /* ═══════════════════════════════════════════════════════════════
    CONSTANTS  — A through J only (10 positions)
 ══════════════════════════════════════════════════════════════════════════════ */
-const POSITIONS = ["A","B","C","D","E","F","G","H","I","J"];
-const DIGITS    = ["0","1","2","3","4","5","6","7","8","9"];
+const POSITIONS = ["A","B","C","D","E"];
+const DIGITS    = ["0","1","2","3","4"];
 
+function getRandomOffset() {
+  return String(Math.floor(Math.random() * 10));
+}
+
+function getRandomPositions() {
+  const shuffled = [...POSITIONS].sort(() => Math.random() - 0.5);
+  return [shuffled[0], shuffled[1]];
+}
 const NOUNS = new Set(Object.keys(NOUN_STEM));
 function extractNouns(sentence) {
   return [...new Set(
@@ -180,14 +188,14 @@ async function postJson(path, body) {
 function GridCard({ noun, value, isSelected, onSelect }) {
   const img = getNounImage(noun);
   return (
-    <div type="button" className="gc-card">
+    <button type="button" className={`gc-card${isSelected ? " gc-card--selected" : ""}`} onClick={onSelect}>
       <div className="gc-img-wrap">
         {img ? <img src={img} alt={noun} className="gc-img" />
               : <div className="gc-fallback">{noun?.[0]?.toUpperCase()}</div>}
       </div>
       <div className="gc-noun">{noun}</div>
       <div className="gc-value">{value}</div>
-    </div>
+    </button>
   );
 }
 
@@ -200,20 +208,22 @@ function GridCard({ noun, value, isSelected, onSelect }) {
    - So each digit can appear at most 2 times total across all 10 boxes
 ═══════════════════════════════════════════════════════════════ */
 function RegisterDropdownBar({ inputs, onChange }) {
-  // Count how many times each digit is already used
-  const digitCount = {};
-  for (const v of inputs) {
-    if (v !== "") digitCount[v] = (digitCount[v] || 0) + 1;
-  }
+  const usedDigits = new Set(inputs.filter(v => v !== ""));
 
   return (
     <div className="reg-wrap">
       <div className="reg-header">
-        {POSITIONS.map(p => <div key={p} className="reg-head-cell">{p}</div>)}
+        {POSITIONS.map(p => (
+          <div key={p} className="reg-head-cell">
+            {p}
+          </div>
+        ))}
       </div>
+
       <div className="reg-dropdowns">
         {POSITIONS.map((p, i) => {
           const current = inputs[i];
+
           return (
             <select
               key={p}
@@ -223,11 +233,20 @@ function RegisterDropdownBar({ inputs, onChange }) {
               onChange={(e) => onChange(i, e.target.value)}
             >
               <option value="">·</option>
+
               {DIGITS.map(d => {
-                const usedElsewhere = digitCount[d] - (current === d ? 1 : 0);
-                // Hide digit if it's already been used twice in OTHER positions
-                if (usedElsewhere >= 2 && current !== d) return null;
-                return <option key={d} value={d}>{d}</option>;
+                if (
+                  usedDigits.has(d) &&
+                  current !== d
+                ) {
+                  return null;
+                }
+
+                return (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                );
               })}
             </select>
           );
@@ -243,7 +262,7 @@ function RegisterDropdownBar({ inputs, onChange }) {
 function Toast({ toast, onClose }) {
   if (!toast) return null;
   return (
-    <div className={`toast toast-${toast.type}`}>
+    <div className={`toast toast-${toast.type}`} onClick={onClose}>
       <span>{toast.type === "success" ? "✓" : "✕"}</span>
       <span>{toast.message}</span>
     </div>
@@ -263,8 +282,8 @@ export default function Auth() {
 
   // signup
   const [sentence,    setSentence]    = useState("");
-  const [offset,      setOffset]      = useState("5");
-  const [positions,   setPositions]   = useState(["A","D"]);
+  const [offset, setOffset] = useState(() => getRandomOffset());
+  const [positions, setPositions] = useState(() => getRandomPositions());
   const [shuffledSentences, setShuffledSentences] = useState(() => shuffle([...SENTENCES]));
   const [sentencePreview, setSentencePreview] = useState(null);
 
@@ -272,9 +291,12 @@ export default function Auth() {
   const [loginStep,         setLoginStep]         = useState("creds");
   const [sessionId,         setSessionId]         = useState("");
   const [challengeGrid,     setChallengeGrid]     = useState([]);
+  const [selectedGridIndex, setSelectedGridIndex] = useState(null);
   // 10 dropdowns A–J
-  const [regInputs,         setRegInputs]         = useState(Array(10).fill(""));
+  const [regInputs,         setRegInputs]         = useState(Array(5).fill(""));
 
+  // Overlay state — shown after clicking "Continue to Register"
+  const [overlay,           setOverlay]           = useState(null);
   // { noun, value, imgSrc, offset, pos1, pos2 }
 
   const registerRef = useRef(null);
@@ -289,10 +311,12 @@ export default function Auth() {
 
   const resetAll = useCallback((newMode) => {
     setMode(newMode); setEmail(""); setPassword(""); setError(""); setToast(null);
-    setSentence(""); setOffset("5"); setPositions(["A","D"]);
+    setSentence(""); setOffset(getRandomOffset());
+setPositions(getRandomPositions());
     setSentencePreview(null);
     setLoginStep("creds"); setSessionId(""); setChallengeGrid([]);
-    setRegInputs(Array(10).fill(""));
+    setSelectedGridIndex(null);
+    setRegInputs(Array(10).fill("")); setOverlay(null);
     if (newMode === "signup") setShuffledSentences(shuffle([...SENTENCES]));
   }, []);
 
@@ -301,29 +325,24 @@ export default function Auth() {
   /* ── SIGNUP ── */
   const handleSignup = async () => {
     setError("");
-
     if (!email.trim())    { setError("Enter your email."); return; }
     if (!password.trim()) { setError("Enter a password."); return; }
     if (!sentence)        { setError("Select a sentence."); return; }
-
     const off = parseInt(offset, 10);
-    if (isNaN(off) || off < 1 || off > 99) {
-      setError("Offset must be 1–99.");
-      return;
-    }
-
-    if (positions[0] === positions[1]) {
-      setError("Positions must be different.");
-      return;
-    }
-
-    // 👇 OPEN PREVIEW FIRST (NO API CALL YET)
-    setSentencePreview({
-      sentence,
-      nouns: extractNouns(sentence),
-    });
-
-    return;
+    if (isNaN(off) || off < 0 || off > 9) { setError("Offset must be 1–99."); return; }
+    if (positions[0] === positions[1])       { setError("Positions must be different."); return; }
+    setLoading(true);
+    try {
+      const data = await postJson("/api/auth/signup", {
+        email, password, selectedSentence: sentence,
+        secretPositions: positions, offset: off,
+      });
+      if (!data.success) { setError(data.error || "Could not create account."); return; }
+      if (data.token) localStorage.setItem("token", data.token);
+      showToast("success", "Account created! Sign in now.");
+      resetAll("login");
+    } catch { setError("Server error. Try again."); }
+    finally { setLoading(false); }
   };
 
   /* ── LOGIN STEP 1 ── */
@@ -337,6 +356,7 @@ export default function Auth() {
       setSessionId(data.sessionId);
       setChallengeGrid(data.challengeGrid || []);
       setRegInputs(Array(10).fill(""));
+      setSelectedGridIndex(null);
       setLoginStep("grid");
     } catch { setError("Server error. Try again."); }
     finally { setLoading(false); }
@@ -345,6 +365,10 @@ export default function Auth() {
   /* ── LOGIN STEP 2 → call /register, show overlay, scroll to bar ── */
   const handleContinueToRegister = async () => {
     setError("");
+    if (selectedGridIndex === null) {
+      setError("Tap the image you found before continuing.");
+      return;
+    }
     setLoading(true);
     try {
       const data = await postJson("/api/auth/register", { sessionId, challengeGrid });
@@ -356,6 +380,11 @@ export default function Auth() {
       // Server doesn't send positions/offset back — we stored them client-side at signup
       // We show the revealed image + its value so the user can do the mental math
       const { revealedItem } = data;
+      setOverlay({
+        noun:   revealedItem.noun,
+        value:  revealedItem.value,
+        imgSrc: getNounImage(revealedItem.noun),
+      });
       setRegInputs(Array(10).fill(""));
       setLoginStep("register");
       // Scroll to register bar after render
@@ -364,13 +393,18 @@ export default function Auth() {
     finally { setLoading(false); }
   };
 
+  // Dismiss overlay on outside click
+  const handleOverlayBgClick = (e) => {
+    if (e.target === e.currentTarget) setOverlay(null);
+  };
+
   /* ── LOGIN STEP 3 VERIFY ──
      Accept both normal and reversed digit order.
      e.g. result=67 → accept [6,7] at positions OR [7,6] at positions
   ── */
   const handleVerify = async () => {
     setError("");
-    if (!allRegFilled) { setError("Fill all 10 positions (A – J)."); return; }
+    if (!allRegFilled) { setError("Fill all 10 positions (A – E)."); return; }
     setLoading(true);
     try {
       const data = await postJson("/api/auth/verify", {
@@ -379,7 +413,7 @@ export default function Auth() {
       });
       if (!data.success) {
         setError(data.error || "Verification failed. Start over.");
-        setLoginStep("creds"); setChallengeGrid([]); setSessionId("");
+        setLoginStep("creds"); setChallengeGrid([]); setSessionId(""); setOverlay(null);
         return;
       }
       if (data.token) localStorage.setItem("token", data.token);
@@ -399,88 +433,65 @@ export default function Auth() {
         <div className="sentence-preview-bg" onClick={(e) => { if (e.target === e.currentTarget) setSentencePreview(null); }}>
           <div className="sentence-preview-card">
             <button className="overlay-close" onClick={() => setSentencePreview(null)}>✕</button>
-
             <p className="overlay-eyebrow">Sentence preview</p>
-            <h2 className="overlay-title">Your selected visual password setup</h2>
-
-            <p className="overlay-copy">
-              This sentence will define your visual password. These are the objects used in login.
-            </p>
-
-            {/* NEW: FULL DETAILS */}
-            <div className="signup-preview-details">
-              <div className="signup-row">
-                <strong>Sentence:</strong>
-                <span>{sentencePreview.sentence}</span>
-              </div>
-
-              <div className="signup-row">
-                <strong>Offset:</strong>
-                <span>{offset}</span>
-              </div>
-
-              <div className="signup-row">
-                <strong>Positions:</strong>
-                <span>{positions[0]} & {positions[1]}</span>
-              </div>
-            </div>
-
-            {/* IMAGES SECTION (keep + enhanced) */}
+            <h2 className="overlay-title">Images for your selected sentence</h2>
+            <p className="overlay-copy">Only this sentence is shown with images. Close the preview to continue.</p>
             <div className="sentence-preview-grid">
               {sentencePreview.nouns.map(noun => {
                 const img = getNounImage(noun);
-
                 return (
                   <div key={noun} className="sentence-preview-item">
                     <div className="sentence-preview-img-wrap">
-                      {img ? (
-                        <img src={img} alt={noun} className="sentence-preview-img" />
-                      ) : (
-                        <div className="sentence-preview-fallback">
-                          {noun?.[0]?.toUpperCase()}
-                        </div>
-                      )}
+                      {img ? <img src={img} alt={noun} className="sentence-preview-img" />
+                           : <div className="sentence-preview-fallback">{noun?.[0]?.toUpperCase()}</div>}
                     </div>
-
                     <div className="sentence-preview-label">{noun}</div>
                   </div>
                 );
               })}
             </div>
+            <button className="overlay-btn" onClick={() => setSentencePreview(null)}>
+              Got it — continue
+            </button>
+          </div>
+        </div>
+      )}
 
-            <button
-              className="overlay-btn"
-              onClick={async () => {
-                setSentencePreview(null);
-                setLoading(true);
-                setError("");
-
-                try {
-                  const data = await postJson("/api/auth/signup", {
-                    email,
-                    password,
-                    selectedSentence: sentence,
-                    secretPositions: positions,
-                    offset: parseInt(offset, 10),
-                  });
-
-                  if (!data.success) {
-                    setError(data.error || "Could not create account.");
-                    return;
-                  }
-
-                  if (data.token) localStorage.setItem("token", data.token);
-
-                  showToast("success", "Account created! Sign in now.");
-                  resetAll("login");
-                } catch {
-                  setError("Server error. Try again.");
-                } finally {
-                  setLoading(false);
-                }
-              }}
-            >
-              Confirm & continue
+      {/* OVERLAY — shown after grid step, before register */}
+      {overlay && (
+        <div className="overlay-bg" onClick={handleOverlayBgClick}>
+          <div className="overlay-card">
+            <button className="overlay-close" onClick={() => setOverlay(null)}>✕</button>
+            <p className="overlay-eyebrow">Your secret image</p>
+            <div className="overlay-img-wrap">
+              {overlay.imgSrc
+                ? <img src={overlay.imgSrc} alt={overlay.noun} className="overlay-img" />
+                : <div className="overlay-fallback">{overlay.noun?.[0]?.toUpperCase()}</div>
+              }
+            </div>
+            <div className="overlay-noun">{overlay.noun}</div>
+            <div className="overlay-value">{overlay.value}</div>
+            <div className="overlay-math">
+              <div className="overlay-math-row">
+                <span className="overlay-math-label">Image value</span>
+                <span className="overlay-math-num">{overlay.value}</span>
+              </div>
+              <div className="overlay-math-row">
+                <span className="overlay-math-label">+ Your offset</span>
+                <span className="overlay-math-num overlay-math-dim">???</span>
+              </div>
+              <div className="overlay-math-divider" />
+              <div className="overlay-math-row">
+                <span className="overlay-math-label">= Your result</span>
+                <span className="overlay-math-num overlay-math-dim">??</span>
+              </div>
+            </div>
+            <p className="overlay-hint">
+              Add your private offset to <strong>{overlay.value}</strong>. Split the result into two digits.
+              Enter those digits at your two secret positions (A–J). Reversed order is also accepted.
+            </p>
+            <button className="overlay-btn" onClick={() => setOverlay(null)}>
+              Got it — fill the register →
             </button>
           </div>
         </div>
@@ -542,7 +553,17 @@ export default function Auth() {
                           return (
                             <button key={s} type="button"
                               className={`sentence-card${isSel?" sentence-card--selected":""}`}
-                              onClick={() => { setSentence(s); }}
+                              onClick={() => {
+                                setSentence(s);
+
+                                setOffset(getRandomOffset());
+                                setPositions(getRandomPositions());
+
+                                setSentencePreview({
+                                  sentence: s,
+                                  nouns: ns
+                                });
+                              }}                            
                             >
                               <div className="sentence-text">{s}</div>
                               <div className="noun-chips">{ns.map(n=><span key={n} className="noun-chip">{n}</span>)}</div>
@@ -619,6 +640,8 @@ export default function Auth() {
                                   key={i}
                                   noun={item.noun}
                                   value={item.value}
+                                  isSelected={selectedGridIndex === i}
+                                  onSelect={() => setSelectedGridIndex(i)}
                                 />
                               ))
                             : <div style={{gridColumn:"1/-1",textAlign:"center",color:"#dc2626",padding:40}}>No grid received — start over.</div>
@@ -640,6 +663,11 @@ export default function Auth() {
                           <strong>Use the dropdowns below.</strong> At your two secret positions enter the two
                           digits of your result (image value + offset). Fill the other positions with any digit.
                           Each digit may appear at most twice across all 10 boxes. Reversed digit order is also accepted.
+                          {overlay && (
+                            <button className="show-overlay-btn" onClick={() => setOverlay(overlay)}>
+                              👁 Show my secret image
+                            </button>
+                          )}
                         </div>
                         <RegisterDropdownBar inputs={regInputs} onChange={(i,v) => setRegInputs(p=>{const n=[...p];n[i]=v;return n;})} />
                         <p className="field-hint">
@@ -757,6 +785,7 @@ button,input,select{font-family:inherit;}
 @media(max-width:540px){.cg-grid{grid-template-columns:repeat(2,1fr);gap:10px;}}
 .gc-card{background:#fff;border:1px solid #e2d9cc;border-radius:12px;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:border-color 0.18s,box-shadow 0.18s;cursor:pointer;}
 .gc-card:hover{border-color:rgba(6,182,212,0.35);box-shadow:0 3px 10px rgba(6,182,212,0.07);}
+.gc-card--selected{border-color:#06B6D4;box-shadow:0 0 0 4px rgba(6,182,212,0.18);}
 .gc-img-wrap{width:90px;height:90px;background:#f3efe9;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;}
 @media(max-width:540px){.gc-img-wrap{width:56px;height:56px;}}
 .gc-img{width:100%;height:100%;object-fit:contain;}
@@ -766,7 +795,7 @@ button,input,select{font-family:inherit;}
 
 /* REGISTER DROPDOWN BAR — 10 cols */
 .reg-wrap{width:100%;border:1px solid #e2d9cc;border-radius:12px;overflow:hidden;overflow-x:auto;}
-.reg-header,.reg-dropdowns{display:grid;grid-template-columns:repeat(10,1fr);min-width:360px;}
+.reg-header,.reg-dropdowns{display:grid;grid-template-columns:repeat(5,1fr);min-width:360px;}
 .reg-head-cell{height:36px;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:0.75rem;font-weight:700;color:#475569;background:#f3efe9;border-bottom:1px solid #e2d9cc;}
 .reg-select{border:none;border-right:1px solid #e2d9cc;border-top:1px solid #e2d9cc;padding:10px 0;text-align:center;font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;cursor:pointer;transition:background 0.15s;appearance:none;-webkit-appearance:none;text-align-last:center;}
 .reg-select:last-child{border-right:none;}
@@ -793,41 +822,6 @@ button,input,select{font-family:inherit;}
 .overlay-hint{font-size:0.8rem;color:#64748b;text-align:center;line-height:1.6;}
 .overlay-btn{width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.94rem;cursor:pointer;box-shadow:0 0 18px rgba(6,182,212,0.22);transition:transform 0.18s,box-shadow 0.18s;}
 .overlay-btn:hover{transform:translateY(-1px);box-shadow:0 0 26px rgba(6,182,212,0.36);}
-
-.signup-summary {
-  margin-top: 10px;
-  padding: 10px;
-  background: rgba(6,182,212,0.05);
-  border-radius: 8px;
-  font-size: 0.8rem;
-}
-
-.signup-images {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.signup-img {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-  border-radius: 6px;
-  background: white;
-  border: 1px solid #ddd;
-}
-
-.signup-img-fallback {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #eee;
-  border-radius: 6px;
-  font-size: 0.8rem;
-}
 
 /* BUTTONS */
 .btn-primary{width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.94rem;cursor:pointer;box-shadow:0 0 18px rgba(6,182,212,0.22);transition:transform 0.18s,box-shadow 0.18s,opacity 0.18s;}
