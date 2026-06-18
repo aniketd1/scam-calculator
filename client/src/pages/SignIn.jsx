@@ -31,9 +31,9 @@ function getNounImage(noun) {
   return _fileMap[stem] ?? _fileMap[stem.replace(/\s+/g, "")] ?? null;
 }
 
-const POSITIONS = ["A","B","C","D","E","F","G","H","I","J"];
+const POSITIONS = ["A","B","C","D","E"];
 
-/* ── Register input bar (A–J) ─────────────────────────────── */
+/* ── Register input bar (A–E) ─────────────────────────────── */
 function RegisterBar({ inputs, onChange }) {
   const refs = useRef([]);
   const handleChange = (idx, val) => {
