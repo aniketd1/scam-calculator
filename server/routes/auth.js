@@ -74,10 +74,9 @@ router.post("/signup", async (req, res) => {
     if (!secretNouns.length)
       return res.status(400).json({ success: false, error: "No recognisable nouns found in that sentence." });
 
-    const hashedPassword = await bcrypt.hash(password, 12);
     const user = await User.create({
       email: email.toLowerCase().trim(),
-      password: hashedPassword,
+      password,
       selectedSentence,
       secretNouns,
       secretPositions,
