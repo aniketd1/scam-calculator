@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import VoiceAgent from "../components/VoiceAgent";
 
 
 /* ─── Data ─────────────────────────────────────────────────────────────── */
@@ -229,7 +228,6 @@ function MiniCalculator() {
           </>
         )}
       </div>
-      <VoiceAgent />
     </div>
   );
 }
