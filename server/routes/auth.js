@@ -5,6 +5,7 @@ import jwt     from "jsonwebtoken";
 import crypto  from "crypto";
 import User        from "../models/User.js";
 import LoginSession from "../models/LoginSession.js";
+import { SENTENCES } from "../data/sentences.js";
 
 const router = express.Router();
 
@@ -12,23 +13,28 @@ const router = express.Router();
 const POSITIONS = ["A","B","C","D","E"]; // 5 positions only
 const GRID_SIZE = 12;
 
-const ALL_NOUNS = [
-  "apple","banana","beach","bed","bread","bus","car","carrot","cat","chair",
-  "cricket","doctor","dog","drums","ear","elephant","eye","farmer","football",
-  "guitar","hand","hospital","house","laptop","lotus","mango","milk","mobile",
-  "mountain","ocean","park","parrot","piano","pigeon","rice","river","rose",
-  "school","sparrow","spinach","sunflower","table","teacher","tennis","train","tv",
-];
+const NOUN_WORDS = new Set([
+  "boy","girl","dog","monkey","farmer","teacher","child","bird","baby","cat",
+  "driver","chef","rabbit","ball","park","bag","apple","water","book","banana",
+  "tree","tractor","field","crops","bicycle","playground","worm","nest","toy",
+  "balloon","box","pencil","basket","flower","mouse","chair","bus","school",
+  "carrot","food","kite","sky","plant","pot","door","car","bucket","table",
+  "log","board"
+]);
 
 function extractNouns(sentence) {
-  const words = sentence.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/);
-  return [...new Set(ALL_NOUNS.filter(n => words.includes(n)))];
+  const words = sentence
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .split(/\s+/);
+
+  return [...new Set(words.filter(w => NOUN_WORDS.has(w)))];
 }
 
 function generateChallengeGrid(secretNouns) {
   const secrets      = [...new Set(secretNouns.filter(Boolean))];
   const chosenSecret = secrets[Math.floor(Math.random() * secrets.length)];
-  const distractors  = ALL_NOUNS
+  const distractors = [...NOUN_WORDS]
     .filter(n => !secrets.includes(n))
     .sort(() => Math.random() - 0.5)
     .slice(0, GRID_SIZE - 1);
@@ -278,6 +284,10 @@ router.post("/verify", async (req, res) => {
   console.log("INPUTS:", registerInputs);
   console.log("POSITION INDEXES:", posIdx1, posIdx2);
   console.log("INPUT1/INPUT2:", input1, input2);
+});
+
+router.get("/sentences", (req, res) => {
+  res.json({ success: true, sentences: SENTENCES });
 });
 
 router.get("/test", (_req, res) => res.json({ message: "Auth route working ✓" }));

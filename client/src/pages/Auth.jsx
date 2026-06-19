@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from "react";
-import { SENTENCES } from "../data/sentences";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { SENTENCES } from "../../../server/data/sentences";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
 
@@ -163,8 +163,22 @@ export default function Auth() {
   const [sentence,  setSentence]  = useState("");
   const [offset,    setOffset]    = useState(getRandomOffset);
   const [positions, setPositions] = useState(getRandomPositions);
-  const [shuffled,  setShuffled]  = useState(() => shuffle([...SENTENCES]));
   const [preview,   setPreview]   = useState(null);
+
+  const [shuffled, setShuffled] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/auth/sentences`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setShuffled(shuffle(data.sentences));
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load sentences", err);
+      });
+  }, []);
 
   // login
   const [loginStep,     setLoginStep]     = useState("creds");
@@ -188,7 +202,13 @@ export default function Auth() {
     setPreview(null);
     setLoginStep("creds"); setSessionId(""); setChallengeGrid([]);
     setServerRegister(null); setRegInputs(Array(5).fill(""));
-    if (m === "signup") setShuffled(shuffle([...SENTENCES]));
+    if (m === "signup") {
+      fetch(`${API_BASE}/api/auth/sentences`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) setShuffled(shuffle(data.sentences));
+        });
+    }
   }, []);
 
   // Position 0 change resets position 1
