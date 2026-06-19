@@ -14,12 +14,14 @@ const POSITIONS = ["A","B","C","D","E"]; // 5 positions only
 const GRID_SIZE = 12;
 
 const NOUN_WORDS = new Set([
-  "boy","girl","dog","monkey","farmer","teacher","child","bird","baby","cat",
-  "driver","chef","rabbit","ball","park","bag","apple","water","book","banana",
-  "tree","tractor","field","crops","bicycle","playground","worm","nest","toy",
-  "balloon","box","pencil","basket","flower","mouse","chair","bus","school",
-  "carrot","food","kite","sky","plant","pot","door","car","bucket","table",
-  "log","board"
+  "boy","girl","dog","cat","bird","monkey","farmer","teacher","child","baby",
+  "rabbit","chef","driver",
+  "ball","toy","stick","doll","dress","bone","mouse","milk","nest","egg",
+  "banana","tree","seed","crops","tractor","book","chart","house","flower",
+  "picture","toy","rattle","bicycle","bell","park","rose","basket","carrot",
+  "log","burrow","car","road","market","door","room","bag","box","ball",
+  "wall","bird","plant","soil","field","clouds","letter","paper","spoon",
+  "cup","table","kitchen","blocks","model","star","garden","seed"
 ]);
 
 function extractNouns(sentence) {

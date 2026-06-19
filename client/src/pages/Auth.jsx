@@ -30,6 +30,25 @@ const NOUN_STEM = {
   doctor:"doctor", laptop:"laptop", mobile:"mobile", hospital:"hospital",
   house:"house", train:"train", mountain:"mountain", ocean:"ocean",
   river:"river", rose:"rose", eye:"eye", ear:"ear", hand:"hand",
+  stick:"stick",
+  doll:"doll",
+  dress:"dress",
+  bone:"bone",
+  rattle:"rattle",
+  seed:"seed",
+  road:"road",
+  market:"market",
+  burrow:"burrow",
+  wall:"wall",
+  clouds:"clouds",
+  letter:"letter",
+  paper:"paper",
+  spoon:"spoon",
+  cup:"cup",
+  blocks:"blocks",
+  model:"model",
+  kitchen:"kitchen",
+  star:"star"
 };
 
 function getNounImage(noun) {
