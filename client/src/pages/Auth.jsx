@@ -17,7 +17,6 @@ const NOUN_STEM = {
   boy:"boy", girl:"girl", dog:"dog", monkey:"monkey", farmer:"farmer",
   teacher:"teacher", child:"child", bird:"bird", baby:"baby", cat:"cat",
   driver:"driver", chef:"chef", rabbit:"rabbit",
-  // objects / places
   ball:"ball", park:"park", bag:"bag", apple:"apple", water:"water",
   book:"book", banana:"banana", tree:"tree", tractor:"tractor", field:"field",
   crops:"crops", bicycle:"bicycle", playground:"playground", worm:"worm",
@@ -26,7 +25,6 @@ const NOUN_STEM = {
   school:"school", carrot:"carrot", food:"food", kite:"kite", sky:"sky",
   plant:"plant", pot:"pot", door:"door", car:"car", bucket:"bucket",
   table:"table", log:"log", board:"board",
-  // fallback nouns already in assets
   doctor:"doctor", laptop:"laptop", mobile:"mobile", hospital:"hospital",
   house:"house", train:"train", mountain:"mountain", ocean:"ocean",
   river:"river", rose:"rose", eye:"eye", ear:"ear", hand:"hand",
@@ -51,30 +49,71 @@ const NOUN_STEM = {
   star:"star"
 };
 
-function getNounImage(noun) {
-  const stem = NOUN_STEM[noun?.toLowerCase()];
-  if (!stem) return null;
-  return _fileMap[stem] ?? _fileMap[stem.replace(/\s+/g, "")] ?? null;
-}
-
 /* ── CONSTANTS ─────────────────────────────────────────────── */
 const POSITIONS = ["A", "B", "C", "D", "E"];
 const DIGITS    = ["0","1","2","3","4","5","6","7","8","9"];
 
-// All nouns that might appear in sentences — used for extraction
+// ── NOUN SET — every concrete noun that appears in the sentences ────────────
+// These are the EXACT words as they appear in the sentence text.
+// No stemming, no pluralisation — just a direct lookup.
 const NOUN_WORDS = new Set([
-  "boy","girl","dog","monkey","farmer","teacher","child","bird","baby","cat",
-  "driver","chef","rabbit","ball","park","bag","apple","water","book","banana",
-  "tree","tractor","field","crops","bicycle","playground","worm","nest","toy",
-  "balloon","box","pencil","basket","flower","mouse","chair","bus","school",
-  "carrot","food","kite","sky","plant","pot","door","car","bucket","table",
-  "log","board",
+  // people / animals
+  "boy","girl","dog","cat","bird","monkey","farmer","teacher",
+  "child","children","baby","rabbit","driver","chef",
+  // body / clothing
+  "dress","doll",
+  // objects
+  "ball","toy","bone","stick","milk","mouse","nest","eggs",
+  "rope","banana","tree","crops","tractor","chart","book","lesson",
+  "house","flower","picture","rattle","bicycle","bell","park",
+  "rose","basket","carrot","log","burrow","vegetables","dinner",
+  "car","road","market","door","room","bag","box","kite","clouds",
+  "field","letter","paper","seed","babies","bucket","garden",
+  "question","answer","star","spoon","cup","tower","blocks",
+  "model","table","kitchen","plant","soil","flowers","bus",
+  // keep legacy nouns so old sentences still work
+  "apple","water","bag","banana","tractor","field",
+  "playground","worm","food","sky","pot","school",
+  "doctor","laptop","mobile","hospital","hospital",
+  "train","mountain","ocean","river","eye","ear","hand",
+  "stick","doll","bone","rattle","seed","wall",
 ]);
 
+// Noun → display name mapping (same word, no transformation needed)
+// Only override when the PNG filename differs from the noun word.
+// For nouns not listed here, getNounImage falls back to the word itself.
+const NOUN_STEM_OVERRIDE = {
+  children: "child",    // PNG is child.png
+  babies:   "baby",     // PNG is baby.png
+  eggs:     "eggs",      // PNG is egg.png
+  crops:    "crops",     // PNG is crop.png if it exists, else no image — harmless
+  flowers:  "flower",
+  clouds:   "clouds",
+  blocks:   "blocks",
+  vegetables:"vegetables",
+};
+
+// Updated getNounImage — checks override map first, then exact stem
+function getNounImage(noun) {
+  if (!noun) return null;
+  const key  = noun.toLowerCase();
+  const stem = NOUN_STEM_OVERRIDE[key] ?? key;
+  // NOUN_STEM is your existing filename map — keep it unchanged
+  const file = NOUN_STEM[stem] ?? stem;
+  return _fileMap[file] ?? _fileMap[file.replace(/\s+/g, "")] ?? null;
+}
+
+// extractNouns — EXACT word match only, no stemming whatsoever
 function extractNouns(s) {
-  return [...new Set(
-    s.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter(w => NOUN_WORDS.has(w))
-  )];
+  return [
+    ...new Set(
+      s
+        .toLowerCase()
+        .replace(/[^a-z\s]/g, " ")   // strip punctuation
+        .split(/\s+/)
+        .filter(w => w && NOUN_WORDS.has(w))  // exact match
+    ),
+  ];
 }
 
 // Build mnemonic from nouns: ["doctor","apple","car","park"] → "DACP"

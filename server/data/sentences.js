@@ -1,5 +1,4 @@
 // server/data/sentences.js
-
 export const SENTENCES = [
   "The boy throws a ball, catches a toy, and smiles happily.",
   "The girl wears a dress, holds a doll, and walks slowly.",
