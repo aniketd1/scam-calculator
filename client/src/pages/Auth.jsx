@@ -46,7 +46,9 @@ const NOUN_STEM = {
   blocks:"blocks",
   model:"model",
   kitchen:"kitchen",
-  star:"star"
+  star:"star",
+  eggs:"eggs",
+  clouds:"clouds"
 };
 
 /* ── CONSTANTS ─────────────────────────────────────────────── */
@@ -85,12 +87,7 @@ const NOUN_WORDS = new Set([
 const NOUN_STEM_OVERRIDE = {
   children: "child",    // PNG is child.png
   babies:   "baby",     // PNG is baby.png
-  eggs:     "eggs",      // PNG is egg.png
-  crops:    "crops",     // PNG is crop.png if it exists, else no image — harmless
   flowers:  "flower",
-  clouds:   "clouds",
-  blocks:   "blocks",
-  vegetables:"vegetables",
 };
 
 // Updated getNounImage — checks override map first, then exact stem
