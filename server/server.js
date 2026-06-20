@@ -15,7 +15,8 @@ app.use(helmet());
 app.use(cors({
   origin: [
     "http://localhost:5173",
-    "https://scam2safe.com"
+    "https://scam2safe.com",
+    "https://magenta-dragonfly-533205.hostingersite.com"
   ],
   credentials: true
 }));
