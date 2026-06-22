@@ -59,7 +59,7 @@ function buildRegister(secretValue, offset, secretPositions) {
 /* ── POST /api/auth/signup ──────────────────────────────────── */
 router.post("/signup", async (req, res) => {
   try {
-    const { email, password, selectedSentence, secretPositions, offset } = req.body;
+    const { email, password, wordpressSite, wordpressUsername, selectedSentence, secretPositions, offset } = req.body;
 
     if (!email || !password || !selectedSentence || !secretPositions || offset == null)
       return res.status(400).json({ success: false, error: "All fields are required." });
@@ -293,7 +293,81 @@ router.post("/verify", async (req, res) => {
 router.get("/sentences", (req, res) => {
   res.json({ success: true, sentences: SENTENCES });
 });
+router.post("/wordpress-login", async (req, res) => {
+  try {
 
+    const {
+      wordpressSite,
+      wordpressUsername
+    } = req.body;
+
+    if (!wordpressSite || !wordpressUsername) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing WordPress details."
+      });
+    }
+
+    const user = await User.findOne({
+      wordpressSite,
+      wordpressUsername
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "No Visual Password account linked to this WordPress user."
+      });
+    }
+
+    const { challengeGrid } =
+      generateChallengeGrid(
+        user.secretNouns
+      );
+
+    const sessionId =
+      crypto.randomUUID();
+
+    await LoginSession.create({
+      sessionId,
+      userId: user._id,
+      challengeGrid,
+      revealedItem:
+        challengeGrid.find(item =>
+          user.secretNouns.includes(
+            item.noun
+          )
+        ),
+      register: null,
+      expectedD1: null,
+      expectedD2: null,
+      attempts: 0,
+      expiresAt: new Date(
+        Date.now() + 10 * 60 * 1000
+      ),
+    });
+
+    return res.json({
+      success: true,
+      sessionId,
+      challengeGrid
+    });
+
+  }
+  catch (err) {
+
+    console.error(
+      "[wordpress-login]",
+      err
+    );
+
+    return res.status(500).json({
+      success: false,
+      error: "Server error"
+    });
+
+  }
+});
 router.get("/test", (_req, res) => res.json({ message: "Auth route working ✓" }));
 
 export default router;
