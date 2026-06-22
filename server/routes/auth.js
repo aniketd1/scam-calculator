@@ -86,6 +86,8 @@ router.post("/signup", async (req, res) => {
       email: email.toLowerCase().trim(),
       password,
       selectedSentence,
+      wordpressSite,
+      wordpressUsername,
       secretNouns,
       secretPositions,
       offset: off,
