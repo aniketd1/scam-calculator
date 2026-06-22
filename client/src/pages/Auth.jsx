@@ -215,6 +215,8 @@ export default function Auth() {
   const [toast,     setToast]     = useState(null);
   const [wordpressSite,setWordpressSite] = useState("");
   const [wordpressUsername,setWordpressUsername] = useState("");
+  const [isWordpressLogin, setIsWordpressLogin] = useState(false);
+
   // signup
   const [sentence,  setSentence]  = useState("");
   const [offset,    setOffset]    = useState(getRandomOffset);
@@ -223,12 +225,10 @@ export default function Auth() {
 
   const [shuffled, setShuffled] = useState([]);
 //p
-  useEffect(() => {
+ useEffect(() => {
 
     const params =
-        new URLSearchParams(
-            window.location.search
-        );
+        new URLSearchParams(window.location.search);
 
     const email =
         params.get("email");
@@ -248,7 +248,28 @@ export default function Auth() {
     if(username)
         setWordpressUsername(username);
 
+    if(site && username){
+        setIsWordpressLogin(true);
+    }
+
 }, []);
+
+useEffect(() => {
+
+    if(
+        isWordpressLogin &&
+        wordpressSite &&
+        wordpressUsername
+    ){
+        handleWordpressLogin();
+    }
+
+}, [
+    isWordpressLogin,
+    wordpressSite,
+    wordpressUsername
+]);
+  
   useEffect(() => {
     fetch(`${API_BASE}/api/auth/sentences`)
       .then(res => res.json())
@@ -346,7 +367,58 @@ export default function Auth() {
     } catch { setError("Server error. Try again."); }
     finally { setLoading(false); }
   };
+    const handleWordpressLogin = async () => {
 
+    try {
+
+        setLoading(true);
+
+        const data =
+            await postJson(
+                "/api/auth/wordpress-login",
+                {
+                    wordpressSite,
+                    wordpressUsername
+                }
+            );
+
+        if(!data.success){
+            setError(
+                data.error ||
+                "No Visual Password account found."
+            );
+            return;
+        }
+
+        setSessionId(data.sessionId);
+
+        setChallengeGrid(
+            data.challengeGrid || []
+        );
+
+        setRegInputs(
+            Array(5).fill("")
+        );
+
+        setLoginStep("grid");
+
+    }
+    catch(err){
+
+        console.error(err);
+
+        setError(
+            "WordPress login failed."
+        );
+
+    }
+    finally{
+
+        setLoading(false);
+
+    }
+
+};
   /* ── LOGIN STEP 2 ── */
   const handleContinueToRegister = async () => {
     setError(""); setLoading(true);
@@ -586,7 +658,7 @@ if (callback) {
                 {mode === "login" && (
                   <>
                     {/* Step 1 */}
-                    {loginStep === "creds" && (
+                    {loginStep === "creds" && !isWordpressLogin && (
                       <div className="form-stack">
                         <div className="step-badge">Step 1 of 3 — Credentials</div>
                         <div className="field-group">
