@@ -213,7 +213,8 @@ export default function Auth() {
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState("");
   const [toast,     setToast]     = useState(null);
-
+  const [wordpressSite,setWordpressSite] = useState("");
+  const [wordpressUsername,setWordpressUsername] = useState("");
   // signup
   const [sentence,  setSentence]  = useState("");
   const [offset,    setOffset]    = useState(getRandomOffset);
@@ -221,7 +222,33 @@ export default function Auth() {
   const [preview,   setPreview]   = useState(null);
 
   const [shuffled, setShuffled] = useState([]);
+//p
+  useEffect(() => {
 
+    const params =
+        new URLSearchParams(
+            window.location.search
+        );
+
+    const email =
+        params.get("email");
+
+    const site =
+        params.get("site");
+
+    const username =
+        params.get("username");
+
+    if(email)
+        setEmail(email);
+
+    if(site)
+        setWordpressSite(site);
+
+    if(username)
+        setWordpressUsername(username);
+
+}, []);
   useEffect(() => {
     fetch(`${API_BASE}/api/auth/sentences`)
       .then(res => res.json())
@@ -293,7 +320,7 @@ export default function Auth() {
     setPreview(null); setLoading(true); setError("");
     try {
       const data = await postJson("/api/auth/signup", {
-        email, password, selectedSentence: sentence,
+        email, password, wordpressSite, wordpressUsername, selectedSentence: sentence,
         secretPositions: positions, offset: parseInt(offset, 10),
       });
       if (!data.success) { setError(data.error || "Could not create account."); return; }
