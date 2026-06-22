@@ -356,7 +356,17 @@ export default function Auth() {
       }
       if (data.token) localStorage.setItem("token", data.token);
       showToast("success", data.message || "Identity verified. Welcome back!");
-      setLoginStep("success");
+      const params = new URLSearchParams(window.location.search);
+
+const callback = params.get("callback");
+
+if (callback) {
+  setTimeout(() => {
+    window.location.href = decodeURIComponent(callback);
+  }, 1000);
+} else {
+  setLoginStep("success");
+}
     } catch { setError("Server error. Try again."); }
     finally { setLoading(false); }
   };
