@@ -14,6 +14,14 @@ const UserSchema = new mongoose.Schema(
     selectedSentence: {
       type: String, required: true,
     },
+    wordpressSite: {
+      type:String,
+      default:null
+    },
+    wordpressUsername:{
+        type:String,
+        default:null
+    },
     // Ordered noun list extracted from selectedSentence
     // e.g. ["teacher", "bus", "school"]
     secretNouns: {
