@@ -249,6 +249,7 @@ export default function Auth() {
         setWordpressUsername(username);
 
     if(site && username){
+        setMode("login");
         setIsWordpressLogin(true);
     }
 
@@ -382,14 +383,11 @@ useEffect(() => {
                 }
             );
 
-        if(!data.success){
-            setError(
-                data.error ||
-                "No Visual Password account found."
-            );
-            return;
-        }
+       if(!data.success){
+          setMode("signup");
 
+          return;
+      }
         setSessionId(data.sessionId);
 
         setChallengeGrid(
