@@ -6,6 +6,17 @@ import crypto  from "crypto";
 import User        from "../models/User.js";
 import LoginSession from "../models/LoginSession.js";
 import { SENTENCES } from "../data/sentences.js";
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 const router = express.Router();
 
@@ -328,6 +339,101 @@ router.post("/regenerate-api-key", async (req, res) => {
   } catch (err) {
     console.error("[regenerate-api-key]", err);
     return res.status(500).json({ success: false, error: "Server error." });
+  }
+});
+
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      return res.json({ success: true, message: "If account exists, reset link sent." });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+
+    user.resetPasswordToken = crypto.createHash("sha256").update(token).digest("hex");
+    user.resetPasswordExpires = Date.now() + 1000 * 60 * 15; // 15 min
+
+    await user.save();
+
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
+
+    await transporter.sendMail({
+      from: `"Visual Password" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: "Password Reset Request",
+      html: `
+        <h3>Password Reset</h3>
+        <p>Click below to reset your password:</p>
+        <a href="${resetUrl}">${resetUrl}</a>
+        <p>If you did not request this, ignore this email.</p>
+      `,
+    });
+
+    console.log("RESET EMAIL SENT TO:", email);
+    console.log("RESET LINK:", `${process.env.FRONTEND_URL}/reset-password/${token}`);
+
+    return res.json({
+      success: true,
+      message: "If account exists, reset link sent."
+    });
+
+  } catch (err) {
+    console.error("[forgot-password]", err);
+    res.status(500).json({ success: false, error: "Server error." });
+  }
+});
+
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, error: "Invalid or expired token." });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Password reset successful."
+    });
+
+  } catch (err) {
+    console.error("[reset-password]", err);
+    res.status(500).json({ success: false, error: "Server error." });
+  }
+});
+
+router.post("/delete-user", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) return res.json({ success: false, error: "User not found" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.json({ success: false, error: "Invalid credentials" });
+
+    await User.deleteOne({ email });
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Server error" });
   }
 });
 

@@ -724,7 +724,14 @@ if (callback) {
                     {/* Step 1 */}
                     {loginStep === "creds" && !isWordpressLogin && (
                       <div className="form-stack">
-                        <div className="step-badge">Step 1 of 3 — Credentials</div>
+                        <div className="step-badge">
+                          Step 1 of 3 — Credentials
+                          {isWordpressLogin && (
+                            <span style={{ marginLeft: 8, color: "#0891b2" }}>
+                              (WordPress SSO)
+                            </span>
+                          )}
+                        </div>
                         <div className="field-group">
                           <label className="field-label">Email address</label>
                           <input className="field-input" type="email" placeholder="you@example.com"
@@ -737,9 +744,138 @@ if (callback) {
                             value={password} onChange={e => setPassword(e.target.value)}
                             onKeyDown={e => e.key === "Enter" && handleLoginCreds()} />
                         </div>
+                        <div className="auth-links">
+                          <button
+                            type="button"
+                            className="auth-link"
+                            onClick={() => setLoginStep("forgot")}
+                          >
+                            Forgot password?
+                          </button>
+
+                          <button
+                            type="button"
+                            className="auth-link auth-link--danger"
+                            onClick={() => setLoginStep("delete")}
+                          >
+                            Delete account
+                          </button>
+                        </div>
                         {error && <div className="alert-error">{error}</div>}
                         <button className="btn-primary" disabled={loading} onClick={handleLoginCreds}>
                           {loading ? "Please wait…" : "Next →"}
+                        </button>
+                      </div>
+                    )}
+
+                    {loginStep === "forgot" && (
+                      <div className="form-stack">
+                        <div className="step-badge">Reset Password</div>
+
+                        <div className="info-box">
+                          Enter your email and we’ll send a reset link.
+                        </div>
+
+                        <input
+                          className="field-input"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                        />
+
+                        {error && <div className="alert-error">{error}</div>}
+
+                        <button
+                          className="btn-primary"
+                          onClick={async () => {
+                            setLoading(true);
+                            setError("");
+
+                            try {
+                              const data = await postJson("/api/auth/forgot-password", { email });
+
+                              if (!data.success) {
+                                setError(data.error || "Failed to send reset email.");
+                                return;
+                              }
+
+                              showToast("success", "Reset link sent to your email.");
+                              setLoginStep("creds");
+                            } catch {
+                              setError("Server error. Try again.");
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                        >
+                          {loading ? "Sending..." : "Send reset link"}
+                        </button>
+
+                        <button className="btn-outline" onClick={() => setLoginStep("creds")}>
+                          ← Back
+                        </button>
+                      </div>
+                    )}
+
+                    {loginStep === "delete" && (
+                      <div className="form-stack">
+                        <div className="step-badge">Delete Account</div>
+
+                        <div className="info-box">
+                          This action is permanent. Enter your credentials to confirm deletion.
+                        </div>
+
+                        <input
+                          className="field-input"
+                          type="email"
+                          placeholder="Email"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                        />
+
+                        <input
+                          className="field-input"
+                          type="password"
+                          placeholder="Password"
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                        />
+
+                        {error && <div className="alert-error">{error}</div>}
+
+                        <button
+                          className="btn-primary"
+                          style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)" }}
+                          onClick={async () => {
+                            setLoading(true);
+                            setError("");
+
+                            try {
+                              const data = await postJson("/api/auth/delete-user", {
+                                email,
+                                password
+                              });
+
+                              if (!data.success) {
+                                setError(data.error || "Could not delete account.");
+                                return;
+                              }
+
+                              showToast("success", "Account deleted.");
+                              resetAll("signup");
+                            } catch {
+                              setError("Server error. Try again.");
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                        >
+                          {loading ? "Deleting..." : "Delete account"}
+                        </button>
+
+                        <button className="btn-outline" onClick={() => setLoginStep("creds")}>
+                          ← Back
                         </button>
                       </div>
                     )}
@@ -904,6 +1040,34 @@ const CSS = `
 .btn-outline{width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2d9cc;background:transparent;color:#475569;font-size:0.9rem;font-weight:500;cursor:pointer;transition:border-color 0.18s,color 0.18s;}
 .btn-outline:hover{border-color:#06B6D4;color:#0891b2;}
 .alert-error{padding:11px 14px;border-radius:9px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);color:#dc2626;font-size:0.84rem;line-height:1.5;}
+.auth-links{
+  display:flex;
+  justify-content:space-between;
+  margin-top:6px;
+  gap:10px;
+}
+
+.auth-link{
+  background:none;
+  border:none;
+  font-size:0.78rem;
+  color:#0891b2;
+  font-weight:600;
+  cursor:pointer;
+  padding:2px 0;
+}
+
+.auth-link:hover{
+  text-decoration:underline;
+}
+
+.auth-link--danger{
+  color:#dc2626;
+}
+
+.auth-link--danger:hover{
+  text-decoration:underline;
+}
 .success-box{display:flex;flex-direction:column;align-items:center;gap:14px;padding:32px 20px;text-align:center;}
 .success-check{width:64px;height:64px;border-radius:50%;background:rgba(34,197,94,0.12);border:2px solid rgba(34,197,94,0.3);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:#16a34a;}
 .success-title{font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;color:#0f172a;}
@@ -913,4 +1077,5 @@ const CSS = `
 .toast-error{background:#fef2f2;border:1px solid rgba(239,68,68,0.28);color:#dc2626;}
 @keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
 .page-footer{text-align:center;margin-top:28px;font-size:0.75rem;color:#94a3b8;position:relative;z-index:1;}
+
 `;
