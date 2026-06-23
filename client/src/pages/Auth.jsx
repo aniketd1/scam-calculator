@@ -216,6 +216,8 @@ export default function Auth() {
   const [wordpressSite,setWordpressSite] = useState("");
   const [wordpressUsername,setWordpressUsername] = useState("");
   const [isWordpressLogin, setIsWordpressLogin] = useState(false);
+  //p
+  const [wpLoginStarted, setWpLoginStarted] = useState(false);
 
   // signup
   const [sentence,  setSentence]  = useState("");
@@ -258,14 +260,19 @@ export default function Auth() {
 useEffect(() => {
 
     if(
+        !wpLoginStarted &&
         isWordpressLogin &&
         wordpressSite &&
         wordpressUsername
     ){
+
+        setWpLoginStarted(true);
         handleWordpressLogin();
+
     }
 
 }, [
+    wpLoginStarted,
     isWordpressLogin,
     wordpressSite,
     wordpressUsername
@@ -339,19 +346,75 @@ useEffect(() => {
   };
 
   const confirmSignup = async () => {
-    setPreview(null); setLoading(true); setError("");
-    try {
-      const data = await postJson("/api/auth/signup", {
-        email, password, wordpressSite, wordpressUsername, selectedSentence: sentence,
-        secretPositions: positions, offset: parseInt(offset, 10),
-      });
-      if (!data.success) { setError(data.error || "Could not create account."); return; }
-      if (data.token) localStorage.setItem("token", data.token);
-      showToast("success", "Account created! Sign in now.");
-      resetAll("login");
-    } catch { setError("Server error. Try again."); }
-    finally { setLoading(false); }
-  };
+
+  setPreview(null);
+  setLoading(true);
+  setError("");
+
+  try {
+
+    const data = await postJson(
+      "/api/auth/signup",
+      {
+        email,
+        password,
+        wordpressSite,
+        wordpressUsername,
+        selectedSentence: sentence,
+        secretPositions: positions,
+        offset: parseInt(offset, 10),
+      }
+    );
+
+    if (!data.success) {
+      setError(data.error || "Could not create account.");
+      return;
+    }
+
+    if (data.token) {
+      localStorage.setItem("token", data.token);
+    }
+
+    showToast(
+      "success",
+      "Account created successfully!"
+    );
+
+    // WordPress flow
+    if (
+      wordpressSite &&
+      wordpressUsername
+    ) {
+
+      setMode("login");
+
+      setWpLoginStarted(true);
+
+      setTimeout(() => {
+          handleWordpressLogin();
+      }, 500);
+
+      return;
+    }
+
+    // Normal Scam2Safe flow
+    resetAll("login");
+
+  }
+  catch {
+
+    setError(
+      "Server error. Try again."
+    );
+
+  }
+  finally {
+
+    setLoading(false);
+
+  }
+
+};
 
   /* ── LOGIN STEP 1 ── */
   const handleLoginCreds = async () => {
@@ -385,7 +448,10 @@ useEffect(() => {
 
        if(!data.success){
           setMode("signup");
-
+          showToast(
+              "error",
+              "No Visual Password account found. Please create one."
+          );
           return;
       }
         setSessionId(data.sessionId);
