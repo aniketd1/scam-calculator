@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import VerifiedIndex from './pages/Verification';
 import Maintenance from "./pages/Maintenance";
 import SignIn from "./pages/SignIn";
+import ResetPassword from "./pages/ResetPassword";
 
 const AppRoutes = () => {
   return (
@@ -26,7 +27,7 @@ const AppRoutes = () => {
       <Route path="/verified" element={<VerifiedIndex />} />
       <Route path="/maintenance" element={<Maintenance />} />
       <Route path="/signin" element={<SignIn />} />
-      <Route path="/Auth" element={<Auth />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
     </Routes>
   );
 };

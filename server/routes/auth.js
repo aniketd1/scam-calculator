@@ -8,6 +8,9 @@ import LoginSession from "../models/LoginSession.js";
 import { SENTENCES } from "../data/sentences.js";
 import nodemailer from "nodemailer";
 
+import dotenv from "dotenv";
+dotenv.config();
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: 587,
@@ -16,6 +19,9 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  tls: {
+    rejectUnauthorized: false
+  }
 });
 
 const router = express.Router();
@@ -361,19 +367,42 @@ router.post("/forgot-password", async (req, res) => {
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
 
     await transporter.sendMail({
-      from: `"Visual Password" <${process.env.SMTP_USER}>`,
+      from: `"Visual Password Security" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: "Password Reset Request",
-      html: `
-        <h3>Password Reset</h3>
-        <p>Click below to reset your password:</p>
-        <a href="${resetUrl}">${resetUrl}</a>
-        <p>If you did not request this, ignore this email.</p>
-      `,
-    });
+      subject: "🔐 Reset Your Password (valid for 15 minutes)",
 
-    console.log("RESET EMAIL SENT TO:", email);
-    console.log("RESET LINK:", `${process.env.FRONTEND_URL}/reset-password/${token}`);
+      html: `
+      <div style="font-family:Arial,sans-serif;background:#f7f7f7;padding:20px">
+        <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #eee">
+
+          <h2 style="color:#0f172a;margin-bottom:10px">Password Reset Request for Scam2Safe.com</h2>
+
+          <p style="color:#334155;font-size:14px;line-height:1.6">
+            We received a request to reset your password. If this was you, click the button below.
+            This link will expire in <b>15 minutes</b>.
+          </p>
+
+          <a href="${resetUrl}"
+            style="display:inline-block;margin:16px 0;padding:12px 18px;background:linear-gradient(135deg,#06B6D4,#0891b2);color:white;text-decoration:none;border-radius:8px;font-weight:600">
+            Reset Password
+          </a>
+
+          <p style="color:#64748b;font-size:12px;line-height:1.5">
+            If the button doesn’t work, copy and paste this link:<br/>
+            <a href="${resetUrl}">${resetUrl}</a>
+          </p>
+
+          <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
+
+          <p style="color:#94a3b8;font-size:12px">
+            If you didn’t request this, you can safely ignore this email.
+            Your password will remain unchanged.
+          </p>
+
+        </div>
+      </div>
+      `
+    });
 
     return res.json({
       success: true,
@@ -391,6 +420,9 @@ router.post("/reset-password", async (req, res) => {
     const { token, newPassword } = req.body;
 
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    console.log(await User.findOne({
+      resetPasswordToken: hashedToken
+    }));
 
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
@@ -406,6 +438,37 @@ router.post("/reset-password", async (req, res) => {
     user.resetPasswordExpires = undefined;
 
     await user.save();
+
+    await transporter.sendMail({
+      from: `"Visual Password Security" <${process.env.SMTP_USER}>`,
+      to: user.email,
+      subject: "✅ Your Password Was Successfully Reset",
+
+      html: `
+      <div style="font-family:Arial,sans-serif;background:#f7f7f7;padding:20px">
+        <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #eee">
+
+          <h2 style="color:#0f172a">Password Updated</h2>
+
+          <p style="color:#334155;font-size:14px;line-height:1.6">
+            Your password has been successfully changed.
+            If this was not you, please contact support immediately.
+          </p>
+
+          <div style="padding:12px;background:#ecfeff;border-left:4px solid #06B6D4;border-radius:6px;margin-top:12px">
+            <p style="margin:0;color:#0f172a;font-size:13px">
+              Your account is now secured with your new password.
+            </p>
+          </div>
+
+          <p style="color:#94a3b8;font-size:12px;margin-top:20px">
+            Visual Password Security System
+          </p>
+
+        </div>
+      </div>
+      `
+    });
 
     return res.json({
       success: true,
