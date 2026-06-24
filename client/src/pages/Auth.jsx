@@ -101,17 +101,36 @@ function getNounImage(noun) {
 }
 
 // extractNouns — EXACT word match only, no stemming whatsoever
-function extractNouns(s) {
-  return [
+function extractNouns(sentence) {
+  const nouns = [
     ...new Set(
-      s
+      sentence
         .toLowerCase()
-        .replace(/[^a-z\s]/g, " ")   // strip punctuation
+        .replace(/[^a-z\s]/g, " ")
         .split(/\s+/)
-        .filter(w => w && NOUN_WORDS.has(w))  // exact match
+        .filter(w => w && NOUN_WORDS.has(w))
     ),
   ];
+
+  // keep only nouns that actually have images
+  const valid = nouns.filter(n => {
+    const stem = NOUN_STEM_OVERRIDE[n] ?? n;
+    return _fileMap[stem] || _fileMap[stem.replace(/\s+/g, "")];
+  });
+
+  // LIMIT TO MAX 3 nouns
+  return valid.slice(0, 3);
 }
+
+function getValidNounsFromSentence(sentence) {
+  return extractNouns(sentence).slice(0, 3);
+}
+
+const filteredSentences = SENTENCES.filter(s =>
+  extractNouns(s).length >= 2 && extractNouns(s).length <= 3
+);
+
+const VALID_NOUNS = new Set(Object.keys(_fileMap));
 
 // Build mnemonic from nouns: ["doctor","apple","car","park"] → "DACP"
 function buildMnemonic(nouns) {

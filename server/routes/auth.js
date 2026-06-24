@@ -63,11 +63,17 @@ function generateChallengeGrid(secretNouns) {
 
 function buildRegister(secretValue, offset, secretPositions) {
   const result = (secretValue + offset) % 100;
-  const d1 = Math.floor(result / 10);
-  const d2 = result % 10;
+
+  const normalized = String(result).padStart(2, "0");
+
+  const d1 = parseInt(normalized[0], 10);
+  const d2 = parseInt(normalized[1], 10);
+
   const reg = Array.from({ length: 5 }, () => Math.floor(Math.random() * 10));
+
   reg[POSITIONS.indexOf(secretPositions[0])] = d1;
   reg[POSITIONS.indexOf(secretPositions[1])] = d2;
+
   return { register: reg, d1, d2 };
 }
 
