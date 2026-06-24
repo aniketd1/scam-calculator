@@ -39,6 +39,11 @@ const UserSchema = new mongoose.Schema(
     apiKeyHint: {
       type: String, default: null,
     },
+    apiKeyPrefix: {
+      type: String,
+      default: null,
+      index: true, 
+    },
     apiKeyCreatedAt: {
       type: Date, default: null,
     },
@@ -72,10 +77,19 @@ UserSchema.methods.verifyApiKey = async function (rawKey) {
 
 // Generate a new API key, store its hash, return the raw key (shown once)
 UserSchema.methods.generateApiKey = async function () {
-  const raw  = "s2s_" + crypto.randomBytes(32).toString("hex"); // 68 chars
-  this.apiKeyHash      = await bcrypt.hash(raw, 10);
-  this.apiKeyHint      = raw.slice(-6);   // last 6 chars for identification
+  const raw = "s2s_" + crypto.randomBytes(32).toString("hex");
+
+  // store prefix (first 10 chars for lookup)
+  this.apiKeyPrefix = raw.slice(0, 10);
+
+  // hash full key
+  this.apiKeyHash = await bcrypt.hash(raw, 10);
+
+  // store hint (last 6 chars for UI)
+  this.apiKeyHint = raw.slice(-6);
+
   this.apiKeyCreatedAt = new Date();
+
   return raw;
 };
 

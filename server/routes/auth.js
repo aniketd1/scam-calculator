@@ -182,30 +182,53 @@ router.post("/login", async (req, res) => {
 ─────────────────────────────────────────────────────────────── */
 router.post("/wordpress-login", async (req, res) => {
   try {
-    const { apiKey, wordpressSite, wordpressUsername } = req.body;
+    const { email, apiKey } = req.body;
 
-    if (!apiKey || !wordpressSite || !wordpressUsername)
-      return res.status(400).json({ success: false, error: "apiKey, wordpressSite, and wordpressUsername are required." });
+    if (!email || !apiKey) {
+      return res.status(400).json({
+        success: false,
+        error: "email and apiKey are required."
+      });
+    }
 
-    // Find user by wordpressSite + wordpressUsername
+    // 1. find user by email
     const user = await User.findOne({
-      wordpressSite:     wordpressSite.trim(),
-      wordpressUsername: wordpressUsername.trim(),
+      email: email.toLowerCase().trim()
     });
 
-    if (!user)
-      return res.status(404).json({ success: false, error: "No Visual Password account linked to this WordPress user." });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found."
+      });
+    }
 
-    // Verify API key
+    // 2. verify API key
     const keyValid = await user.verifyApiKey(apiKey);
-    if (!keyValid)
-      return res.status(401).json({ success: false, error: "Invalid API key." });
 
-    const { sessionId, challengeGrid } = await createLoginSession(user._id, user.secretNouns);
-    return res.json({ success: true, sessionId, challengeGrid });
+    if (!keyValid) {
+      return res.status(401).json({
+        success: false,
+        error: "Invalid API key."
+      });
+    }
+
+    // 3. create session
+    const { sessionId, challengeGrid } =
+      await createLoginSession(user._id, user.secretNouns);
+
+    return res.json({
+      success: true,
+      sessionId,
+      challengeGrid
+    });
+
   } catch (err) {
     console.error("[wordpress-login]", err);
-    return res.status(500).json({ success: false, error: "Server error." });
+    return res.status(500).json({
+      success: false,
+      error: "Server error."
+    });
   }
 });
 
