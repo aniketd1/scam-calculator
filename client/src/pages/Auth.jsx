@@ -232,11 +232,10 @@ export default function Auth() {
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState("");
   const [toast,     setToast]     = useState(null);
-  const [wordpressSite,setWordpressSite] = useState("");
-  const [wordpressUsername,setWordpressUsername] = useState("");
   const [isWordpressLogin, setIsWordpressLogin] = useState(false);
   //p
   const [wpLoginStarted, setWpLoginStarted] = useState(false);
+  const [apiKey, setApiKey] = useState("");
 
   // signup
   const [sentence,  setSentence]  = useState("");
@@ -248,28 +247,18 @@ export default function Auth() {
 //p
  useEffect(() => {
 
-    const params =
-        new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(window.location.search);
 
-    const email =
-        params.get("email");
+    const email = params.get("email");
+    const apiKey = params.get("apikey");
 
-    const site =
-        params.get("site");
-
-    const username =
-        params.get("username");
-
-    if(email)
+    if (email)
         setEmail(email);
 
-    if(site)
-        setWordpressSite(site);
+    if (apiKey)
+        setApiKey(apiKey);
 
-    if(username)
-        setWordpressUsername(username);
-
-    if(site && username){
+    if (email && apiKey) {
         setMode("login");
         setIsWordpressLogin(true);
     }
@@ -281,8 +270,8 @@ useEffect(() => {
     if(
         !wpLoginStarted &&
         isWordpressLogin &&
-        wordpressSite &&
-        wordpressUsername
+        email &&
+        apiKey
     ){
 
         setWpLoginStarted(true);
@@ -293,8 +282,8 @@ useEffect(() => {
 }, [
     wpLoginStarted,
     isWordpressLogin,
-    wordpressSite,
-    wordpressUsername
+    email,
+    apiKey
 ]);
   
   useEffect(() => {
@@ -327,7 +316,7 @@ useEffect(() => {
   };
 
   const resetAll = useCallback((m) => {
-    setMode(m); setEmail(""); setPassword(""); setError(""); setToast(null);
+    setMode(m); if (!isWordpressLogin) {setEmail("");} setPassword(""); setError(""); setToast(null);
     setSentence(""); setOffset(getRandomOffset()); setPositions(getRandomPositions());
     setPreview(null);
     setLoginStep("creds"); setSessionId(""); setChallengeGrid([]);
@@ -339,7 +328,7 @@ useEffect(() => {
           if (data.success) setShuffled(shuffle(data.sentences));
         });
     }
-  }, []);
+  }, [isWordpressLogin]);
 
   // Position 0 change resets position 1
   const setPos = (slot, val) => {
@@ -377,8 +366,6 @@ useEffect(() => {
       {
         email,
         password,
-        wordpressSite,
-        wordpressUsername,
         selectedSentence: sentence,
         secretPositions: positions,
         offset: parseInt(offset, 10),
@@ -399,25 +386,33 @@ useEffect(() => {
       "Account created successfully!"
     );
 
-    // WordPress flow
-    if (
-      wordpressSite &&
-      wordpressUsername
-    ) {
+    if (isWordpressLogin) {
 
-      setMode("login");
-
-      setWpLoginStarted(true);
-
-      setTimeout(() => {
-          handleWordpressLogin();
-      }, 500);
-
-      return;
+    setError("");
+    setMode("login");
+    const wpData = await postJson(
+    "/api/auth/wordpress-login",
+    {
+        email,
+        apiKey
     }
+);
 
-    // Normal Scam2Safe flow
+if (!wpData.success) {
+    setError(wpData.error);
+    return;
+}
+
+setSessionId(wpData.sessionId);
+setChallengeGrid(wpData.challengeGrid);
+setRegInputs(Array(5).fill(""));
+setLoginStep("grid");
+
+} else {
+
     resetAll("login");
+
+}
 
   }
   catch {
@@ -460,13 +455,14 @@ useEffect(() => {
             await postJson(
                 "/api/auth/wordpress-login",
                 {
-                    wordpressSite,
-                    wordpressUsername
+                    email,
+                    apiKey
                 }
             );
 
        if(!data.success){
           setMode("signup");
+          setError("");
           showToast(
               "error",
               "No Visual Password account found. Please create one."
