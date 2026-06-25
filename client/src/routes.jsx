@@ -12,6 +12,7 @@ import VerifiedIndex from './pages/Verification';
 import Maintenance from "./pages/Maintenance";
 import SignIn from "./pages/SignIn";
 import ResetPassword from "./pages/ResetPassword";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const AppRoutes = () => {
   return (
@@ -28,6 +29,7 @@ const AppRoutes = () => {
       <Route path="/maintenance" element={<Maintenance />} />
       <Route path="/signin" element={<SignIn />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
+      <Route path="/admin" element={<AdminDashboard />} />
     </Routes>
   );
 };

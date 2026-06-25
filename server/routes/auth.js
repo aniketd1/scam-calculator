@@ -19,9 +19,7 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-  tls: {
-    rejectUnauthorized: false
-  }
+  tls: { rejectUnauthorized: false },
 });
 
 const router = express.Router();
@@ -62,18 +60,13 @@ function generateChallengeGrid(secretNouns) {
 }
 
 function buildRegister(secretValue, offset, secretPositions) {
-  const result = (secretValue + offset) % 100;
-
+  const result     = (secretValue + offset) % 100;
   const normalized = String(result).padStart(2, "0");
-
   const d1 = parseInt(normalized[0], 10);
   const d2 = parseInt(normalized[1], 10);
-
   const reg = Array.from({ length: 5 }, () => Math.floor(Math.random() * 10));
-
   reg[POSITIONS.indexOf(secretPositions[0])] = d1;
   reg[POSITIONS.indexOf(secretPositions[1])] = d2;
-
   return { register: reg, d1, d2 };
 }
 
@@ -91,9 +84,65 @@ async function createLoginSession(userId, secretNouns) {
   return { sessionId, challengeGrid };
 }
 
+/* ── MIDDLEWARE ─────────────────────────────────────────────── */
+function verifyUserToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer "))
+    return res.status(401).json({ success: false, error: "Unauthorised." });
+  try {
+    req.user = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ success: false, error: "Invalid or expired token." });
+  }
+}
+
 /* ── GET /api/auth/sentences ────────────────────────────────── */
 router.get("/sentences", (_req, res) => {
   res.json({ success: true, sentences: SENTENCES });
+});
+
+/* ── GET /api/auth/profile ───────────────────────────────────
+   Returns the logged-in user's non-sensitive profile data.
+   Frontend uses this to:
+     1. Pre-fill WordPress email/username on the signup form
+     2. Know if the user already has a visual password set up
+        (hasVisualPassword: true → skip straight to challenge grid)
+   Returns:
+     email, wordpressSite, wordpressUsername,
+     hasVisualPassword (bool), apiKeyHint, apiKeyCreatedAt
+─────────────────────────────────────────────────────────────── */
+router.get("/profile", verifyUserToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId, [
+      "email", "wordpressSite", "wordpressUsername",
+      "secretNouns", "secretPositions", "offset",
+      "selectedSentence",
+      "apiKeyHint", "apiKeyPrefix", "apiKeyCreatedAt",
+    ]);
+    if (!user)
+      return res.status(404).json({ success: false, error: "User not found." });
+
+    return res.json({
+      success: true,
+      user: {
+        email:             user.email,
+        wordpressSite:     user.wordpressSite     || null,
+        wordpressUsername: user.wordpressUsername || null,
+        // True when they have completed visual-password setup
+        hasVisualPassword: (
+          user.secretNouns?.length > 0 &&
+          user.secretPositions?.length === 2 &&
+          user.offset != null
+        ),
+        apiKeyHint:      user.apiKeyHint      || null,
+        apiKeyCreatedAt: user.apiKeyCreatedAt || null,
+      },
+    });
+  } catch (err) {
+    console.error("[profile]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
+  }
 });
 
 /* ── POST /api/auth/signup ──────────────────────────────────── */
@@ -123,7 +172,6 @@ router.post("/signup", async (req, res) => {
     if (!secretNouns.length)
       return res.status(400).json({ success: false, error: "No recognisable nouns found in that sentence." });
 
-    // Build user (password hashed in pre-save hook)
     const user = new User({
       email: email.toLowerCase().trim(),
       password,
@@ -135,7 +183,6 @@ router.post("/signup", async (req, res) => {
       offset: off,
     });
 
-    // Generate API key — raw key returned ONCE, hash stored
     const rawApiKey = await user.generateApiKey();
     await user.save();
 
@@ -149,8 +196,8 @@ router.post("/signup", async (req, res) => {
       success: true,
       message: "Account created successfully.",
       token,
-      // ── Raw API key — shown ONCE. User must copy it now. ──
-      apiKey: rawApiKey,
+      // Raw API key — shown ONCE. User must copy it now.
+      apiKey:     rawApiKey,
       apiKeyHint: user.apiKeyHint,
       user: { id: user._id, email: user.email },
     });
@@ -182,59 +229,29 @@ router.post("/login", async (req, res) => {
 });
 
 /* ── POST /api/auth/wordpress-login ────────────────────────────
-   Called by the WordPress plugin using the user's API key.
-   Body: { apiKey, wordpressSite, wordpressUsername }
-   No password needed — API key IS the credential for WP flow.
+    Called by the WordPress plugin using the user's API key.
+    Body: { email, apiKey }
 ─────────────────────────────────────────────────────────────── */
 router.post("/wordpress-login", async (req, res) => {
   try {
     const { email, apiKey } = req.body;
 
-    if (!email || !apiKey) {
-      return res.status(400).json({
-        success: false,
-        error: "email and apiKey are required."
-      });
-    }
+    if (!email || !apiKey)
+      return res.status(400).json({ success: false, error: "email and apiKey are required." });
 
-    // 1. find user by email
-    const user = await User.findOne({
-      email: email.toLowerCase().trim()
-    });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user)
+      return res.status(404).json({ success: false, error: "User not found." });
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: "User not found."
-      });
-    }
-
-    // 2. verify API key
     const keyValid = await user.verifyApiKey(apiKey);
+    if (!keyValid)
+      return res.status(401).json({ success: false, error: "Invalid API key." });
 
-    if (!keyValid) {
-      return res.status(401).json({
-        success: false,
-        error: "Invalid API key."
-      });
-    }
-
-    // 3. create session
-    const { sessionId, challengeGrid } =
-      await createLoginSession(user._id, user.secretNouns);
-
-    return res.json({
-      success: true,
-      sessionId,
-      challengeGrid
-    });
-
+    const { sessionId, challengeGrid } = await createLoginSession(user._id, user.secretNouns);
+    return res.json({ success: true, sessionId, challengeGrid });
   } catch (err) {
     console.error("[wordpress-login]", err);
-    return res.status(500).json({
-      success: false,
-      error: "Server error."
-    });
+    return res.status(500).json({ success: false, error: "Server error." });
   }
 });
 
@@ -348,17 +365,11 @@ router.post("/verify", async (req, res) => {
 });
 
 /* ── POST /api/auth/regenerate-api-key ─────────────────────────
-   Authenticated endpoint. User can rotate their API key.
-   Requires JWT in Authorization header.
+   Authenticated. User can rotate their own API key.
 ─────────────────────────────────────────────────────────────── */
-router.post("/regenerate-api-key", async (req, res) => {
+router.post("/regenerate-api-key", verifyUserToken, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer "))
-      return res.status(401).json({ success: false, error: "Unauthorised." });
-
-    const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
-    const user    = await User.findById(decoded.userId);
+    const user = await User.findById(req.user.userId);
     if (!user)
       return res.status(404).json({ success: false, error: "User not found." });
 
@@ -367,7 +378,7 @@ router.post("/regenerate-api-key", async (req, res) => {
 
     return res.json({
       success: true,
-      apiKey:     rawApiKey,    // shown once — user must copy it
+      apiKey:     rawApiKey,
       apiKeyHint: user.apiKeyHint,
       message: "New API key generated. Copy it now — it won't be shown again.",
     });
@@ -380,17 +391,13 @@ router.post("/regenerate-api-key", async (req, res) => {
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
-
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) {
+    if (!user)
       return res.json({ success: true, message: "If account exists, reset link sent." });
-    }
 
     const token = crypto.randomBytes(32).toString("hex");
-
-    user.resetPasswordToken = crypto.createHash("sha256").update(token).digest("hex");
-    user.resetPasswordExpires = Date.now() + 1000 * 60 * 15; // 15 min
-
+    user.resetPasswordToken   = crypto.createHash("sha256").update(token).digest("hex");
+    user.resetPasswordExpires = Date.now() + 1000 * 60 * 15;
     await user.save();
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
@@ -399,45 +406,27 @@ router.post("/forgot-password", async (req, res) => {
       from: `"Visual Password Security" <${process.env.SMTP_USER}>`,
       to: email,
       subject: "🔐 Reset Your Password (valid for 15 minutes)",
-
       html: `
       <div style="font-family:Arial,sans-serif;background:#f7f7f7;padding:20px">
         <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #eee">
-
           <h2 style="color:#0f172a;margin-bottom:10px">Password Reset Request for Scam2Safe.com</h2>
-
           <p style="color:#334155;font-size:14px;line-height:1.6">
-            We received a request to reset your password. If this was you, click the button below.
-            This link will expire in <b>15 minutes</b>.
+            We received a request to reset your password. Click below — expires in <b>15 minutes</b>.
           </p>
-
-          <a href="${resetUrl}"
-            style="display:inline-block;margin:16px 0;padding:12px 18px;background:linear-gradient(135deg,#06B6D4,#0891b2);color:white;text-decoration:none;border-radius:8px;font-weight:600">
+          <a href="${resetUrl}" style="display:inline-block;margin:16px 0;padding:12px 18px;background:linear-gradient(135deg,#06B6D4,#0891b2);color:white;text-decoration:none;border-radius:8px;font-weight:600">
             Reset Password
           </a>
-
-          <p style="color:#64748b;font-size:12px;line-height:1.5">
-            If the button doesn’t work, copy and paste this link:<br/>
-            <a href="${resetUrl}">${resetUrl}</a>
+          <p style="color:#64748b;font-size:12px;">
+            If the button doesn't work: <a href="${resetUrl}">${resetUrl}</a>
           </p>
-
           <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
-
-          <p style="color:#94a3b8;font-size:12px">
-            If you didn’t request this, you can safely ignore this email.
-            Your password will remain unchanged.
-          </p>
-
+          <p style="color:#94a3b8;font-size:12px">If you didn't request this, ignore this email.</p>
         </div>
       </div>
-      `
+      `,
     });
 
-    return res.json({
-      success: true,
-      message: "If account exists, reset link sent."
-    });
-
+    return res.json({ success: true, message: "If account exists, reset link sent." });
   } catch (err) {
     console.error("[forgot-password]", err);
     res.status(500).json({ success: false, error: "Server error." });
@@ -447,63 +436,38 @@ router.post("/forgot-password", async (req, res) => {
 router.post("/reset-password", async (req, res) => {
   try {
     const { token, newPassword } = req.body;
-
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-    console.log(await User.findOne({
-      resetPasswordToken: hashedToken
-    }));
-
     const user = await User.findOne({
-      resetPasswordToken: hashedToken,
-      resetPasswordExpires: { $gt: Date.now() }
+      resetPasswordToken:   hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
     });
 
-    if (!user) {
+    if (!user)
       return res.status(400).json({ success: false, error: "Invalid or expired token." });
-    }
 
-    user.password = newPassword;
-    user.resetPasswordToken = undefined;
+    user.password             = newPassword;
+    user.resetPasswordToken   = undefined;
     user.resetPasswordExpires = undefined;
-
     await user.save();
 
     await transporter.sendMail({
       from: `"Visual Password Security" <${process.env.SMTP_USER}>`,
       to: user.email,
       subject: "✅ Your Password Was Successfully Reset",
-
       html: `
       <div style="font-family:Arial,sans-serif;background:#f7f7f7;padding:20px">
         <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #eee">
-
           <h2 style="color:#0f172a">Password Updated</h2>
-
-          <p style="color:#334155;font-size:14px;line-height:1.6">
-            Your password has been successfully changed.
-            If this was not you, please contact support immediately.
-          </p>
-
+          <p style="color:#334155;font-size:14px">Your password has been successfully changed. If this was not you, contact support immediately.</p>
           <div style="padding:12px;background:#ecfeff;border-left:4px solid #06B6D4;border-radius:6px;margin-top:12px">
-            <p style="margin:0;color:#0f172a;font-size:13px">
-              Your account is now secured with your new password.
-            </p>
+            <p style="margin:0;color:#0f172a;font-size:13px">Your account is now secured with your new password.</p>
           </div>
-
-          <p style="color:#94a3b8;font-size:12px;margin-top:20px">
-            Visual Password Security System
-          </p>
-
         </div>
       </div>
-      `
+      `,
     });
 
-    return res.json({
-      success: true,
-      message: "Password reset successful."
-    });
-
+    return res.json({ success: true, message: "Password reset successful." });
   } catch (err) {
     console.error("[reset-password]", err);
     res.status(500).json({ success: false, error: "Server error." });
@@ -513,15 +477,11 @@ router.post("/reset-password", async (req, res) => {
 router.post("/delete-user", async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const user = await User.findOne({ email });
     if (!user) return res.json({ success: false, error: "User not found" });
-
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.json({ success: false, error: "Invalid credentials" });
-
     await User.deleteOne({ email });
-
     return res.json({ success: true });
   } catch (err) {
     console.error(err);

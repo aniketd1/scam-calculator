@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import authRouter from "./routes/authRoutes.js";
+import adminRoutes from "./routes/admin.js";
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use(express.json());
 
 // ── Routes ───────────────────────────────────────────────────
 app.use("/api/auth", authRouter);
+app.use("/api/admin", adminRoutes);
 
 // ── Health check ─────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ status: "ok" }));

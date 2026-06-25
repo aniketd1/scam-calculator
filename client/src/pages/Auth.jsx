@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { SENTENCES } from "../../../server/data/sentences";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 /* ── ASSET MAP ─────────────────────────────────────────────── */
 const _nounGlob = import.meta.glob("../assets/nouns/*.png", { eager: true });
@@ -88,6 +88,7 @@ const NOUN_STEM_OVERRIDE = {
   children: "child",    // PNG is child.png
   babies:   "baby",     // PNG is baby.png
   flowers:  "flower",
+  eggs: "eggs"
 };
 
 // Updated getNounImage — checks override map first, then exact stem
@@ -238,6 +239,9 @@ export default function Auth() {
   const [wpLoginStarted, setWpLoginStarted] = useState(false);
   const [apiKey, setApiKey] = useState("");
 
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [createdApiKey, setCreatedApiKey] = useState("");
+  const [pendingSignupSuccess, setPendingSignupSuccess] = useState(false);
 
   // signup
   const [sentence,  setSentence]  = useState("");
@@ -320,6 +324,33 @@ useEffect(() => {
   const createBtnRef = useRef(null);
   const allFilled    = regInputs.every(v => v !== "");
 
+  const copyApiKey = async () => {
+    try {
+      await navigator.clipboard.writeText(createdApiKey);
+      showToast("success", "API key copied to clipboard");
+    } catch {
+      showToast("error", "Failed to copy");
+    }
+  };
+
+  const handleCloseApiKey = () => {
+    setShowApiKey(false);
+
+    // FINALIZE SIGNUP UX
+    setEmail("");
+    setPassword("");
+    setSentence("");
+    setOffset(getRandomOffset());
+    setPositions(getRandomPositions());
+    setPreview(null);
+
+    setMode("login");
+
+    setPendingSignupSuccess(false);
+
+    showToast("success", "Account created successfully!");
+  };
+
   const showToast = (type, msg) => {
     setToast({ type, message: msg });
     setTimeout(() => setToast(null), 4500);
@@ -365,73 +396,75 @@ useEffect(() => {
 
   const confirmSignup = async () => {
 
-  setPreview(null);
-  setLoading(true);
-  setError("");
-
-  try {
-
-    const data = await postJson(
-      "/api/auth/signup",
-      {
-        email,
-        password,
-        selectedSentence: sentence,
-        secretPositions: positions,
-        offset: parseInt(offset, 10),
-      }
-    );
-    if (data.success) {
-
-        alert(
-    `🎉 Account created successfully!
-    
-    IMPORTANT:
-    Copy this API Key now.
-    It will never be shown again.
-    
-    ${data.apiKey}`
-        );
-    
-    }
-
-    if (!data.success) {
-      setError(data.error || "Could not create account.");
-      return;
-    }
-
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-    }
-
     setPreview(null);
+    setLoading(true);
+    setError("");
 
-    if (isWordpressLogin) {
-        showToast(
-            "success",
-            "Visual Password created successfully."
-        );
-    
-        setMode("login");
-    
-        setWpLoginStarted(false);
-        
+    try {
+
+      const data = await postJson(
+        "/api/auth/signup",
+        {
+          email,
+          password,
+          selectedSentence: sentence,
+          secretPositions: positions,
+          offset: parseInt(offset, 10),
+        }
+      );
+
+      if (data.success) {
+        setCreatedApiKey(data.apiKey);
+        setShowApiKey(true);
+        setPendingSignupSuccess(true);
+      }
+
+      if (!data.success) {
+        setError(data.error || "Could not create account.");
         return;
       }
-      showToast("success","Account created successfully!");
-  }
-  catch(err) {
 
-    setError(
-      "Server error. Try again."
-    );
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
 
-  }
-  finally {
+      const copyApiKey = async () => {
+        try {
+          await navigator.clipboard.writeText(createdApiKey);
+          showToast("success", "API key copied to clipboard");
+        } catch {
+          showToast("error", "Failed to copy");
+        }
+      };
 
-    setLoading(false);
+      setPreview(null);
 
-  }
+      if (isWordpressLogin) {
+          showToast(
+              "success",
+              "Visual Password created successfully."
+          );
+      
+          setMode("login");
+      
+          setWpLoginStarted(false);
+          
+          return;
+        }
+        showToast("success","Account created successfully!");
+    }
+    catch(err) {
+
+      setError(
+        "Server error. Try again."
+      );
+
+    }
+    finally {
+
+      setLoading(false);
+
+    }
 
 };
 
@@ -554,7 +587,7 @@ const callback = localStorage.getItem("wp_callback");
 if (callback) {
 
     localStorage.removeItem("wp_callback");
-   window.location.href = decodeURIComponent(callback);
+    window.location.href = decodeURIComponent(callback);
     return;
 }
 
@@ -568,6 +601,46 @@ setLoginStep("success");
     <>
       <style>{CSS}</style>
       <Toast toast={toast} onClose={() => setToast(null)} />
+
+        {showApiKey && (
+        <div
+          className="overlay-bg"
+          onClick={handleCloseApiKey}
+        >
+          <div className="overlay-card">
+            <button className="overlay-close" onClick={handleCloseApiKey}>
+              ✕
+            </button>
+
+            <p className="overlay-eyebrow">Account Created</p>
+            <h2 className="overlay-title">Your API Key</h2>
+
+            <div className="preview-details">
+              <div className="preview-row">
+                <span className="preview-key">API Key</span>
+                <span className="preview-val" style={{ wordBreak: "break-all" }}>
+                  {createdApiKey}
+                </span>
+              </div>
+            </div>
+
+            <button className="overlay-btn" onClick={copyApiKey}>
+              Copy to clipboard
+            </button>
+
+            <p className="overlay-hint">
+              Save this key now. It will not be shown again.
+            </p>
+
+            <button
+              className="btn-outline"
+              onClick={() => setShowApiKey(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── SIGNUP PREVIEW OVERLAY with Mnemonics ── */}
       {preview && (() => {
