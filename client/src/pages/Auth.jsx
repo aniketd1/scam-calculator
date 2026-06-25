@@ -380,6 +380,19 @@ useEffect(() => {
         offset: parseInt(offset, 10),
       }
     );
+    if (data.success) {
+
+        alert(
+    `🎉 Account created successfully!
+    
+    IMPORTANT:
+    Copy this API Key now.
+    It will never be shown again.
+    
+    ${data.apiKey}`
+        );
+    
+    }
 
     if (!data.success) {
       setError(data.error || "Could not create account.");
