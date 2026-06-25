@@ -252,10 +252,15 @@ useEffect(() => {
 
     const email = params.get("email");
     const apiKey = params.get("apikey");
+    const callback = params.get("callback");
 
     if(email) setEmail(email);
 
     if(apiKey) setApiKey(apiKey);
+
+    if (callback) {
+        localStorage.setItem("wp_callback", callback);
+    }
 
     if(email && apiKey){
 
@@ -263,6 +268,7 @@ useEffect(() => {
         setIsWordpressLogin(true);
 
     }
+    window.history.replaceState({}, "", window.location.pathname);
 
 }, []);
 
@@ -289,6 +295,7 @@ useEffect(() => {
 ]);
   
   useEffect(() => {
+    if (isWordpressLogin) return;
     fetch(`${API_BASE}/api/auth/sentences`)
       .then(res => res.json())
       .then(data => {
@@ -383,18 +390,23 @@ useEffect(() => {
       localStorage.setItem("token", data.token);
     }
 
-    showToast(
-      "success",
-      "Account created successfully!"
-    );
+    setPreview(null);
 
     if (isWordpressLogin) {
-
-    setError("");
-    setMode("login");
-    resetAll("login");
+        showToast(
+            "success",
+            "Visual Password created successfully."
+        );
+    
+        setMode("login");
+    
+        setWpLoginStarted(false);
+        
+        return;
+      }
+      showToast("success","Account created successfully!");
   }
-  catch {
+  catch(err) {
 
     setError(
       "Server error. Try again."
@@ -439,13 +451,23 @@ useEffect(() => {
                 }
             );
 
-       if(!data.success){
-          setMode("signup");
-          setError("");
-          showToast(
-              "error",
-              "No Visual Password account found. Please create one."
-          );
+       if (!data.success) {
+
+          if (data.error === "User not found.") {
+      
+              setMode("signup");
+      
+              showToast(
+                  "error",
+                  "No Visual Password account found."
+              );
+      
+          } else {
+      
+              setError(data.error);
+      
+          }
+      
           return;
       }
         setSessionId(data.sessionId);
@@ -466,7 +488,7 @@ useEffect(() => {
         console.error(err);
 
         setError(
-            "WordPress login failed."
+            err.message || "WordPress login failed."
         );
 
     }
@@ -513,17 +535,16 @@ useEffect(() => {
       }
       if (data.token) localStorage.setItem("token", data.token);
       showToast("success", data.message || "Identity verified. Welcome back!");
-      const params = new URLSearchParams(window.location.search);
-
-const callback = params.get("callback");
+const callback = localStorage.getItem("wp_callback");
 
 if (callback) {
-  setTimeout(() => {
-    window.location.href = decodeURIComponent(callback);
-  }, 1000);
-} else {
-  setLoginStep("success");
+
+    localStorage.removeItem("wp_callback");
+   window.location.href = decodeURIComponent(callback);
+    return;
 }
+
+setLoginStep("success");
     } catch { setError("Server error. Try again."); }
     finally { setLoading(false); }
   };
