@@ -233,11 +233,11 @@ export default function Auth() {
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState("");
   const [toast,     setToast]     = useState(null);
-  const [wordpressSite,setWordpressSite] = useState("");
-  const [wordpressUsername,setWordpressUsername] = useState("");
   const [isWordpressLogin, setIsWordpressLogin] = useState(false);
   //p
   const [wpLoginStarted, setWpLoginStarted] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+
 
   // signup
   const [sentence,  setSentence]  = useState("");
@@ -247,58 +247,56 @@ export default function Auth() {
 
   const [shuffled, setShuffled] = useState([]);
 //p
- useEffect(() => {
+useEffect(() => {
 
-    const params =
-        new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(window.location.search);
 
-    const email =
-        params.get("email");
+    const email = params.get("email");
+    const apiKey = params.get("apikey");
+    const callback = params.get("callback");
 
-    const site =
-        params.get("site");
+    if(email) setEmail(email);
 
-    const username =
-        params.get("username");
+    if(apiKey) setApiKey(apiKey);
 
-    if(email)
-        setEmail(email);
+    if (callback) {
+        localStorage.setItem("wp_callback", callback);
+    }
 
-    if(site)
-        setWordpressSite(site);
+    if(email && apiKey){
 
-    if(username)
-        setWordpressUsername(username);
-
-    if(site && username){
         setMode("login");
         setIsWordpressLogin(true);
+
     }
+    window.history.replaceState({}, "", window.location.pathname);
 
 }, []);
 
 useEffect(() => {
 
     if(
-        !wpLoginStarted &&
         isWordpressLogin &&
-        wordpressSite &&
-        wordpressUsername
+        email &&
+        apiKey &&
+        !wpLoginStarted
     ){
 
         setWpLoginStarted(true);
+
         handleWordpressLogin();
 
     }
 
-}, [
-    wpLoginStarted,
+},[
     isWordpressLogin,
-    wordpressSite,
-    wordpressUsername
+    email,
+    apiKey,
+    wpLoginStarted
 ]);
   
   useEffect(() => {
+    if (isWordpressLogin) return;
     fetch(`${API_BASE}/api/auth/sentences`)
       .then(res => res.json())
       .then(data => {
@@ -328,7 +326,7 @@ useEffect(() => {
   };
 
   const resetAll = useCallback((m) => {
-    setMode(m); setEmail(""); setPassword(""); setError(""); setToast(null);
+    setMode(m); if (!isWordpressLogin) {setEmail("");} setPassword(""); setError(""); setToast(null);
     setSentence(""); setOffset(getRandomOffset()); setPositions(getRandomPositions());
     setPreview(null);
     setLoginStep("creds"); setSessionId(""); setChallengeGrid([]);
@@ -340,7 +338,7 @@ useEffect(() => {
           if (data.success) setShuffled(shuffle(data.sentences));
         });
     }
-  }, []);
+  }, [isWordpressLogin]);
 
   // Position 0 change resets position 1
   const setPos = (slot, val) => {
@@ -378,13 +376,24 @@ useEffect(() => {
       {
         email,
         password,
-        wordpressSite,
-        wordpressUsername,
         selectedSentence: sentence,
         secretPositions: positions,
         offset: parseInt(offset, 10),
       }
     );
+    if (data.success) {
+
+        alert(
+    `🎉 Account created successfully!
+    
+    IMPORTANT:
+    Copy this API Key now.
+    It will never be shown again.
+    
+    ${data.apiKey}`
+        );
+    
+    }
 
     if (!data.success) {
       setError(data.error || "Could not create account.");
@@ -395,33 +404,23 @@ useEffect(() => {
       localStorage.setItem("token", data.token);
     }
 
-    showToast(
-      "success",
-      "Account created successfully!"
-    );
+    setPreview(null);
 
-    // WordPress flow
-    if (
-      wordpressSite &&
-      wordpressUsername
-    ) {
-
-      setMode("login");
-
-      setWpLoginStarted(true);
-
-      setTimeout(() => {
-          handleWordpressLogin();
-      }, 500);
-
-      return;
-    }
-
-    // Normal Scam2Safe flow
-    resetAll("login");
-
+    if (isWordpressLogin) {
+        showToast(
+            "success",
+            "Visual Password created successfully."
+        );
+    
+        setMode("login");
+    
+        setWpLoginStarted(false);
+        
+        return;
+      }
+      showToast("success","Account created successfully!");
   }
-  catch {
+  catch(err) {
 
     setError(
       "Server error. Try again."
@@ -461,17 +460,28 @@ useEffect(() => {
             await postJson(
                 "/api/auth/wordpress-login",
                 {
-                    wordpressSite,
-                    wordpressUsername
+                    email,
+                    apiKey
                 }
             );
 
-       if(!data.success){
-          setMode("signup");
-          showToast(
-              "error",
-              "No Visual Password account found. Please create one."
-          );
+       if (!data.success) {
+
+          if (data.error === "User not found.") {
+      
+              setMode("signup");
+      
+              showToast(
+                  "error",
+                  "No Visual Password account found."
+              );
+      
+          } else {
+      
+              setError(data.error);
+      
+          }
+      
           return;
       }
         setSessionId(data.sessionId);
@@ -492,7 +502,7 @@ useEffect(() => {
         console.error(err);
 
         setError(
-            "WordPress login failed."
+            err.message || "WordPress login failed."
         );
 
     }
@@ -539,17 +549,16 @@ useEffect(() => {
       }
       if (data.token) localStorage.setItem("token", data.token);
       showToast("success", data.message || "Identity verified. Welcome back!");
-      const params = new URLSearchParams(window.location.search);
-
-const callback = params.get("callback");
+const callback = localStorage.getItem("wp_callback");
 
 if (callback) {
-  setTimeout(() => {
-    window.location.href = decodeURIComponent(callback);
-  }, 1000);
-} else {
-  setLoginStep("success");
+
+    localStorage.removeItem("wp_callback");
+   window.location.href = decodeURIComponent(callback);
+    return;
 }
+
+setLoginStep("success");
     } catch { setError("Server error. Try again."); }
     finally { setLoading(false); }
   };
