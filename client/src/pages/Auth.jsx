@@ -114,7 +114,8 @@ function extractNouns(sentence) {
 
   // keep only nouns that actually have images
   const valid = nouns.filter(n => {
-    const stem = NOUN_STEM_OVERRIDE[n] ?? n;
+    const stem =
+    NOUN_STEM_OVERRIDE[n] ?? n;
     return _fileMap[stem] || _fileMap[stem.replace(/\s+/g, "")];
   });
 
