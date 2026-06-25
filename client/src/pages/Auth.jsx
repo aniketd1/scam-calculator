@@ -237,6 +237,7 @@ export default function Auth() {
   const [wpLoginStarted, setWpLoginStarted] = useState(false);
   const [apiKey, setApiKey] = useState("");
 
+
   // signup
   const [sentence,  setSentence]  = useState("");
   const [offset,    setOffset]    = useState(getRandomOffset);
@@ -245,22 +246,22 @@ export default function Auth() {
 
   const [shuffled, setShuffled] = useState([]);
 //p
- useEffect(() => {
+useEffect(() => {
 
     const params = new URLSearchParams(window.location.search);
 
     const email = params.get("email");
     const apiKey = params.get("apikey");
 
-    if (email)
-        setEmail(email);
+    if(email) setEmail(email);
 
-    if (apiKey)
-        setApiKey(apiKey);
+    if(apiKey) setApiKey(apiKey);
 
-    if (email && apiKey) {
+    if(email && apiKey){
+
         setMode("login");
         setIsWordpressLogin(true);
+
     }
 
 }, []);
@@ -268,22 +269,23 @@ export default function Auth() {
 useEffect(() => {
 
     if(
-        !wpLoginStarted &&
         isWordpressLogin &&
         email &&
-        apiKey
+        apiKey &&
+        !wpLoginStarted
     ){
 
         setWpLoginStarted(true);
+
         handleWordpressLogin();
 
     }
 
-}, [
-    wpLoginStarted,
+},[
     isWordpressLogin,
     email,
-    apiKey
+    apiKey,
+    wpLoginStarted
 ]);
   
   useEffect(() => {
@@ -390,30 +392,7 @@ useEffect(() => {
 
     setError("");
     setMode("login");
-    const wpData = await postJson(
-    "/api/auth/wordpress-login",
-    {
-        email,
-        apiKey
-    }
-);
-
-if (!wpData.success) {
-    setError(wpData.error);
-    return;
-}
-
-setSessionId(wpData.sessionId);
-setChallengeGrid(wpData.challengeGrid);
-setRegInputs(Array(5).fill(""));
-setLoginStep("grid");
-
-} else {
-
     resetAll("login");
-
-}
-
   }
   catch {
 
