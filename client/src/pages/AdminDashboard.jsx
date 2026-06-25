@@ -1,9 +1,8 @@
 // AdminDashboard.jsx
-// Place at your /admin route, protected behind admin login.
-// Fully restyled to match Auth.jsx design system.
 
 import { useState, useEffect, useCallback } from "react";
 
+// this is a comment to redeploy 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 ;
 
