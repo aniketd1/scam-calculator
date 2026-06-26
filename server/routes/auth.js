@@ -566,6 +566,87 @@ router.post("/regenerate-api-key", verifyUserToken, (_req, res) => {
   });
 });
 
+/* ── POST /api/auth/signup ──────────────────────────────────────
+   Direct self-registration (no admin invite required).
+   Creates user, returns JWT. No API key generated.
+   Passkey registration is handled separately by the frontend
+   immediately after this call succeeds.
+   Body: { email, password, selectedSentence,
+           secretPositions, offset,
+           wordpressSite?, wordpressUsername? }
+─────────────────────────────────────────────────────────────── */
+router.post("/signup", async (req, res) => {
+  try {
+    const {
+      email, password, selectedSentence,
+      secretPositions, offset,
+      wordpressSite, wordpressUsername,
+    } = req.body;
+
+    /* ── basic field validation ── */
+    if (!email || !password || !selectedSentence || !secretPositions || offset == null)
+      return res.status(400).json({ success: false, error: "All fields are required." });
+
+    if (!Array.isArray(secretPositions) || secretPositions.length !== 2)
+      return res.status(400).json({ success: false, error: "Exactly 2 positions required." });
+
+    if (secretPositions[0] === secretPositions[1])
+      return res.status(400).json({ success: false, error: "Positions must be different." });
+
+    for (const p of secretPositions)
+      if (!POSITIONS.includes(p))
+        return res.status(400).json({ success: false, error: `Invalid position: ${p}` });
+
+    const off = parseInt(offset, 10);
+    if (isNaN(off) || off < 0 || off > 99)
+      return res.status(400).json({ success: false, error: "Offset must be 0–99." });
+
+    /* ── duplicate check ── */
+    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existing)
+      return res.status(409).json({ success: false, error: "An account with that email already exists." });
+
+    /* ── extract secret nouns from sentence ── */
+    const secretNouns = extractNouns(selectedSentence);
+    if (!secretNouns.length)
+      return res.status(400).json({
+        success: false,
+        error: "No recognisable nouns found in that sentence. Try a different one.",
+      });
+
+    /* ── create user ── */
+    const user = new User({
+      email:             email.toLowerCase().trim(),
+      password,                          // pre-save hook hashes this
+      selectedSentence,
+      secretNouns,
+      secretPositions,
+      offset:            off,
+      wordpressSite:     wordpressSite     || null,
+      wordpressUsername: wordpressUsername || null,
+      pendingSetup:      false,           // self-registered users are immediately active
+    });
+
+    await user.save();
+
+    /* ── issue JWT ── */
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.status(201).json({
+      success: true,
+      token,
+      user: { id: user._id, email: user.email },
+    });
+  } catch (err) {
+    console.error("[signup]", err);
+    return res.status(500).json({ success: false, error: "Server error during signup." });
+  }
+});
+
 /* ── POST /api/auth/forgot-password ─────────────────────────── */
 router.post("/forgot-password", async (req, res) => {
   try {

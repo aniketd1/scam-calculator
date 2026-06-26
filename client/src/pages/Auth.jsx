@@ -1,11 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { SENTENCES } from "../../../server/data/sentences";
+import { startRegistration, startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
-import {
-    startRegistration
-} from "@simplewebauthn/browser";
 
 /* ── ASSET MAP ─────────────────────────────────────────────── */
 const _nounGlob = import.meta.glob("../assets/nouns/*.png", { eager: true });
@@ -15,9 +12,7 @@ for (const [fullPath, module] of Object.entries(_nounGlob)) {
   _fileMap[stem] = module.default;
 }
 
-// Every key here must exactly match a word that can appear in the sentences
 const NOUN_STEM = {
-  // people
   boy:"boy", girl:"girl", dog:"dog", monkey:"monkey", farmer:"farmer",
   teacher:"teacher", child:"child", bird:"bird", baby:"baby", cat:"cat",
   driver:"driver", chef:"chef", rabbit:"rabbit",
@@ -32,43 +27,19 @@ const NOUN_STEM = {
   doctor:"doctor", laptop:"laptop", mobile:"mobile", hospital:"hospital",
   house:"house", train:"train", mountain:"mountain", ocean:"ocean",
   river:"river", rose:"rose", eye:"eye", ear:"ear", hand:"hand",
-  stick:"stick",
-  doll:"doll",
-  dress:"dress",
-  bone:"bone",
-  rattle:"rattle",
-  seed:"seed",
-  road:"road",
-  market:"market",
-  burrow:"burrow",
-  wall:"wall",
-  clouds:"clouds",
-  letter:"letter",
-  paper:"paper",
-  spoon:"spoon",
-  cup:"cup",
-  blocks:"blocks",
-  model:"model",
-  kitchen:"kitchen",
-  star:"star",
-  eggs:"eggs",
-  clouds:"clouds"
+  stick:"stick", doll:"doll", dress:"dress", bone:"bone", rattle:"rattle",
+  seed:"seed", road:"road", market:"market", burrow:"burrow", wall:"wall",
+  clouds:"clouds", letter:"letter", paper:"paper", spoon:"spoon", cup:"cup",
+  blocks:"blocks", model:"model", kitchen:"kitchen", star:"star", eggs:"eggs",
 };
 
-/* ── CONSTANTS ─────────────────────────────────────────────── */
 const POSITIONS = ["A", "B", "C", "D", "E"];
 const DIGITS    = ["0","1","2","3","4","5","6","7","8","9"];
 
-// ── NOUN SET — every concrete noun that appears in the sentences ────────────
-// These are the EXACT words as they appear in the sentence text.
-// No stemming, no pluralisation — just a direct lookup.
 const NOUN_WORDS = new Set([
-  // people / animals
   "boy","girl","dog","cat","bird","monkey","farmer","teacher",
   "child","children","baby","rabbit","driver","chef",
-  // body / clothing
   "dress","doll",
-  // objects
   "ball","toy","bone","stick","milk","mouse","nest","eggs",
   "rope","banana","tree","crops","tractor","chart","book","lesson",
   "house","flower","picture","rattle","bicycle","bell","park",
@@ -77,66 +48,42 @@ const NOUN_WORDS = new Set([
   "field","letter","paper","seed","babies","bucket","garden",
   "question","answer","star","spoon","cup","tower","blocks",
   "model","table","kitchen","plant","soil","flowers","bus",
-  // keep legacy nouns so old sentences still work
   "apple","water","bag","banana","tractor","field",
   "playground","worm","food","sky","pot","school",
-  "doctor","laptop","mobile","hospital","hospital",
+  "doctor","laptop","mobile","hospital",
   "train","mountain","ocean","river","eye","ear","hand",
   "stick","doll","bone","rattle","seed","wall",
 ]);
 
-// Noun → display name mapping (same word, no transformation needed)
-// Only override when the PNG filename differs from the noun word.
-// For nouns not listed here, getNounImage falls back to the word itself.
 const NOUN_STEM_OVERRIDE = {
-  children: "child",    // PNG is child.png
-  babies:   "baby",     // PNG is baby.png
+  children: "child",
+  babies:   "baby",
   flowers:  "flower",
-  eggs: "eggs"
+  eggs:     "eggs",
 };
 
-// Updated getNounImage — checks override map first, then exact stem
 function getNounImage(noun) {
   if (!noun) return null;
   const key  = noun.toLowerCase();
   const stem = NOUN_STEM_OVERRIDE[key] ?? key;
-  // NOUN_STEM is your existing filename map — keep it unchanged
   const file = NOUN_STEM[stem] ?? stem;
   return _fileMap[file] ?? _fileMap[file.replace(/\s+/g, "")] ?? null;
 }
 
-// extractNouns — EXACT word match only, no stemming whatsoever
 function extractNouns(sentence) {
   const nouns = [
     ...new Set(
-      sentence
-        .toLowerCase()
-        .replace(/[^a-z\s]/g, " ")
-        .split(/\s+/)
+      sentence.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/)
         .filter(w => w && NOUN_WORDS.has(w))
     ),
   ];
-
-  // keep only nouns that actually have images
   const valid = nouns.filter(n => {
-    const stem =
-    NOUN_STEM_OVERRIDE[n] ?? n;
+    const stem = NOUN_STEM_OVERRIDE[n] ?? n;
     return _fileMap[stem] || _fileMap[stem.replace(/\s+/g, "")];
   });
-
-  // LIMIT TO MAX 3 nouns
   return valid.slice(0, 3);
 }
 
-function getValidNounsFromSentence(sentence) {
-  return extractNouns(sentence).slice(0, 3);
-}
-
-const filteredSentences = SENTENCES.filter(s =>
-  extractNouns(s).length >= 2 && extractNouns(s).length <= 3
-);
-
-// Build mnemonic from nouns: ["doctor","apple","car","park"] → "DACP"
 function buildMnemonic(nouns) {
   return nouns.map(n => n[0].toUpperCase()).join("");
 }
@@ -149,10 +96,9 @@ function shuffle(a) {
   }
   return r;
 }
-function getRandomOffset() { return String(Math.floor(Math.random() * 10)); } // 0–9
+function getRandomOffset() { return String(Math.floor(Math.random() * 10)); }
 function getRandomPositions() { const s = shuffle([...POSITIONS]); return [s[0], s[1]]; }
 
-/* ── API ───────────────────────────────────────────────────── */
 async function postJson(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
@@ -178,13 +124,10 @@ function GridCard({ noun, value }) {
   );
 }
 
-/* ── REGISTER DROPDOWN BAR A–E ─────────────────────────────── */
-// Sequential: position i is disabled until position i-1 is filled.
-// Each digit may appear at most twice total.
+/* ── REGISTER DROPDOWN BAR ─────────────────────────────────── */
 function RegisterDropdownBar({ inputs, onChange }) {
   const digitCount = {};
   for (const v of inputs) if (v !== "") digitCount[v] = (digitCount[v] || 0) + 1;
-
   return (
     <div className="reg-wrap">
       <div className="reg-header">
@@ -193,14 +136,11 @@ function RegisterDropdownBar({ inputs, onChange }) {
       <div className="reg-dropdowns">
         {POSITIONS.map((p, i) => {
           const current    = inputs[i];
-          // Sequential: disabled until all previous positions are filled
           const isDisabled = i > 0 && inputs[i - 1] === "";
           return (
-            <select
-              key={p}
+            <select key={p}
               className={`reg-select${isDisabled ? " reg-select--disabled" : ""}`}
-              value={current}
-              disabled={isDisabled}
+              value={current} disabled={isDisabled}
               onChange={e => onChange(i, e.target.value)}
             >
               <option value="">·</option>
@@ -218,161 +158,109 @@ function RegisterDropdownBar({ inputs, onChange }) {
 }
 
 /* ── TOAST ─────────────────────────────────────────────────── */
-function Toast({ toast, onClose }) {
-  if (!toast) return null;
+function Toast({ toasts, onClose }) {
+  if (!toasts.length) return null;
   return (
-    <div className={`toast toast-${toast.type}`} onClick={onClose}>
-      <span>{toast.type === "success" ? "✓" : "✕"}</span>
-      <span>{toast.message}</span>
+    <div className="toast-stack">
+      {toasts.map(t => (
+        <div key={t.id} className={`toast toast-${t.type}`} onClick={() => onClose(t.id)}>
+          <span className="toast-icon">
+            {t.type === "success" ? "✓" : t.type === "warning" ? "!" : "✕"}
+          </span>
+          <span>{t.message}</span>
+        </div>
+      ))}
     </div>
   );
 }
 
 /* ── MAIN ──────────────────────────────────────────────────── */
-export default function Auth() {
+export default function Auth({
+  initialMode = "signup",
+  prefillEmail = "",
+  prefillApiKey = "",
+  lockMode = null,
+  hideLogin = false,
+}) {
   const [mode,      setMode]      = useState("signup");
   const [email,     setEmail]     = useState("");
   const [password,  setPassword]  = useState("");
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState("");
-  const [toast,     setToast]     = useState(null);
+  const [toasts,    setToasts]    = useState([]);
   const [isWordpressLogin, setIsWordpressLogin] = useState(false);
-  //p
-  const [wpLoginStarted, setWpLoginStarted] = useState(false);
-  const [apiKey, setApiKey] = useState("");
+  const [wpLoginStarted,   setWpLoginStarted]   = useState(false);
+  const [apiKey,    setApiKey]    = useState("");
+  const [passkeyOverlay, setPasskeyOverlay] = useState(null);
 
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [createdApiKey, setCreatedApiKey] = useState("");
-
-  // signup
   const [sentence,  setSentence]  = useState("");
   const [offset,    setOffset]    = useState(getRandomOffset);
   const [positions, setPositions] = useState(getRandomPositions);
   const [preview,   setPreview]   = useState(null);
+  const [shuffled,  setShuffled]  = useState([]);
 
-  const [shuffled, setShuffled] = useState([]);
-//p
-useEffect(() => {
-
-    const params = new URLSearchParams(window.location.search);
-
-    const email = params.get("email");
-    const apiKey = params.get("apikey");
-    const callback = params.get("callback");
-
-    if(email) setEmail(email);
-
-    if(apiKey) setApiKey(apiKey);
-
-    if (callback) {
-        localStorage.setItem("wp_callback", callback);
-    }
-
-    if(email && apiKey){
-
-        setMode("login");
-        setIsWordpressLogin(true);
-
-    }
-    window.history.replaceState({}, "", window.location.pathname);
-
-}, []);
-
-useEffect(() => {
-
-    if(
-        isWordpressLogin &&
-        email &&
-        apiKey &&
-        !wpLoginStarted
-    ){
-
-        setWpLoginStarted(true);
-
-        handleWordpressLogin();
-
-    }
-
-},[
-    isWordpressLogin,
-    email,
-    apiKey,
-    wpLoginStarted
-]);
-  
-  useEffect(() => {
-    if (isWordpressLogin) return;
-    fetch(`${API_BASE}/api/auth/sentences`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setShuffled(shuffle(data.sentences));
-        }
-      })
-      .catch(err => {
-        console.error("Failed to load sentences", err);
-      });
-  }, []);
-
-  // login
-  const [loginStep,     setLoginStep]     = useState("creds");
-  const [sessionId,     setSessionId]     = useState("");
-  const [challengeGrid, setChallengeGrid] = useState([]);
-  const [serverRegister,setServerRegister]= useState(null);
-  const [regInputs,     setRegInputs]     = useState(Array(5).fill(""));
+  const [loginStep,      setLoginStep]      = useState("creds");
+  const [sessionId,      setSessionId]      = useState("");
+  const [challengeGrid,  setChallengeGrid]  = useState([]);
+  const [serverRegister, setServerRegister] = useState(null);
+  const [regInputs,      setRegInputs]      = useState(Array(5).fill(""));
 
   const registerRef  = useRef(null);
   const createBtnRef = useRef(null);
+  const toastCounter = useRef(0);
   const allFilled    = regInputs.every(v => v !== "");
 
-  const copyApiKey = async () => {
-    try {
-      await navigator.clipboard.writeText(createdApiKey);
-      showToast("success", "API key copied to clipboard");
-    } catch {
-      showToast("error", "Failed to copy");
+  /* ── toast helpers ── */
+  const showToast = (type, message, duration = 4500) => {
+    const id = ++toastCounter.current;
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
+  };
+  const closeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
+
+  /* ── URL param handling (WordPress SSO) ── */
+  useEffect(() => {
+    const params   = new URLSearchParams(window.location.search);
+    const em       = params.get("email");
+    const ak       = params.get("apikey");
+    const callback = params.get("callback");
+    if (em)       setEmail(em);
+    if (ak)       setApiKey(ak);
+    if (callback) localStorage.setItem("wp_callback", callback);
+    if (em && ak) { setMode("login"); setIsWordpressLogin(true); }
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
+  useEffect(() => {
+    if (isWordpressLogin && email && apiKey && !wpLoginStarted) {
+      setWpLoginStarted(true);
+      handleWordpressLogin();
     }
-  };
+  }, [isWordpressLogin, email, apiKey, wpLoginStarted]);
 
-  const handleCloseApiKey = () => {
-    setShowApiKey(false);
-
-    // FINALIZE SIGNUP UX
-    setEmail("");
-    setPassword("");
-    setSentence("");
-    setOffset(getRandomOffset());
-    setPositions(getRandomPositions());
-    setPreview(null);
-
-    setMode("login");
-
-    setPendingSignupSuccess(false);
-
-    showToast("success", "Account created successfully!");
-  };
-
-  const showToast = (type, msg) => {
-    setToast({ type, message: msg });
-    setTimeout(() => setToast(null), 4500);
-  };
+  useEffect(() => {
+    if (isWordpressLogin) return;
+    fetch(`${API_BASE}/api/auth/sentences`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setShuffled(shuffle(d.sentences)); })
+      .catch(err => console.error("Failed to load sentences", err));
+  }, []);
 
   const resetAll = useCallback((m) => {
-    setMode(m); if (!isWordpressLogin) {setEmail("");} setPassword(""); setError(""); setToast(null);
+    setMode(m);
+    if (!isWordpressLogin) setEmail("");
+    setPassword(""); setError("");
     setSentence(""); setOffset(getRandomOffset()); setPositions(getRandomPositions());
     setPreview(null);
     setLoginStep("creds"); setSessionId(""); setChallengeGrid([]);
     setServerRegister(null); setRegInputs(Array(5).fill(""));
     if (m === "signup") {
       fetch(`${API_BASE}/api/auth/sentences`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) setShuffled(shuffle(data.sentences));
-        });
+        .then(r => r.json())
+        .then(d => { if (d.success) setShuffled(shuffle(d.sentences)); });
     }
   }, [isWordpressLogin]);
 
-  // Position 0 change resets position 1
   const setPos = (slot, val) => {
     setPositions(prev => {
       const next = [...prev];
@@ -382,41 +270,34 @@ useEffect(() => {
     });
   };
 
-  const registerPasskey = async () => {
-    const options = await postJson(
-      "/api/webauthn/register/options",
-      {
-        email,
-      }
-    );
+  /* ── passkey registration (called after account created) ── */
+  const registerPasskey = async (token) => {
+    const optRes = await fetch(`${API_BASE}/api/auth/passkey/register-options`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    });
+    const optData = await optRes.json();
+    if (!optData.success) throw new Error(optData.error || "Could not get passkey options.");
+    if (!optData?.options?.challenge) throw new Error("Invalid WebAuthn options received from server");
 
-    if (!options) {
-      throw new Error("Failed to obtain passkey options.");
-    }
+    const attestation = await startRegistration({ optionsJSON: optData.options });
 
-    const attestation = await startRegistration(options);
-
-    const result = await postJson(
-      "/api/webauthn/register/verify",
-      {
-        email,
-        attestation,
-      }
-    );
-
-    if (!result.success) {
-      throw new Error(result.error || "Passkey registration failed.");
-    }
-
-    return result;
+    const verRes = await fetch(`${API_BASE}/api/auth/passkey/register-complete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ response: attestation }),
+    });
+    const verData = await verRes.json();
+    if (!verData.success) throw new Error(verData.error || "Passkey registration failed.");
+    return verData;
   };
 
   /* ── SIGNUP ── */
   const handleSignup = () => {
     setError("");
-    if (!email.trim())            { setError("Enter your email."); return; }
-    if (!password.trim())         { setError("Enter a password."); return; }
-    if (!sentence)                { setError("Select a sentence."); return; }
+    if (!email.trim())              { setError("Enter your email."); return; }
+    if (!password.trim())           { setError("Enter a password."); return; }
+    if (!sentence)                  { setError("Select a sentence."); return; }
     if (!positions[0] || !positions[1]) { setError("Select both positions."); return; }
     if (positions[0] === positions[1])  { setError("Positions must be different."); return; }
     const off = parseInt(offset, 10);
@@ -425,171 +306,120 @@ useEffect(() => {
   };
 
   const confirmSignup = async () => {
-
     setPreview(null);
     setLoading(true);
     setError("");
+    setPasskeyOverlay({ step: "creating", error: "" });
 
     try {
-
-      const data = await postJson(
-        "/api/auth/signup",
-        {
-          email,
-          password,
-          selectedSentence: sentence,
-          secretPositions: positions,
-          offset: parseInt(offset, 10),
-        }
-      );
+      const data = await postJson("/api/auth/signup", {
+        email, password,
+        selectedSentence: sentence,
+        secretPositions:  positions,
+        offset:           parseInt(offset, 10),
+      });
 
       if (!data.success) {
+        setPasskeyOverlay(null);
         setError(data.error || "Could not create account.");
         return;
       }
 
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-      }
+      const { token } = data;
+      localStorage.setItem("token", token);
+      setPasskeyOverlay({ step: "registering", error: "" });
 
-      /*
-      * Register Passkey
-      */
       try {
-        await registerPasskey();
-      } catch (err) {
-        setError(
-          err.message ||
-            "Passkey registration was cancelled. Your account was created, but no passkey was registered."
-        );
-        return;
+        await registerPasskey(token);
+        setPasskeyOverlay({ step: "success", error: "" });
+        // ✅ toast fires immediately when passkey is saved
+        showToast("success", "Passkey saved successfully! You can now use Face ID / Touch ID to sign in.");
+      } catch (passkeyErr) {
+        console.warn("[signup] passkey skipped:", passkeyErr.message);
+        setPasskeyOverlay({ step: "skipped", error: passkeyErr.message });
+        showToast("warning", "Account created, but no passkey was saved. You can add one later.");
       }
 
-      /*
-      * Only show API key after passkey succeeds
-      */
-      setCreatedApiKey(data.apiKey);
-      setShowApiKey(true);
-      setPendingSignupSuccess(true);
-
-      setPreview(null);
-
-      if (isWordpressLogin) {
-          showToast(
-              "success",
-              "Visual Password created successfully."
-          );
-      
-          setMode("login");
-      
-          setWpLoginStarted(false);
-          
-          return;
-        }
-        showToast("success","Account created successfully!");
-    }
-    catch(err) {
-
-      setError(
-        "Server error. Try again."
-      );
-
-    }
-    finally {
-
+    } catch (err) {
+      setPasskeyOverlay(null);
+      setError("Server error. Please try again.");
+    } finally {
       setLoading(false);
-
     }
+  };
 
-};
+  /* ── PASSKEY LOGIN ── */
+  const handlePasskeyLogin = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const optRes = await fetch(`${API_BASE}/api/auth/passkey/login-options`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const optData = await optRes.json();
+      if (!optData.success) { setError(optData.error || "Passkey login not available."); return; }
+      if (!optData.options?.challenge) throw new Error("Invalid authentication options from server");
+
+      const assertion = await startAuthentication({ optionsJSON: optData.options });
+
+      const verRes = await fetch(`${API_BASE}/api/auth/passkey/login-complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, response: assertion }),
+      });
+      const verData = await verRes.json();
+      if (!verData.success) { setError(verData.error || "Passkey authentication failed."); return; }
+
+      setSessionId(verData.sessionId);
+      setChallengeGrid(verData.challengeGrid || []);
+      setRegInputs(Array(5).fill(""));
+      setLoginStep("grid");
+      showToast("success", "Passkey verified — complete your visual password to finish signing in.");
+
+    } catch (err) {
+      if (err.name === "NotAllowedError") {
+        setError("No passkey found for this account, or the request timed out. Try your password instead.");
+      } else if (err.name === "InvalidStateError") {
+        setError("This passkey is already registered.");
+      } else {
+        setError(err.message || "Passkey login failed.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /* ── LOGIN STEP 1 ── */
   const handleLoginCreds = async () => {
     setError("");
-    if (!email.trim() || !password.trim()) { setError("Enter email and password."); return; }
+    if (!email.trim()) { setError("Enter email."); return; }
     setLoading(true);
     try {
-      const data = await postJson("/api/auth/login", { email, password });
-      if (!data.success) { setError(data.error || "Invalid credentials."); return; }
-      setSessionId(data.sessionId);
-      setChallengeGrid(data.challengeGrid || []);
-      setRegInputs(Array(5).fill(""));
-      setLoginStep("grid");
-    } catch { setError("Server error. Try again."); }
-    finally { setLoading(false); }
-  };
-    const handleWordpressLogin = async () => {
-
-    try {
-
-        setLoading(true);
-
-        const data =
-            await postJson(
-                "/api/auth/wordpress-login",
-                {
-                    email,
-                    apiKey
-                }
-            );
-
-       if (!data.success) {
-
-          if (data.error === "User not found.") {
-      
-              setMode("signup");
-      
-              showToast(
-                  "error",
-                  "No Visual Password account found."
-              );
-      
-          } else {
-      
-              setError(data.error);
-      
-          }
-      
-          return;
-      }
+      const data = await postJson("/api/auth/login", { email, password: password || null });
+      if (data.success) {
         setSessionId(data.sessionId);
-
-        setChallengeGrid(
-            data.challengeGrid || []
-        );
-
-        setRegInputs(
-            Array(5).fill("")
-        );
-
+        setChallengeGrid(data.challengeGrid || []);
+        setRegInputs(Array(5).fill(""));
         setLoginStep("grid");
-
+        return;
+      }
+      if (data.passkeyRequired) { setError("Password incorrect. Try passkey login."); return; }
+      setError(data.error || "Invalid credentials.");
+    } catch {
+      setError("Server error. Try again.");
+    } finally {
+      setLoading(false);
     }
-    catch(err){
+  };
 
-        console.error(err);
-
-        setError(
-            err.message || "WordPress login failed."
-        );
-
-    }
-    finally{
-
-        setLoading(false);
-
-    }
-
-};
   /* ── LOGIN STEP 2 ── */
   const handleContinueToRegister = async () => {
     setError(""); setLoading(true);
     try {
       const data = await postJson("/api/auth/register", { sessionId });
-      if (!data.success) {
-        setError(data.error || "Could not build register.");
-        setLoginStep("creds"); return;
-      }
+      if (!data.success) { setError(data.error || "Could not build register."); setLoginStep("creds"); return; }
       setServerRegister(data.register);
       setRegInputs(Array(5).fill(""));
       setLoginStep("register");
@@ -616,86 +446,108 @@ useEffect(() => {
         return;
       }
       if (data.token) localStorage.setItem("token", data.token);
+
+      const callback = localStorage.getItem("wp_callback");
+      if (callback) {
+        localStorage.removeItem("wp_callback");
+        window.location.href = decodeURIComponent(callback);
+        return;
+      }
+
       showToast("success", data.message || "Identity verified. Welcome back!");
-const callback = localStorage.getItem("wp_callback");
-
-if (callback) {
-
-    localStorage.removeItem("wp_callback");
-    window.location.href = decodeURIComponent(callback);
-    return;
-}
-
-setLoginStep("success");
+      setLoginStep("success");
     } catch { setError("Server error. Try again."); }
     finally { setLoading(false); }
+  };
+
+  const continueToSignIn = () => {
+    setPasskeyOverlay(null);
+    setEmail(""); setPassword(""); setSentence("");
+    setOffset(getRandomOffset()); setPositions(getRandomPositions());
+    resetAll("login");
+    showToast("success", "Account created! Sign in to continue.");
   };
 
   /* ── RENDER ── */
   return (
     <>
       <style>{CSS}</style>
-      <Toast toast={toast} onClose={() => setToast(null)} />
+      <Toast toasts={toasts} onClose={closeToast} />
 
-        {showApiKey && (
-        <div
-          className="overlay-bg"
-          onClick={handleCloseApiKey}
-        >
-          <div className="overlay-card">
-            <button className="overlay-close" onClick={handleCloseApiKey}>
-              ✕
-            </button>
-
-            <p className="overlay-eyebrow">Account Created</p>
-            <h2 className="overlay-title">Your API Key</h2>
-
-            <div className="preview-details">
-              <div className="preview-row">
-                <span className="preview-key">API Key</span>
-                <span className="preview-val" style={{ wordBreak: "break-all" }}>
-                  {createdApiKey}
-                </span>
-              </div>
-            </div>
-
-            <button className="overlay-btn" onClick={copyApiKey}>
-              Copy to clipboard
-            </button>
-
-            <p className="overlay-hint">
-              Save this key now. It will not be shown again.
-            </p>
-
-            <button
-              className="btn-outline"
-              onClick={() => setShowApiKey(false)}
-            >
-              Close
-            </button>
+      {/* ── PASSKEY OVERLAY ── */}
+      {passkeyOverlay && (
+        <div className="overlay-bg">
+          <div className="overlay-card" style={{ gap: 20, textAlign: "center" }}>
+            {passkeyOverlay.step === "creating" && (
+              <>
+                <div className="passkey-spinner" />
+                <p className="overlay-eyebrow">One moment…</p>
+                <h2 className="overlay-title">Creating your account</h2>
+                <p className="overlay-hint">Saving your visual password settings.</p>
+              </>
+            )}
+            {passkeyOverlay.step === "registering" && (
+              <>
+                <div className="passkey-icon">🔑</div>
+                <p className="overlay-eyebrow">Almost there</p>
+                <h2 className="overlay-title">Register your passkey</h2>
+                <p className="overlay-hint">
+                  Your browser will now ask you to save a passkey (Face ID, Touch ID, Windows Hello, etc.).
+                  This lets you sign in without typing your password next time.
+                </p>
+                <p className="overlay-hint" style={{ color: "#94a3b8", fontSize: "0.76rem" }}>
+                  You can skip this and add a passkey later from your profile settings.
+                </p>
+              </>
+            )}
+            {passkeyOverlay.step === "success" && (
+              <>
+                <div className="success-check" style={{ margin: "0 auto" }}>✓</div>
+                <p className="overlay-eyebrow">All done</p>
+                <h2 className="overlay-title">Account ready</h2>
+                <p className="overlay-hint">
+                  Your account and passkey have been set up. Sign in with your visual password to continue.
+                </p>
+                <button className="overlay-btn" onClick={continueToSignIn}>
+                  Continue to sign in →
+                </button>
+              </>
+            )}
+            {passkeyOverlay.step === "skipped" && (
+              <>
+                <div className="success-check" style={{ margin: "0 auto", background: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.3)", color: "#d97706" }}>!</div>
+                <p className="overlay-eyebrow">Account created</p>
+                <h2 className="overlay-title">No passkey registered</h2>
+                <p className="overlay-hint">
+                  Your account is ready, but no passkey was saved — you can add one later from profile settings.
+                </p>
+                {passkeyOverlay.error && (
+                  <p style={{ fontSize: "0.75rem", color: "#94a3b8" }}>({passkeyOverlay.error})</p>
+                )}
+                <button className="overlay-btn" onClick={continueToSignIn}>
+                  Continue to sign in →
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* ── SIGNUP PREVIEW OVERLAY with Mnemonics ── */}
+      {/* ── SIGNUP PREVIEW OVERLAY ── */}
       {preview && (() => {
         const nouns    = preview.nouns;
-        const mnemonic = buildMnemonic(nouns); // e.g. "DACP"
+        const mnemonic = buildMnemonic(nouns);
         return (
           <div className="overlay-bg" onClick={e => { if (e.target === e.currentTarget) setPreview(null); }}>
             <div className="overlay-card overlay-card--wide">
               <button className="overlay-close" onClick={() => setPreview(null)}>✕</button>
               <p className="overlay-eyebrow">Confirm your setup</p>
               <h2 className="overlay-title">Review before creating account</h2>
-
-              {/* Details */}
               <div className="preview-details">
                 <div className="preview-row"><span className="preview-key">Sentence</span><span className="preview-val">{preview.sentence}</span></div>
                 <div className="preview-row"><span className="preview-key">Offset</span><span className="preview-val">{offset}</span></div>
                 <div className="preview-row"><span className="preview-key">Positions</span><span className="preview-val">{positions[0]} &amp; {positions[1]}</span></div>
               </div>
-
-              {/* Mnemonic */}
               {nouns.length > 0 && (
                 <div className="mnemonic-box">
                   <div className="mnemonic-letters">{mnemonic}</div>
@@ -709,24 +561,19 @@ setLoginStep("success");
                   <p className="mnemonic-hint">Use this code to remember your sentence's key objects.</p>
                 </div>
               )}
-
-              {/* Images */}
               <div className="preview-grid">
                 {nouns.map(n => {
                   const img = getNounImage(n);
                   return (
                     <div key={n} className="preview-item">
                       <div className="preview-img-wrap">
-                        {img
-                          ? <img src={img} alt={n} className="preview-img" />
-                          : <div className="preview-fallback">{n[0].toUpperCase()}</div>}
+                        {img ? <img src={img} alt={n} className="preview-img" /> : <div className="preview-fallback">{n[0].toUpperCase()}</div>}
                       </div>
                       <div className="preview-label">{n}</div>
                     </div>
                   );
                 })}
               </div>
-
               <p className="overlay-hint">Memorise your offset and positions — they are never shown again.</p>
               <button className="overlay-btn" disabled={loading} onClick={confirmSignup}>
                 {loading ? "Creating…" : "Confirm & create account"}
@@ -740,13 +587,12 @@ setLoginStep("success");
         <header className="auth-hero">
           <p className="hero-eyebrow">Visual Sentence Password</p>
           <h1 className="hero-title">Sign in with your <span className="hero-accent">Visual Sentence</span></h1>
-          <p className="hero-sub">Pick a sentence, a private offset, and two secret positions (A–E). At login: spot your image, add your offset, enter the two digits at your positions. Any order is fine.</p>
+          <p className="hero-sub">Pick a sentence, a private offset, and two secret positions (A–E). At login: spot your image, add your offset, enter the two digits at your positions.</p>
         </header>
 
         <div className="auth-shell">
           <div className="auth-card">
 
-            {/* SUCCESS */}
             {loginStep === "success" && (
               <div className="success-box">
                 <div className="success-check">✓</div>
@@ -780,40 +626,28 @@ setLoginStep("success");
                           value={password} onChange={e => setPassword(e.target.value)} />
                       </div>
                     </div>
-
                     <p className="section-label">Choose your visual password sentence</p>
                     <p className="section-hint">One noun from your sentence appears in the login grid. Find it, add your offset, enter the digits at your two positions.</p>
-
                     <div className="sentence-list">
                       {shuffled.map(s => {
                         const ns    = extractNouns(s);
                         const isSel = sentence === s;
                         return (
-                          <div
-                            key={s}
-                            role="button"
-                            tabIndex={0}
+                          <div key={s} role="button" tabIndex={0}
                             className={`sentence-card${isSel ? " sentence-card--selected" : ""}`}
-                            onClick={() => {
-                              setSentence(s);
-                              setTimeout(() => createBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
-                            }}
+                            onClick={() => { setSentence(s); setTimeout(() => createBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 120); }}
                             onKeyDown={e => e.key === "Enter" && setSentence(s)}
                           >
                             <div className="sentence-text">{s}</div>
                             <div className="noun-chips">{ns.map(n => <span key={n} className="noun-chip">{n}</span>)}</div>
-
                             {isSel && (
                               <div className="card-controls" onClick={e => e.stopPropagation()}>
-                                {/* Offset */}
                                 <div className="control-row">
                                   <label className="ctrl-label">Offset</label>
                                   <input className="ctrl-offset" type="text" inputMode="numeric" maxLength={2}
-                                    value={offset}
-                                    onChange={e => setOffset(e.target.value.replace(/\D/, "").slice(0, 2))} />
+                                    value={offset} onChange={e => setOffset(e.target.value.replace(/\D/, "").slice(0, 2))} />
                                   <span className="ctrl-hint">0 – 99</span>
                                 </div>
-                                {/* Positions */}
                                 <div className="control-row">
                                   <label className="ctrl-label">Positions</label>
                                   <select className="ctrl-select" value={positions[0]} onChange={e => setPos(0, e.target.value)}>
@@ -821,22 +655,14 @@ setLoginStep("success");
                                     {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
                                   </select>
                                   <span className="ctrl-plus">+</span>
-                                  <select className="ctrl-select" value={positions[1]}
-                                    disabled={!positions[0]}
-                                    onChange={e => setPos(1, e.target.value)}>
+                                  <select className="ctrl-select" value={positions[1]} disabled={!positions[0]} onChange={e => setPos(1, e.target.value)}>
                                     <option value="">Select</option>
-                                    {POSITIONS.filter(p => p !== positions[0]).map(p => (
-                                      <option key={p} value={p}>{p}</option>
-                                    ))}
+                                    {POSITIONS.filter(p => p !== positions[0]).map(p => <option key={p} value={p}>{p}</option>)}
                                   </select>
                                   <span className="ctrl-hint">A–E · digits of ({offset || 0} + image value)</span>
                                 </div>
-                                {/* Inline Create Account button on selected card */}
-                                <button
-                                  className="btn-primary"
-                                  style={{ marginTop: 10 }}
-                                  onClick={e => { e.stopPropagation(); handleSignup(); }}
-                                >
+                                <button className="btn-primary" style={{ marginTop: 10 }}
+                                  onClick={e => { e.stopPropagation(); handleSignup(); }}>
                                   Review & Create Account →
                                 </button>
                               </div>
@@ -845,10 +671,7 @@ setLoginStep("success");
                         );
                       })}
                     </div>
-
                     {error && <div className="alert-error">{error}</div>}
-
-                    {/* Bottom button — always visible */}
                     <button ref={createBtnRef} className="btn-primary" disabled={loading} onClick={handleSignup}>
                       {loading ? "Creating account…" : "Review & Create Account"}
                     </button>
@@ -858,16 +681,11 @@ setLoginStep("success");
                 {/* ══ LOGIN ══ */}
                 {mode === "login" && (
                   <>
-                    {/* Step 1 */}
                     {loginStep === "creds" && !isWordpressLogin && (
                       <div className="form-stack">
                         <div className="step-badge">
                           Step 1 of 3 — Credentials
-                          {isWordpressLogin && (
-                            <span style={{ marginLeft: 8, color: "#0891b2" }}>
-                              (WordPress SSO)
-                            </span>
-                          )}
+                          {isWordpressLogin && <span style={{ marginLeft: 8, color: "#0891b2" }}>(WordPress SSO)</span>}
                         </div>
                         <div className="field-group">
                           <label className="field-label">Email address</label>
@@ -882,154 +700,82 @@ setLoginStep("success");
                             onKeyDown={e => e.key === "Enter" && handleLoginCreds()} />
                         </div>
                         <div className="auth-links">
-                          <button
-                            type="button"
-                            className="auth-link"
-                            onClick={() => setLoginStep("forgot")}
-                          >
-                            Forgot password?
-                          </button>
-
-                          <button
-                            type="button"
-                            className="auth-link auth-link--danger"
-                            onClick={() => setLoginStep("delete")}
-                          >
-                            Delete account
-                          </button>
+                          <button type="button" className="auth-link" onClick={() => setLoginStep("forgot")}>Forgot password?</button>
+                          <button type="button" className="auth-link auth-link--danger" onClick={() => setLoginStep("delete")}>Delete account</button>
                         </div>
                         {error && <div className="alert-error">{error}</div>}
                         <button className="btn-primary" disabled={loading} onClick={handleLoginCreds}>
                           {loading ? "Please wait…" : "Next →"}
                         </button>
+                        {browserSupportsWebAuthn() && (
+                          <button className="btn-outline" disabled={loading || !email} onClick={handlePasskeyLogin}>
+                            Sign in with passkey 🔑
+                          </button>
+                        )}
                       </div>
                     )}
 
                     {loginStep === "forgot" && (
                       <div className="form-stack">
-                        <div className="step-badge">Reset Password</div>
-
-                        <div className="info-box">
-                          Enter your email and we’ll send a reset link.
-                        </div>
-
-                        <input
-                          className="field-input"
-                          type="email"
-                          placeholder="you@example.com"
-                          value={email}
-                          onChange={e => setEmail(e.target.value)}
-                        />
-
+                        <div className="step-badge">Reset password</div>
+                        <div className="info-box">Enter your email and we'll send a reset link.</div>
+                        <input className="field-input" type="email" placeholder="you@example.com"
+                          value={email} onChange={e => setEmail(e.target.value)} />
                         {error && <div className="alert-error">{error}</div>}
-
-                        <button
-                          className="btn-primary"
-                          onClick={async () => {
-                            setLoading(true);
-                            setError("");
-
-                            try {
-                              const data = await postJson("/api/auth/forgot-password", { email });
-
-                              if (!data.success) {
-                                setError(data.error || "Failed to send reset email.");
-                                return;
-                              }
-
-                              showToast("success", "Reset link sent to your email.");
-                              setLoginStep("creds");
-                            } catch {
-                              setError("Server error. Try again.");
-                            } finally {
-                              setLoading(false);
-                            }
-                          }}
-                        >
-                          {loading ? "Sending..." : "Send reset link"}
+                        <button className="btn-primary" onClick={async () => {
+                          setLoading(true); setError("");
+                          try {
+                            const data = await postJson("/api/auth/forgot-password", { email });
+                            if (!data.success) { setError(data.error || "Failed to send reset email."); return; }
+                            showToast("success", "Reset link sent — check your inbox.");
+                            setLoginStep("creds");
+                          } catch { setError("Server error. Try again."); }
+                          finally { setLoading(false); }
+                        }}>
+                          {loading ? "Sending…" : "Send reset link"}
                         </button>
-
-                        <button className="btn-outline" onClick={() => setLoginStep("creds")}>
-                          ← Back
-                        </button>
+                        <button className="btn-outline" onClick={() => setLoginStep("creds")}>← Back</button>
                       </div>
                     )}
 
                     {loginStep === "delete" && (
                       <div className="form-stack">
-                        <div className="step-badge">Delete Account</div>
-
-                        <div className="info-box">
-                          This action is permanent. Enter your credentials to confirm deletion.
+                        <div className="step-badge">Delete account</div>
+                        <div className="info-box" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.05)", color: "#92400e" }}>
+                          This action is permanent and cannot be undone. Enter your credentials to confirm.
                         </div>
-
-                        <input
-                          className="field-input"
-                          type="email"
-                          placeholder="Email"
-                          value={email}
-                          onChange={e => setEmail(e.target.value)}
-                        />
-
-                        <input
-                          className="field-input"
-                          type="password"
-                          placeholder="Password"
-                          value={password}
-                          onChange={e => setPassword(e.target.value)}
-                        />
-
+                        <input className="field-input" type="email" placeholder="Email"
+                          value={email} onChange={e => setEmail(e.target.value)} />
+                        <input className="field-input" type="password" placeholder="Password"
+                          value={password} onChange={e => setPassword(e.target.value)} />
                         {error && <div className="alert-error">{error}</div>}
-
-                        <button
-                          className="btn-primary"
-                          style={{ background: "linear-gradient(135deg,#ef4444,#dc2626)" }}
-                          onClick={async () => {
-                            setLoading(true);
-                            setError("");
-
-                            try {
-                              const data = await postJson("/api/auth/delete-user", {
-                                email,
-                                password
-                              });
-
-                              if (!data.success) {
-                                setError(data.error || "Could not delete account.");
-                                return;
-                              }
-
-                              showToast("success", "Account deleted.");
-                              resetAll("signup");
-                            } catch {
-                              setError("Server error. Try again.");
-                            } finally {
-                              setLoading(false);
-                            }
-                          }}
-                        >
-                          {loading ? "Deleting..." : "Delete account"}
+                        <button className="btn-primary btn-primary--danger" onClick={async () => {
+                          setLoading(true); setError("");
+                          try {
+                            const data = await postJson("/api/auth/delete-user", { email, password });
+                            if (!data.success) { setError(data.error || "Could not delete account."); return; }
+                            // ✅ toast for account deletion
+                            showToast("success", "Your account has been permanently deleted.");
+                            resetAll("signup");
+                          } catch { setError("Server error. Try again."); }
+                          finally { setLoading(false); }
+                        }}>
+                          {loading ? "Deleting…" : "Delete my account"}
                         </button>
-
-                        <button className="btn-outline" onClick={() => setLoginStep("creds")}>
-                          ← Back
-                        </button>
+                        <button className="btn-outline" onClick={() => setLoginStep("creds")}>← Back</button>
                       </div>
                     )}
 
-                    {/* Step 2 — grid */}
                     {loginStep === "grid" && (
                       <div className="form-stack">
                         <div className="step-badge">Step 2 of 3 — Find your secret image</div>
                         <div className="info-box">
-                          <strong>Look for your image.</strong> One noun from your sentence is hidden here.
-                          Note its number, then click Continue.
+                          <strong>Look for your image.</strong> One noun from your sentence is hidden here. Note its number, then click Continue.
                         </div>
                         <div className="cg-grid">
                           {challengeGrid.length > 0
                             ? challengeGrid.map((item, i) => <GridCard key={i} noun={item.noun} value={item.value} />)
-                            : <div style={{ gridColumn: "1/-1", textAlign: "center", color: "#dc2626", padding: 40 }}>No grid received — start over.</div>
-                          }
+                            : <div style={{ gridColumn: "1/-1", textAlign: "center", color: "#dc2626", padding: 40 }}>No grid received — start over.</div>}
                         </div>
                         {error && <div className="alert-error">{error}</div>}
                         <button className="btn-primary" disabled={loading} onClick={handleContinueToRegister}>
@@ -1039,7 +785,6 @@ setLoginStep("success");
                       </div>
                     )}
 
-                    {/* Step 3 — register */}
                     {loginStep === "register" && (
                       <div className="form-stack" ref={registerRef}>
                         <div className="step-badge">Step 3 of 3 — Fill positions A–E</div>
@@ -1158,7 +903,6 @@ const CSS = `
 .preview-row{display:flex;gap:14px;font-size:0.88rem;line-height:1.5;}
 .preview-key{font-weight:700;color:#475569;min-width:80px;}
 .preview-val{color:#0f172a;}
-/* MNEMONIC BOX */
 .mnemonic-box{width:100%;background:rgba(6,182,212,0.06);border:1.5px solid rgba(6,182,212,0.2);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;}
 .mnemonic-letters{font-family:'Space Grotesk',sans-serif;font-size:2.8rem;font-weight:800;color:#0891b2;letter-spacing:0.18em;line-height:1;}
 .mnemonic-pairs{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;}
@@ -1174,45 +918,30 @@ const CSS = `
 .btn-primary{width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.94rem;cursor:pointer;box-shadow:0 0 18px rgba(6,182,212,0.22);transition:transform 0.18s,box-shadow 0.18s,opacity 0.18s;}
 .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 26px rgba(6,182,212,0.36);}
 .btn-primary:disabled{opacity:0.36;cursor:not-allowed;box-shadow:none;transform:none;}
+.btn-primary--danger{background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 18px rgba(239,68,68,0.2);}
+.btn-primary--danger:hover:not(:disabled){box-shadow:0 0 26px rgba(239,68,68,0.35);}
 .btn-outline{width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2d9cc;background:transparent;color:#475569;font-size:0.9rem;font-weight:500;cursor:pointer;transition:border-color 0.18s,color 0.18s;}
 .btn-outline:hover{border-color:#06B6D4;color:#0891b2;}
 .alert-error{padding:11px 14px;border-radius:9px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);color:#dc2626;font-size:0.84rem;line-height:1.5;}
-.auth-links{
-  display:flex;
-  justify-content:space-between;
-  margin-top:6px;
-  gap:10px;
-}
-
-.auth-link{
-  background:none;
-  border:none;
-  font-size:0.78rem;
-  color:#0891b2;
-  font-weight:600;
-  cursor:pointer;
-  padding:2px 0;
-}
-
-.auth-link:hover{
-  text-decoration:underline;
-}
-
-.auth-link--danger{
-  color:#dc2626;
-}
-
-.auth-link--danger:hover{
-  text-decoration:underline;
-}
+.auth-links{display:flex;justify-content:space-between;margin-top:6px;gap:10px;}
+.auth-link{background:none;border:none;font-size:0.78rem;color:#0891b2;font-weight:600;cursor:pointer;padding:2px 0;}
+.auth-link:hover{text-decoration:underline;}
+.auth-link--danger{color:#dc2626;}
+.passkey-spinner{width:44px;height:44px;border-radius:50%;border:3px solid #e2d9cc;border-top-color:#06B6D4;animation:spin 0.8s linear infinite;margin:0 auto;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.passkey-icon{font-size:2.4rem;line-height:1;}
 .success-box{display:flex;flex-direction:column;align-items:center;gap:14px;padding:32px 20px;text-align:center;}
 .success-check{width:64px;height:64px;border-radius:50%;background:rgba(34,197,94,0.12);border:2px solid rgba(34,197,94,0.3);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:#16a34a;}
 .success-title{font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;color:#0f172a;}
 .success-msg{font-size:0.88rem;color:#64748b;line-height:1.65;max-width:380px;}
-.toast{position:fixed;bottom:26px;right:22px;z-index:9999;display:flex;align-items:center;gap:10px;padding:13px 18px;border-radius:11px;max-width:340px;font-size:0.87rem;font-weight:500;cursor:pointer;box-shadow:0 8px 28px rgba(15,23,42,0.13);animation:slideUp 0.28s ease;}
+
+/* ── multi-toast stack ── */
+.toast-stack{position:fixed;bottom:26px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+.toast{display:flex;align-items:center;gap:10px;padding:13px 18px;border-radius:11px;max-width:340px;font-size:0.87rem;font-weight:500;cursor:pointer;box-shadow:0 8px 28px rgba(15,23,42,0.13);animation:slideUp 0.28s ease;}
+.toast-icon{font-size:1rem;flex-shrink:0;}
 .toast-success{background:#f0fdf4;border:1px solid rgba(34,197,94,0.3);color:#15803d;}
+.toast-warning{background:#fffbeb;border:1px solid rgba(245,158,11,0.3);color:#d97706;}
 .toast-error{background:#fef2f2;border:1px solid rgba(239,68,68,0.28);color:#dc2626;}
 @keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
 .page-footer{text-align:center;margin-top:28px;font-size:0.75rem;color:#94a3b8;position:relative;z-index:1;}
-
 `;

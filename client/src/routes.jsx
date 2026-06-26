@@ -13,6 +13,7 @@ import Maintenance from "./pages/Maintenance";
 import SignIn from "./pages/SignIn";
 import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
+import CompleteSignup from "./pages/CompleteSignup";
 
 const AppRoutes = () => {
   return (
@@ -30,6 +31,7 @@ const AppRoutes = () => {
       <Route path="/signin" element={<SignIn />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
       <Route path="/admin" element={<AdminDashboard />} />
+      <Route path="/complete-invite/:token" element={<CompleteSignup />} />
     </Routes>
   );
 };
