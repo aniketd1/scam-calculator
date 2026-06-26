@@ -1,24 +1,28 @@
 // routes/admin.js — ESM
-// Dashboard routes for the scam2safe.com internal team.
-// All /api/admin/* routes are protected by verifyAdminToken middleware
-// except /api/admin/login and /api/admin/register-first.
-
-import express from "express";
-import jwt     from "jsonwebtoken";
-import User    from "../models/User.js";
+import express   from "express";
+import jwt       from "jsonwebtoken";
+import crypto    from "crypto";
+import nodemailer from "nodemailer";
+import User      from "../models/User.js";
 import AdminUser from "../models/AdminUser.js";
-
-import dotenv from "dotenv";
+import dotenv    from "dotenv";
 dotenv.config();
 
 const router = express.Router();
 
-/* ── MIDDLEWARE ─────────────────────────────────────────────── */
-function verifyAdminToken(req, res, next) {
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: 587,
+    secure: false,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    tls: { rejectUnauthorized: false },
+    });
+
+    /* ── MIDDLEWARE ─────────────────────────────────────────────── */
+    function verifyAdminToken(req, res, next) {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer "))
         return res.status(401).json({ success: false, error: "Unauthorised." });
-
     try {
         const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET);
         if (!decoded.isAdmin)
@@ -30,9 +34,7 @@ function verifyAdminToken(req, res, next) {
     }
     }
 
-    /* ── POST /api/admin/login ───────────────────────────────────
-    Body: { email, password }
-    ─────────────────────────────────────────────────────────────── */
+    /* ── POST /api/admin/login ──────────────────────────────────── */
     router.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -54,8 +56,7 @@ function verifyAdminToken(req, res, next) {
         );
 
         return res.json({
-        success: true,
-        token,
+        success: true, token,
         admin: { id: admin._id, email: admin.email, name: admin.name, role: admin.role },
         });
     } catch (err) {
@@ -64,17 +65,12 @@ function verifyAdminToken(req, res, next) {
     }
     });
 
-    /* ── POST /api/admin/register-first ─────────────────────────
-    Creates the very first super_admin. Disabled if any admin exists.
-    Remove this route (or gate it behind an env flag) in production
-    after the first super_admin has been created.
-    Body: { email, password, name, setupSecret }
-    ─────────────────────────────────────────────────────────────── */
+    /* ── POST /api/admin/register-first ────────────────────────── */
     router.post("/register-first", async (req, res) => {
     try {
         const existingCount = await AdminUser.countDocuments();
         if (existingCount > 0)
-        return res.status(403).json({ success: false, error: "Admin already exists. Use the dashboard to add more admins." });
+        return res.status(403).json({ success: false, error: "Admin already exists." });
 
         const { email, password, name, setupSecret } = req.body;
         if (setupSecret !== process.env.ADMIN_SETUP_SECRET)
@@ -84,7 +80,6 @@ function verifyAdminToken(req, res, next) {
 
         const admin = new AdminUser({ email, password, name, role: "super_admin" });
         await admin.save();
-
         return res.status(201).json({ success: true, message: "Super admin created." });
     } catch (err) {
         console.error("[admin/register-first]", err);
@@ -92,10 +87,129 @@ function verifyAdminToken(req, res, next) {
     }
     });
 
-    /* ── POST /api/admin/invite ─────────────────────────────────
-    Super admin invites a new team member (admin).
-    Body: { email, password, name }
+    /* ── POST /api/admin/create-user ────────────────────────────────
+    Admin creates an end-user account by email only.
+    An invite email is sent so the user can set their own password
+    and visual-password during first login.
+    Body: { email, wordpressSite?, wordpressUsername? }
     ─────────────────────────────────────────────────────────────── */
+    router.post("/create-user", verifyAdminToken, async (req, res) => {
+    try {
+        const { email, wordpressSite, wordpressUsername } = req.body;
+        if (!email)
+        return res.status(400).json({ success: false, error: "email is required." });
+
+        const existing = await User.findOne({ email: email.toLowerCase().trim() });
+        if (existing)
+        return res.status(409).json({ success: false, error: "An account with that email already exists." });
+
+        // Generate invite token
+        const rawToken    = crypto.randomBytes(32).toString("hex");
+        const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+        // Create a pending user — password and visual-password filled in later
+        const user = new User({
+        email:             email.toLowerCase().trim(),
+        password:          crypto.randomBytes(16).toString("hex"), // placeholder; overwritten on invite completion
+        selectedSentence:  "pending",                              // placeholder
+        secretNouns:       [],
+        secretPositions:   ["A", "B"],                            // placeholder
+        offset:            0,                                     // placeholder
+        wordpressSite:     wordpressSite     || null,
+        wordpressUsername: wordpressUsername || null,
+        pendingSetup:      true,
+        inviteToken:       hashedToken,
+        inviteTokenExpires: new Date(Date.now() + 1000 * 60 * 60 * 48), // 48 hours
+        });
+        await user.save();
+
+        const inviteUrl = `${process.env.FRONTEND_URL}/complete-invite/${rawToken}`;
+
+        await transporter.sendMail({
+        from: `"Scam2Safe" <${process.env.SMTP_USER}>`,
+        to:   email,
+        subject: "🔐 You've been invited to Scam2Safe — set up your account",
+        html: `
+        <div style="font-family:Arial,sans-serif;background:#f7f7f7;padding:20px">
+            <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #eee">
+            <h2 style="color:#0f172a">Welcome to Scam2Safe</h2>
+            <p style="color:#334155;font-size:14px;line-height:1.6">
+                An account has been created for you. Click below to set your password and
+                visual security key. This link expires in <b>48 hours</b>.
+            </p>
+            <a href="${inviteUrl}" style="display:inline-block;margin:16px 0;padding:12px 18px;background:linear-gradient(135deg,#06B6D4,#0891b2);color:white;text-decoration:none;border-radius:8px;font-weight:600">
+                Set up my account →
+            </a>
+            <p style="color:#64748b;font-size:12px;">
+                If the button doesn't work: <a href="${inviteUrl}">${inviteUrl}</a>
+            </p>
+            <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
+            <p style="color:#94a3b8;font-size:12px">If you didn't expect this, ignore this email.</p>
+            </div>
+        </div>`,
+        });
+
+        return res.status(201).json({
+        success: true,
+        message: `Invite sent to ${email}. They have 48 hours to complete setup.`,
+        user: { id: user._id, email: user.email, pendingSetup: true },
+        });
+    } catch (err) {
+        console.error("[admin/create-user]", err);
+        return res.status(500).json({ success: false, error: "Server error." });
+    }
+    });
+
+    /* ── POST /api/admin/resend-invite ──────────────────────────────
+    Resend (or refresh) an invite for a pending user.
+    Body: { email }
+    ─────────────────────────────────────────────────────────────── */
+    router.post("/resend-invite", verifyAdminToken, async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email)
+        return res.status(400).json({ success: false, error: "email is required." });
+
+        const user = await User.findOne({ email: email.toLowerCase().trim() });
+        if (!user)
+        return res.status(404).json({ success: false, error: "User not found." });
+        if (!user.pendingSetup)
+        return res.status(400).json({ success: false, error: "User has already completed setup." });
+
+        const rawToken    = crypto.randomBytes(32).toString("hex");
+        const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+        user.inviteToken        = hashedToken;
+        user.inviteTokenExpires = new Date(Date.now() + 1000 * 60 * 60 * 48);
+        await user.save();
+
+        const inviteUrl = `${process.env.FRONTEND_URL}/complete-invite/${rawToken}`;
+
+        await transporter.sendMail({
+        from: `"Scam2Safe" <${process.env.SMTP_USER}>`,
+        to:   email,
+        subject: "🔐 New invite link — set up your Scam2Safe account",
+        html: `
+        <div style="font-family:Arial,sans-serif;background:#f7f7f7;padding:20px">
+            <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #eee">
+            <h2 style="color:#0f172a">New invite link</h2>
+            <p style="color:#334155;font-size:14px;line-height:1.6">
+                Here is a fresh invite link. Expires in <b>48 hours</b>.
+            </p>
+            <a href="${inviteUrl}" style="display:inline-block;margin:16px 0;padding:12px 18px;background:linear-gradient(135deg,#06B6D4,#0891b2);color:white;text-decoration:none;border-radius:8px;font-weight:600">
+                Set up my account →
+            </a>
+            </div>
+        </div>`,
+        });
+
+        return res.json({ success: true, message: "Invite resent." });
+    } catch (err) {
+        console.error("[admin/resend-invite]", err);
+        return res.status(500).json({ success: false, error: "Server error." });
+    }
+    });
+
+    /* ── POST /api/admin/invite ─────────────────────────────────── */
     router.post("/invite", verifyAdminToken, async (req, res) => {
     try {
         if (req.admin.role !== "super_admin")
@@ -123,9 +237,7 @@ function verifyAdminToken(req, res, next) {
     }
     });
 
-    /* ── GET /api/admin/team ────────────────────────────────────
-    List all admin team members.
-    ─────────────────────────────────────────────────────────────── */
+    /* ── GET /api/admin/team ────────────────────────────────────── */
     router.get("/team", verifyAdminToken, async (req, res) => {
     try {
         const team = await AdminUser.find({}, "-password").sort({ createdAt: -1 });
@@ -136,14 +248,11 @@ function verifyAdminToken(req, res, next) {
     }
     });
 
-    /* ── DELETE /api/admin/team/:adminId ───────────────────────
-    Super admin removes a team member.
-    ─────────────────────────────────────────────────────────────── */
+    /* ── DELETE /api/admin/team/:adminId ────────────────────────── */
     router.delete("/team/:adminId", verifyAdminToken, async (req, res) => {
     try {
         if (req.admin.role !== "super_admin")
         return res.status(403).json({ success: false, error: "Only super admins can remove team members." });
-
         if (req.admin.adminId === req.params.adminId)
         return res.status(400).json({ success: false, error: "You cannot remove yourself." });
 
@@ -155,48 +264,36 @@ function verifyAdminToken(req, res, next) {
     }
     });
 
-    /* ── GET /api/admin/users ────────────────────────────────────
-    List all end users (paginated).
-    Query: ?page=1&limit=20&search=email
-    ─────────────────────────────────────────────────────────────── */
+    /* ── GET /api/admin/users ───────────────────────────────────── */
     router.get("/users", verifyAdminToken, async (req, res) => {
     try {
-        const page   = Math.max(1, parseInt(req.query.page  || "1", 10));
+        const page   = Math.max(1, parseInt(req.query.page  || "1",  10));
         const limit  = Math.min(100, parseInt(req.query.limit || "20", 10));
         const search = req.query.search?.trim();
 
         const filter = search ? { email: { $regex: search, $options: "i" } } : {};
         const total  = await User.countDocuments(filter);
-        const users  = await User.find(filter, "-password -apiKeyHash -secretNouns -secretPositions -offset -resetPasswordToken -resetPasswordExpires")
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit);
+        const users  = await User.find(
+        filter,
+        "-password -apiKeyHash -secretNouns -secretPositions -offset -resetPasswordToken -resetPasswordExpires -passkeyCredentials -passkeyChallenge -inviteToken"
+        ).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit);
 
-        return res.json({
-        success: true,
-        total,
-        page,
-        pages: Math.ceil(total / limit),
-        users,
-        });
+        return res.json({ success: true, total, page, pages: Math.ceil(total / limit), users });
     } catch (err) {
         console.error("[admin/users]", err);
         return res.status(500).json({ success: false, error: "Server error." });
     }
     });
 
-    /* ── GET /api/admin/users/:email ─────────────────────────────
-    Look up a single end user by email.
-    ─────────────────────────────────────────────────────────────── */
+    /* ── GET /api/admin/users/:email ────────────────────────────── */
     router.get("/users/:email", verifyAdminToken, async (req, res) => {
     try {
         const user = await User.findOne(
         { email: req.params.email.toLowerCase().trim() },
-        "-password -apiKeyHash -secretNouns -secretPositions -offset -resetPasswordToken -resetPasswordExpires"
+        "-password -apiKeyHash -secretNouns -secretPositions -offset -resetPasswordToken -resetPasswordExpires -passkeyCredentials -passkeyChallenge -inviteToken"
         );
         if (!user)
         return res.status(404).json({ success: false, error: "User not found." });
-
         return res.json({ success: true, user });
     } catch (err) {
         console.error("[admin/users/:email]", err);
@@ -204,11 +301,7 @@ function verifyAdminToken(req, res, next) {
     }
     });
 
-    /* ── POST /api/admin/generate-api-key ───────────────────────
-    Admin creates (or rotates) an API key for any end user by email.
-    The raw key is returned ONCE — admin relays it to the user.
-    Body: { email }
-    ─────────────────────────────────────────────────────────────── */
+    /* ── POST /api/admin/generate-api-key ───────────────────────── */
     router.post("/generate-api-key", verifyAdminToken, async (req, res) => {
     try {
         const { email } = req.body;
@@ -219,15 +312,18 @@ function verifyAdminToken(req, res, next) {
         if (!user)
         return res.status(404).json({ success: false, error: "No user found with that email." });
 
+        if (user.pendingSetup)
+        return res.status(400).json({ success: false, error: "User has not completed account setup yet." });
+
         const rawApiKey = await user.generateApiKey();
         await user.save();
 
         return res.json({
         success: true,
-        email: user.email,
-        apiKey: rawApiKey,         // shown once — admin must relay it to the user
+        email:      user.email,
+        apiKey:     rawApiKey,
         apiKeyHint: user.apiKeyHint,
-        message: `API key generated for ${user.email}. Copy it now — it won't be shown again.`,
+        message:    `API key generated for ${user.email}. Copy it now — it won't be shown again.`,
         });
     } catch (err) {
         console.error("[admin/generate-api-key]", err);
@@ -235,10 +331,7 @@ function verifyAdminToken(req, res, next) {
     }
     });
 
-    /* ── POST /api/admin/revoke-api-key ─────────────────────────
-    Revoke (clear) the API key for a user.
-    Body: { email }
-    ─────────────────────────────────────────────────────────────── */
+    /* ── POST /api/admin/revoke-api-key ─────────────────────────── */
     router.post("/revoke-api-key", verifyAdminToken, async (req, res) => {
     try {
         const { email } = req.body;
@@ -262,9 +355,7 @@ function verifyAdminToken(req, res, next) {
     }
     });
 
-    /* ── GET /api/admin/me ──────────────────────────────────────
-    Returns the currently authenticated admin's profile.
-    ─────────────────────────────────────────────────────────────── */
+    /* ── GET /api/admin/me ──────────────────────────────────────── */
     router.get("/me", verifyAdminToken, async (req, res) => {
     try {
         const admin = await AdminUser.findById(req.admin.adminId, "-password");

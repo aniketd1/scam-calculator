@@ -9,9 +9,7 @@ const UserSchema = new mongoose.Schema(
       type: String, required: true, unique: true,
       lowercase: true, trim: true,
     },
-    password: {
-      type: String, required: true,
-    },
+    password: { type: String, default: "" },
     selectedSentence: {
       type: String, required: true,
     },
@@ -55,12 +53,29 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    passkeyEnabled: {
+      type: Boolean,
+      default: false
+    },
+
+    pendingSetup: { type: Boolean, default: false },
+    inviteToken:  { type: String, default: null },
+    inviteTokenExpires: { type: Date, default: null },
+
+    passkeyCredentials: [{
+      credentialID:        { type: String, required: true }, // base64url
+      credentialPublicKey: { type: String, required: true }, // base64url
+      counter:             { type: Number, default: 0 },
+      transports:          [String],
+      createdAt:           { type: Date,   default: Date.now },
+    }],
+    passkeyChallenge: { type: String, default: null },
   },
   { timestamps: true }
 );
 
 UserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password") || !this.password) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });

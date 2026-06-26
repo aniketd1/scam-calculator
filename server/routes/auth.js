@@ -1,13 +1,18 @@
 // routes/auth.js — ESM
-import express from "express";
-import bcrypt  from "bcryptjs";
-import jwt     from "jsonwebtoken";
-import crypto  from "crypto";
-import User        from "../models/User.js";
-import LoginSession from "../models/LoginSession.js";
+import express  from "express";
+import bcrypt   from "bcryptjs";
+import jwt      from "jsonwebtoken";
+import crypto   from "crypto";
+import User          from "../models/User.js";
+import LoginSession  from "../models/LoginSession.js";
 import { SENTENCES } from "../data/sentences.js";
-import nodemailer from "nodemailer";
-
+import nodemailer    from "nodemailer";
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from "@simplewebauthn/server";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -15,18 +20,18 @@ const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: 587,
   secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
   tls: { rejectUnauthorized: false },
 });
 
 const router = express.Router();
 
 /* ── CONSTANTS ──────────────────────────────────────────────── */
-const POSITIONS  = ["A","B","C","D","E"];
-const GRID_SIZE  = 12;
+const POSITIONS = ["A", "B", "C", "D", "E"];
+const GRID_SIZE = 12;
+const RP_NAME   = process.env.RP_NAME   || "Scam2Safe";
+const RP_ID     = process.env.RP_ID     || "localhost";
+const RP_ORIGIN = process.env.RP_ORIGIN || "http://localhost:3000";
 
 const NOUN_WORDS = new Set([
   "boy","girl","dog","cat","bird","monkey","farmer","teacher","child","baby",
@@ -36,7 +41,7 @@ const NOUN_WORDS = new Set([
   "carrot","log","burrow","car","road","market","door","room","bag","box",
   "wall","plant","soil","field","clouds","letter","paper","spoon","cup",
   "table","kitchen","blocks","model","star","garden","kite","bucket",
-  "vegetables","dinner","lesson","rope","question","answer","bell",
+  "vegetables","dinner","lesson","rope","question","answer",
 ]);
 
 function extractNouns(sentence) {
@@ -102,23 +107,14 @@ router.get("/sentences", (_req, res) => {
   res.json({ success: true, sentences: SENTENCES });
 });
 
-/* ── GET /api/auth/profile ───────────────────────────────────
-   Returns the logged-in user's non-sensitive profile data.
-   Frontend uses this to:
-     1. Pre-fill WordPress email/username on the signup form
-     2. Know if the user already has a visual password set up
-        (hasVisualPassword: true → skip straight to challenge grid)
-   Returns:
-     email, wordpressSite, wordpressUsername,
-     hasVisualPassword (bool), apiKeyHint, apiKeyCreatedAt
-─────────────────────────────────────────────────────────────── */
+/* ── GET /api/auth/profile ──────────────────────────────────── */
 router.get("/profile", verifyUserToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId, [
       "email", "wordpressSite", "wordpressUsername",
       "secretNouns", "secretPositions", "offset",
-      "selectedSentence",
-      "apiKeyHint", "apiKeyPrefix", "apiKeyCreatedAt",
+      "selectedSentence", "apiKeyHint", "apiKeyPrefix", "apiKeyCreatedAt",
+      "pendingSetup", "passkeyCredentials",
     ]);
     if (!user)
       return res.status(404).json({ success: false, error: "User not found." });
@@ -129,14 +125,15 @@ router.get("/profile", verifyUserToken, async (req, res) => {
         email:             user.email,
         wordpressSite:     user.wordpressSite     || null,
         wordpressUsername: user.wordpressUsername || null,
-        // True when they have completed visual-password setup
         hasVisualPassword: (
           user.secretNouns?.length > 0 &&
           user.secretPositions?.length === 2 &&
           user.offset != null
         ),
-        apiKeyHint:      user.apiKeyHint      || null,
-        apiKeyCreatedAt: user.apiKeyCreatedAt || null,
+        apiKeyHint:        user.apiKeyHint      || null,
+        apiKeyCreatedAt:   user.apiKeyCreatedAt || null,
+        pendingSetup:      user.pendingSetup    || false,
+        hasPasskey:        (user.passkeyCredentials?.length ?? 0) > 0,
       },
     });
   } catch (err) {
@@ -145,14 +142,22 @@ router.get("/profile", verifyUserToken, async (req, res) => {
   }
 });
 
-/* ── POST /api/auth/signup ──────────────────────────────────── */
-router.post("/signup", async (req, res) => {
+/* ── POST /api/auth/complete-invite ─────────────────────────────
+   User completes their account after admin created it.
+   Body: { token, password, selectedSentence, secretPositions, offset,
+           wordpressSite?, wordpressUsername? }
+─────────────────────────────────────────────────────────────── */
+router.post("/complete-invite", async (req, res) => {
   try {
-    const { email, password, wordpressSite, wordpressUsername,
-            selectedSentence, secretPositions, offset } = req.body;
+    const {
+      token, password, selectedSentence,
+      secretPositions, offset,
+      wordpressSite, wordpressUsername,
+    } = req.body;
 
-    if (!email || !password || !selectedSentence || !secretPositions || offset == null)
+    if (!token || !password || !selectedSentence || !secretPositions || offset == null)
       return res.status(400).json({ success: false, error: "All fields are required." });
+
     if (!Array.isArray(secretPositions) || secretPositions.length !== 2)
       return res.status(400).json({ success: false, error: "Exactly 2 positions required." });
     if (secretPositions[0] === secretPositions[1])
@@ -160,50 +165,50 @@ router.post("/signup", async (req, res) => {
     for (const p of secretPositions)
       if (!POSITIONS.includes(p))
         return res.status(400).json({ success: false, error: `Invalid position: ${p}` });
+
     const off = parseInt(offset, 10);
     if (isNaN(off) || off < 0 || off > 99)
       return res.status(400).json({ success: false, error: "Offset must be 0–99." });
 
-    const existing = await User.findOne({ email: email.toLowerCase().trim() });
-    if (existing)
-      return res.status(409).json({ success: false, error: "An account with that email already exists." });
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    const user = await User.findOne({
+      inviteToken:        hashedToken,
+      inviteTokenExpires: { $gt: Date.now() },
+    });
+    if (!user)
+      return res.status(400).json({ success: false, error: "Invalid or expired invite link." });
 
     const secretNouns = extractNouns(selectedSentence);
     if (!secretNouns.length)
       return res.status(400).json({ success: false, error: "No recognisable nouns found in that sentence." });
 
-    const user = new User({
-      email: email.toLowerCase().trim(),
-      password,
-      selectedSentence,
-      wordpressSite:     wordpressSite     || null,
-      wordpressUsername: wordpressUsername || null,
-      secretNouns,
-      secretPositions,
-      offset: off,
-    });
-
-    const rawApiKey = await user.generateApiKey();
+    user.password          = password;
+    user.selectedSentence  = selectedSentence;
+    user.secretNouns       = secretNouns;
+    user.secretPositions   = secretPositions;
+    user.offset            = off;
+    user.wordpressSite     = wordpressSite     || null;
+    user.wordpressUsername = wordpressUsername || null;
+    user.pendingSetup      = false;
+    user.inviteToken       = null;
+    user.inviteTokenExpires = null;
     await user.save();
 
-    const token = jwt.sign(
+    const jwtToken = jwt.sign(
       { userId: user._id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    return res.status(201).json({
+    return res.json({
       success: true,
-      message: "Account created successfully.",
-      token,
-      // Raw API key — shown ONCE. User must copy it now.
-      apiKey:     rawApiKey,
-      apiKeyHint: user.apiKeyHint,
+      message: "Account setup complete. Welcome!",
+      token: jwtToken,
       user: { id: user._id, email: user.email },
     });
   } catch (err) {
-    console.error("[signup]", err);
-    return res.status(500).json({ success: false, error: "Server error during signup." });
+    console.error("[complete-invite]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
   }
 });
 
@@ -217,6 +222,9 @@ router.post("/login", async (req, res) => {
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) return res.status(401).json({ success: false, error: "Invalid email or password." });
 
+    if (user.pendingSetup)
+      return res.status(403).json({ success: false, error: "Account setup not complete. Please check your invite email." });
+
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ success: false, error: "Invalid email or password." });
 
@@ -228,14 +236,10 @@ router.post("/login", async (req, res) => {
   }
 });
 
-/* ── POST /api/auth/wordpress-login ────────────────────────────
-    Called by the WordPress plugin using the user's API key.
-    Body: { email, apiKey }
-─────────────────────────────────────────────────────────────── */
+/* ── POST /api/auth/wordpress-login ────────────────────────── */
 router.post("/wordpress-login", async (req, res) => {
   try {
     const { email, apiKey } = req.body;
-
     if (!email || !apiKey)
       return res.status(400).json({ success: false, error: "email and apiKey are required." });
 
@@ -292,7 +296,6 @@ router.post("/register", async (req, res) => {
 router.post("/verify", async (req, res) => {
   try {
     const { sessionId, registerInputs } = req.body;
-
     if (!sessionId || !Array.isArray(registerInputs))
       return res.status(400).json({ success: false, error: "sessionId and registerInputs are required." });
     if (registerInputs.length !== 5)
@@ -364,30 +367,206 @@ router.post("/verify", async (req, res) => {
   }
 });
 
-/* ── POST /api/auth/regenerate-api-key ─────────────────────────
-   Authenticated. User can rotate their own API key.
-─────────────────────────────────────────────────────────────── */
-router.post("/regenerate-api-key", verifyUserToken, async (req, res) => {
+/* ═══════════════════════════════════════════════════════════════
+   WEBAUTHN — PASSKEY REGISTRATION (authenticated users)
+   Used after normal login to register a passkey for future recovery.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── POST /api/auth/passkey/register-options ────────────────── */
+router.post("/passkey/register-options", verifyUserToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
-    if (!user)
-      return res.status(404).json({ success: false, error: "User not found." });
+    if (!user) return res.status(404).json({ success: false, error: "User not found." });
 
-    const rawApiKey = await user.generateApiKey();
+    const existingCredentials = (user.passkeyCredentials || []).map(c => ({
+      id:         c.credentialID,
+      type:       "public-key",
+      transports: c.transports,
+    }));
+
+    const options = await generateRegistrationOptions({
+      rpName:                  RP_NAME,
+      rpID:                    RP_ID,
+      userID:                  Buffer.from(user._id.toString()),
+      userName:                user.email,
+      userDisplayName:         user.email,
+      attestationType:         "none",
+      excludeCredentials:      existingCredentials,
+      authenticatorSelection:  {
+        residentKey:       "preferred",
+        userVerification:  "preferred",
+      },
+    });
+
+    // Save challenge temporarily
+    user.passkeyChallenge = options.challenge;
     await user.save();
 
-    return res.json({
-      success: true,
-      apiKey:     rawApiKey,
-      apiKeyHint: user.apiKeyHint,
-      message: "New API key generated. Copy it now — it won't be shown again.",
-    });
+    return res.json({ success: true, options });
   } catch (err) {
-    console.error("[regenerate-api-key]", err);
+    console.error("[passkey/register-options]", err);
     return res.status(500).json({ success: false, error: "Server error." });
   }
 });
 
+/* ── POST /api/auth/passkey/register-complete ───────────────── */
+router.post("/passkey/register-complete", verifyUserToken, async (req, res) => {
+  try {
+    const { response } = req.body;
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ success: false, error: "User not found." });
+
+    if (!user.passkeyChallenge)
+      return res.status(400).json({ success: false, error: "No pending challenge. Call register-options first." });
+
+    let verification;
+    try {
+      verification = await verifyRegistrationResponse({
+        response,
+        expectedChallenge: user.passkeyChallenge,
+        expectedOrigin:    RP_ORIGIN,
+        expectedRPID:      RP_ID,
+      });
+    } catch (e) {
+      return res.status(400).json({ success: false, error: `Passkey verification failed: ${e.message}` });
+    }
+
+    if (!verification.verified || !verification.registrationInfo)
+      return res.status(400).json({ success: false, error: "Passkey registration not verified." });
+
+    const { credential } = verification.registrationInfo;
+
+    user.passkeyCredentials.push({
+      credentialID:        Buffer.from(credential.id).toString("base64url"),
+      credentialPublicKey: Buffer.from(credential.publicKey).toString("base64url"),
+      counter:             credential.counter,
+      transports:          response.response.transports || [],
+    });
+    user.passkeyChallenge = null;
+    await user.save();
+
+    return res.json({ success: true, message: "Passkey registered successfully." });
+  } catch (err) {
+    console.error("[passkey/register-complete]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   WEBAUTHN — PASSKEY LOGIN (account recovery / bypass visual pw)
+═══════════════════════════════════════════════════════════════ */
+
+/* ── POST /api/auth/passkey/login-options ───────────────────── */
+router.post("/passkey/login-options", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email)
+      return res.status(400).json({ success: false, error: "email is required." });
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user || !user.passkeyCredentials?.length)
+      return res.status(404).json({ success: false, error: "No passkey registered for this account." });
+
+    const allowCredentials = user.passkeyCredentials.map(c => ({
+      id:         c.credentialID,
+      type:       "public-key",
+      transports: c.transports,
+    }));
+
+    const options = await generateAuthenticationOptions({
+      rpID:             RP_ID,
+      userVerification: "preferred",
+      allowCredentials,
+    });
+
+    user.passkeyChallenge = options.challenge;
+    await user.save();
+
+    return res.json({ success: true, options });
+  } catch (err) {
+    console.error("[passkey/login-options]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
+  }
+});
+
+/* ── POST /api/auth/passkey/login-complete ──────────────────── */
+router.post("/passkey/login-complete", async (req, res) => {
+  try {
+    const { email, response } = req.body;
+    if (!email || !response)
+      return res.status(400).json({ success: false, error: "email and response are required." });
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user)
+      return res.status(404).json({ success: false, error: "User not found." });
+
+    if (!user.passkeyChallenge)
+      return res.status(400).json({ success: false, error: "No pending challenge. Call login-options first." });
+
+    // Find the matching credential
+    const credentialID = response.id;
+    const storedCred   = user.passkeyCredentials.find(c => c.credentialID === credentialID);
+    if (!storedCred)
+      return res.status(400).json({ success: false, error: "Credential not found." });
+
+    let verification;
+    try {
+      verification = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge:  user.passkeyChallenge,
+        expectedOrigin:     RP_ORIGIN,
+        expectedRPID:       RP_ID,
+        credential: {
+          id:         storedCred.credentialID,
+          publicKey:  Buffer.from(storedCred.credentialPublicKey, "base64url"),
+          counter:    storedCred.counter,
+          transports: storedCred.transports,
+        },
+      });
+    } catch (e) {
+      return res.status(400).json({ success: false, error: `Passkey verification failed: ${e.message}` });
+    }
+
+    if (!verification.verified)
+      return res.status(401).json({ success: false, error: "Passkey authentication failed." });
+
+    // Update counter to prevent replay attacks
+    storedCred.counter    = verification.authenticationInfo.newCounter;
+    user.passkeyChallenge = null;
+    await user.save();
+
+    // Issue JWT — passkey bypasses the visual password challenge
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.json({
+      success: true,
+      message: "Passkey verified. Welcome back!",
+      token,
+      user: { id: user._id, email: user.email },
+    });
+  } catch (err) {
+    console.error("[passkey/login-complete]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
+  }
+});
+
+/* ── POST /api/auth/regenerate-api-key ─────────────────────────
+   REMOVED — API key management is now admin-only.
+   Kept as a stub that returns a clear error so old clients get a
+   useful message instead of a 404.
+─────────────────────────────────────────────────────────────── */
+router.post("/regenerate-api-key", verifyUserToken, (_req, res) => {
+  return res.status(403).json({
+    success: false,
+    error: "API key management has moved to the admin dashboard. Contact your administrator.",
+  });
+});
+
+/* ── POST /api/auth/forgot-password ─────────────────────────── */
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
@@ -422,8 +601,7 @@ router.post("/forgot-password", async (req, res) => {
           <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
           <p style="color:#94a3b8;font-size:12px">If you didn't request this, ignore this email.</p>
         </div>
-      </div>
-      `,
+      </div>`,
     });
 
     return res.json({ success: true, message: "If account exists, reset link sent." });
@@ -433,6 +611,7 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
+/* ── POST /api/auth/reset-password ──────────────────────────── */
 router.post("/reset-password", async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -441,7 +620,6 @@ router.post("/reset-password", async (req, res) => {
       resetPasswordToken:   hashedToken,
       resetPasswordExpires: { $gt: Date.now() },
     });
-
     if (!user)
       return res.status(400).json({ success: false, error: "Invalid or expired token." });
 
@@ -459,12 +637,8 @@ router.post("/reset-password", async (req, res) => {
         <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #eee">
           <h2 style="color:#0f172a">Password Updated</h2>
           <p style="color:#334155;font-size:14px">Your password has been successfully changed. If this was not you, contact support immediately.</p>
-          <div style="padding:12px;background:#ecfeff;border-left:4px solid #06B6D4;border-radius:6px;margin-top:12px">
-            <p style="margin:0;color:#0f172a;font-size:13px">Your account is now secured with your new password.</p>
-          </div>
         </div>
-      </div>
-      `,
+      </div>`,
     });
 
     return res.json({ success: true, message: "Password reset successful." });
@@ -474,6 +648,7 @@ router.post("/reset-password", async (req, res) => {
   }
 });
 
+/* ── POST /api/auth/delete-user ─────────────────────────────── */
 router.post("/delete-user", async (req, res) => {
   try {
     const { email, password } = req.body;

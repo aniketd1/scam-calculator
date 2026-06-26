@@ -3,6 +3,10 @@ import { SENTENCES } from "../../../server/data/sentences";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+import {
+    startRegistration
+} from "@simplewebauthn/browser";
+
 /* ── ASSET MAP ─────────────────────────────────────────────── */
 const _nounGlob = import.meta.glob("../assets/nouns/*.png", { eager: true });
 const _fileMap = {};
@@ -132,8 +136,6 @@ const filteredSentences = SENTENCES.filter(s =>
   extractNouns(s).length >= 2 && extractNouns(s).length <= 3
 );
 
-const VALID_NOUNS = new Set(Object.keys(_fileMap));
-
 // Build mnemonic from nouns: ["doctor","apple","car","park"] → "DACP"
 function buildMnemonic(nouns) {
   return nouns.map(n => n[0].toUpperCase()).join("");
@@ -241,7 +243,6 @@ export default function Auth() {
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [createdApiKey, setCreatedApiKey] = useState("");
-  const [pendingSignupSuccess, setPendingSignupSuccess] = useState(false);
 
   // signup
   const [sentence,  setSentence]  = useState("");
@@ -381,6 +382,35 @@ useEffect(() => {
     });
   };
 
+  const registerPasskey = async () => {
+    const options = await postJson(
+      "/api/webauthn/register/options",
+      {
+        email,
+      }
+    );
+
+    if (!options) {
+      throw new Error("Failed to obtain passkey options.");
+    }
+
+    const attestation = await startRegistration(options);
+
+    const result = await postJson(
+      "/api/webauthn/register/verify",
+      {
+        email,
+        attestation,
+      }
+    );
+
+    if (!result.success) {
+      throw new Error(result.error || "Passkey registration failed.");
+    }
+
+    return result;
+  };
+
   /* ── SIGNUP ── */
   const handleSignup = () => {
     setError("");
@@ -413,12 +443,6 @@ useEffect(() => {
         }
       );
 
-      if (data.success) {
-        setCreatedApiKey(data.apiKey);
-        setShowApiKey(true);
-        setPendingSignupSuccess(true);
-      }
-
       if (!data.success) {
         setError(data.error || "Could not create account.");
         return;
@@ -428,14 +452,25 @@ useEffect(() => {
         localStorage.setItem("token", data.token);
       }
 
-      const copyApiKey = async () => {
-        try {
-          await navigator.clipboard.writeText(createdApiKey);
-          showToast("success", "API key copied to clipboard");
-        } catch {
-          showToast("error", "Failed to copy");
-        }
-      };
+      /*
+      * Register Passkey
+      */
+      try {
+        await registerPasskey();
+      } catch (err) {
+        setError(
+          err.message ||
+            "Passkey registration was cancelled. Your account was created, but no passkey was registered."
+        );
+        return;
+      }
+
+      /*
+      * Only show API key after passkey succeeds
+      */
+      setCreatedApiKey(data.apiKey);
+      setShowApiKey(true);
+      setPendingSignupSuccess(true);
 
       setPreview(null);
 

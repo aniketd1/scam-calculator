@@ -1,10 +1,7 @@
 // AdminDashboard.jsx
-
 import { useState, useEffect, useCallback } from "react";
 
-// this is a comment to redeploy 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
-;
 
 /* ── helpers ────────────────────────────────────────────────── */
 function authHeaders(token) {
@@ -32,9 +29,7 @@ function authHeaders(token) {
         <div className="copy-label">{label}</div>
         <div className="copy-row">
             <code className="copy-value">{value}</code>
-            <button className="btn-copy" onClick={copy}>
-            {copied ? "✓ Copied" : "Copy"}
-            </button>
+            <button className="btn-copy" onClick={copy}>{copied ? "✓ Copied" : "Copy"}</button>
         </div>
         </div>
     );
@@ -106,6 +101,124 @@ function authHeaders(token) {
     );
     }
 
+    /* ── CreateUserPanel ────────────────────────────────────────── */
+    function CreateUserPanel({ token, showToast }) {
+    const [form,    setForm]    = useState({ email: "", wordpressSite: "", wordpressUsername: "" });
+    const [loading, setLoading] = useState(false);
+    const [msg,     setMsg]     = useState(null);
+    const [pending, setPending] = useState([]);
+    const [loadingPending, setLoadingPending] = useState(false);
+
+    const loadPending = useCallback(async () => {
+        setLoadingPending(true);
+        const data = await apiFetch("/api/admin/users?limit=50", token);
+        setLoadingPending(false);
+        if (!data.success) return;
+        setPending(data.users.filter(u => u.pendingSetup));
+    }, [token]);
+
+    useEffect(() => { loadPending(); }, [loadPending]);
+
+    const createUser = async (e) => {
+        e.preventDefault();
+        setMsg(null); setLoading(true);
+        const data = await apiFetch("/api/admin/create-user", token, {
+        method: "POST",
+        body: JSON.stringify(form),
+        });
+        setLoading(false);
+        if (!data.success) { setMsg({ type: "danger", text: data.error }); return; }
+        showToast("success", `Invite sent to ${form.email}.`);
+        setForm({ email: "", wordpressSite: "", wordpressUsername: "" });
+        loadPending();
+    };
+
+    const resendInvite = async (email) => {
+        const data = await apiFetch("/api/admin/resend-invite", token, {
+        method: "POST",
+        body: JSON.stringify({ email }),
+        });
+        if (!data.success) { showToast("error", data.error); return; }
+        showToast("success", `Invite resent to ${email}.`);
+    };
+
+    return (
+        <section className="panel-section">
+        <h2 className="panel-heading">Create user</h2>
+        <p className="panel-sub">
+            Add a user by email. They'll receive an invite link to set their own password
+            and visual security key. API keys are assigned separately once setup is complete.
+        </p>
+
+        <div className="inner-card">
+            <p className="inner-card-title">New user</p>
+            <form onSubmit={createUser} className="invite-grid">
+            <div className="field-group">
+                <label className="field-label">Email</label>
+                <input className="field-input" type="email" value={form.email}
+                placeholder="user@example.com"
+                onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
+            </div>
+            <div className="field-group">
+                <label className="field-label">WordPress site <span className="dim">(optional)</span></label>
+                <input className="field-input" value={form.wordpressSite}
+                placeholder="https://example.com"
+                onChange={e => setForm(f => ({ ...f, wordpressSite: e.target.value }))} />
+            </div>
+            <div className="field-group">
+                <label className="field-label">WP username <span className="dim">(optional)</span></label>
+                <input className="field-input" value={form.wordpressUsername}
+                placeholder="wpuser"
+                onChange={e => setForm(f => ({ ...f, wordpressUsername: e.target.value }))} />
+            </div>
+            <div className="field-group field-group--btn">
+                <label className="field-label" style={{ visibility: "hidden" }}>Go</label>
+                <button className="btn-primary" type="submit" disabled={loading}>
+                {loading ? "Sending…" : "Send invite"}
+                </button>
+            </div>
+            </form>
+            {msg && <Alert type={msg.type}>{msg.text}</Alert>}
+        </div>
+
+        {/* Pending users */}
+        <div>
+            <p className="inner-card-title" style={{ marginBottom: 10 }}>
+            Pending setup{pending.length > 0 ? ` (${pending.length})` : ""}
+            </p>
+            {loadingPending
+            ? <p className="dim">Loading…</p>
+            : pending.length === 0
+                ? <p className="dim">No pending invites.</p>
+                : (
+                <div className="team-list">
+                    {pending.map(u => (
+                    <div key={u._id} className="team-row">
+                        <div className="team-avatar team-avatar--admin">
+                        {u.email[0].toUpperCase()}
+                        </div>
+                        <div className="team-info">
+                        <div className="team-name">{u.email}</div>
+                        <div className="team-email">
+                            Invited {new Date(u.createdAt).toLocaleDateString()}
+                            {u.wordpressSite ? ` · ${u.wordpressSite}` : ""}
+                        </div>
+                        </div>
+                        <span className="badge badge--warning">Pending</span>
+                        <button className="btn-outline btn-outline--sm"
+                        onClick={() => resendInvite(u.email)}>
+                        Resend
+                        </button>
+                    </div>
+                    ))}
+                </div>
+                )
+            }
+        </div>
+        </section>
+    );
+    }
+
     /* ── ApiKeyPanel ────────────────────────────────────────────── */
     function ApiKeyPanel({ token, showToast }) {
     const [email,   setEmail]   = useState("");
@@ -152,8 +265,11 @@ function authHeaders(token) {
 
     return (
         <section className="panel-section">
-        <h2 className="panel-heading">Generate API key</h2>
-        <p className="panel-sub">Look up an end user by email, then issue or rotate their WordPress API key.</p>
+        <h2 className="panel-heading">Manage API keys</h2>
+        <p className="panel-sub">
+            Look up a user by email to issue, rotate, or revoke their WordPress API key.
+            Users cannot manage their own keys — this is the only place to do it.
+        </p>
 
         <form onSubmit={lookup} className="search-row">
             <input className="field-input" type="email" value={email}
@@ -171,6 +287,11 @@ function authHeaders(token) {
 
         {user && (
             <div className="user-card">
+            {user.pendingSetup && (
+                <Alert type="warning">
+                This user has not completed account setup. API keys cannot be issued until setup is done.
+                </Alert>
+            )}
             <div className="user-card-header">
                 <div className="user-avatar">{user.email[0].toUpperCase()}</div>
                 <div>
@@ -182,14 +303,23 @@ function authHeaders(token) {
             <table className="user-table">
                 <tbody>
                 <tr>
+                    <td className="user-table-key">Status</td>
+                    <td>
+                    {user.pendingSetup
+                        ? <span className="badge badge--warning">Pending setup</span>
+                        : <span className="badge badge--success">Active</span>}
+                    </td>
+                </tr>
+                <tr>
                     <td className="user-table-key">WordPress site</td>
                     <td>{user.wordpressSite || <span className="dim">—</span>}</td>
                 </tr>
                 <tr>
-                    <td className="user-table-key">Visual password</td>
-                    <td>{user.apiKeyHint
-                    ? <span className="badge badge--success">Set up</span>
-                    : <span className="dim">—</span>}</td>
+                    <td className="user-table-key">Passkey</td>
+                    <td>{user.passkeyEnabled
+                    ? <span className="badge badge--success">Registered</span>
+                    : <span className="dim">None</span>}
+                    </td>
                 </tr>
                 <tr>
                     <td className="user-table-key">API key hint</td>
@@ -206,16 +336,18 @@ function authHeaders(token) {
                 </tbody>
             </table>
 
-            <div className="btn-row">
+            {!user.pendingSetup && (
+                <div className="btn-row">
                 <button className="btn-primary" onClick={generateKey} disabled={loading}>
-                {user.apiKeyHint ? "Rotate key" : "Generate key"}
+                    {user.apiKeyHint ? "Rotate key" : "Generate key"}
                 </button>
                 {user.apiKeyHint && (
-                <button className="btn-danger" onClick={revokeKey} disabled={loading}>
+                    <button className="btn-danger" onClick={revokeKey} disabled={loading}>
                     Revoke key
-                </button>
+                    </button>
                 )}
-            </div>
+                </div>
+            )}
             </div>
         )}
         </section>
@@ -272,7 +404,7 @@ function authHeaders(token) {
                 <table className="data-table">
                     <thead>
                     <tr>
-                        {["Email", "WordPress site", "API key hint", "Key issued", "Joined"].map(h => (
+                        {["Email", "Status", "WordPress site", "API key hint", "Key issued", "Passkey", "Joined"].map(h => (
                         <th key={h}>{h}</th>
                         ))}
                     </tr>
@@ -281,11 +413,20 @@ function authHeaders(token) {
                     {users.map(u => (
                         <tr key={u._id}>
                         <td>{u.email}</td>
+                        <td>
+                            {u.pendingSetup
+                            ? <span className="badge badge--warning">Pending</span>
+                            : <span className="badge badge--success">Active</span>}
+                        </td>
                         <td className="dim">{u.wordpressSite || "—"}</td>
                         <td>{u.apiKeyHint
                             ? <code className="mono">…{u.apiKeyHint}</code>
                             : <span className="dim">—</span>}</td>
                         <td className="dim">{u.apiKeyCreatedAt ? new Date(u.apiKeyCreatedAt).toLocaleDateString() : "—"}</td>
+                        <td>{u.passkeyEnabled
+                            ? <span className="badge badge--success">Yes</span>
+                            : <span className="dim">—</span>}
+                        </td>
                         <td className="dim">{new Date(u.createdAt).toLocaleDateString()}</td>
                         </tr>
                     ))}
@@ -416,7 +557,7 @@ function authHeaders(token) {
     const [admin, setAdmin] = useState(() => {
         try { return JSON.parse(sessionStorage.getItem("admin_info") || "null"); } catch { return null; }
     });
-    const [tab,   setTab]   = useState("apikeys");
+    const [tab,   setTab]   = useState("create");
     const [toast, setToast] = useState(null);
 
     const showToast = (type, msg) => {
@@ -438,9 +579,10 @@ function authHeaders(token) {
     if (!token || !admin) return <LoginScreen onLogin={handleLogin} />;
 
     const tabs = [
-        { id: "apikeys", label: "API keys"  },
-        { id: "users",   label: "All users" },
-        { id: "team",    label: "Team"      },
+        { id: "create",  label: "Create user" },
+        { id: "apikeys", label: "API keys"    },
+        { id: "users",   label: "All users"   },
+        { id: "team",    label: "Team"        },
     ];
 
     return (
@@ -449,7 +591,6 @@ function authHeaders(token) {
         <Toast toast={toast} onClose={() => setToast(null)} />
 
         <div className="adm-page">
-            {/* Header */}
             <header className="adm-header">
             <div className="adm-header-left">
                 <p className="hero-eyebrow" style={{ margin: 0 }}>Internal dashboard</p>
@@ -462,7 +603,6 @@ function authHeaders(token) {
             </header>
 
             <div className="adm-shell">
-            {/* Tabs */}
             <div className="adm-tabs">
                 {tabs.map(t => (
                 <button key={t.id}
@@ -473,60 +613,53 @@ function authHeaders(token) {
                 ))}
             </div>
 
-            {/* Panel */}
             <div className="adm-card">
-                {tab === "apikeys" && <ApiKeyPanel token={token} showToast={showToast} />}
-                {tab === "users"   && <UsersPanel  token={token} />}
-                {tab === "team"    && <TeamPanel   token={token} currentAdmin={admin} showToast={showToast} />}
+                {tab === "create"  && <CreateUserPanel token={token} showToast={showToast} />}
+                {tab === "apikeys" && <ApiKeyPanel     token={token} showToast={showToast} />}
+                {tab === "users"   && <UsersPanel      token={token} />}
+                {tab === "team"    && <TeamPanel       token={token} currentAdmin={admin} showToast={showToast} />}
             </div>
             </div>
 
-            <p className="page-footer">ScamRisk — Admin dashboard · Internal use only</p>
+            <p className="page-footer">Scam2Safe — Admin dashboard · Internal use only</p>
         </div>
         </>
     );
 }
 
-/* ── STYLES — mirrors Auth.jsx tokens exactly ───────────────── */
+/* ── STYLES ─────────────────────────────────────────────────── */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 button,input,select,textarea{font-family:inherit;}
 
-/* ── PAGE ── */
 .adm-page{min-height:100vh;background:#f7efe6;color:#0f172a;font-family:'Inter',sans-serif;padding-bottom:72px;}
 .adm-login-page{min-height:100vh;background:#f7efe6;display:flex;align-items:center;justify-content:center;padding:20px;}
 .adm-login-card{background:#fbf7f0;border:1px solid #e2d9cc;border-radius:20px;padding:40px 36px;width:100%;max-width:420px;box-shadow:0 4px 28px rgba(15,23,42,0.06);display:flex;flex-direction:column;gap:20px;}
 .adm-login-title{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:1.8rem;letter-spacing:-0.04em;color:#0f172a;}
 .adm-login-sub{font-size:0.85rem;color:#64748b;line-height:1.6;margin-top:-12px;}
 
-/* ── HEADER ── */
 .adm-header{background:#fbf7f0;border-bottom:1px solid #e2d9cc;padding:0 32px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
 .adm-header-left{display:flex;align-items:baseline;gap:10px;}
 .adm-brand{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:1.1rem;letter-spacing:-0.03em;color:#0f172a;}
 .adm-header-right{display:flex;align-items:center;gap:12px;}
 
-/* ── SHELL ── */
 .adm-shell{max-width:960px;margin:0 auto;padding:28px 20px 0;}
 
-/* ── TABS ── */
-.adm-tabs{display:flex;gap:6px;margin-bottom:20px;}
+.adm-tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
 .adm-tab{padding:9px 20px;border-radius:99px;background:#fff;border:1.5px solid #e2d9cc;color:#475569;font-size:0.88rem;font-weight:500;cursor:pointer;transition:all 0.18s;}
 .adm-tab:hover{border-color:rgba(6,182,212,0.4);color:#0891b2;}
 .adm-tab--active{background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;border-color:transparent;font-weight:700;}
 
-/* ── CARD ── */
 .adm-card{background:#fbf7f0;border:1px solid #e2d9cc;border-radius:20px;padding:32px 36px;box-shadow:0 4px 28px rgba(15,23,42,0.06);}
 @media(max-width:600px){.adm-card{padding:20px 16px;}}
 
-/* ── PANEL ── */
 .panel-section{display:flex;flex-direction:column;gap:18px;}
 .panel-heading{font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:700;color:#0f172a;}
 .panel-heading-row{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;}
 .panel-sub{font-size:0.82rem;color:#64748b;line-height:1.6;margin-top:-10px;}
 
-/* ── FORM ── */
 .form-stack{display:flex;flex-direction:column;gap:14px;}
 .field-group{display:flex;flex-direction:column;gap:5px;}
 .field-group--btn{justify-content:flex-end;}
@@ -545,7 +678,6 @@ button,input,select,textarea{font-family:inherit;}
 @media(max-width:720px){.invite-grid{grid-template-columns:1fr 1fr;}}
 @media(max-width:480px){.invite-grid{grid-template-columns:1fr;}}
 
-/* ── BUTTONS ── */
 .btn-primary{padding:11px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.9rem;cursor:pointer;box-shadow:0 0 18px rgba(6,182,212,0.18);transition:transform 0.18s,box-shadow 0.18s,opacity 0.18s;white-space:nowrap;}
 .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 26px rgba(6,182,212,0.32);}
 .btn-primary:disabled{opacity:0.36;cursor:not-allowed;box-shadow:none;transform:none;}
@@ -562,20 +694,17 @@ button,input,select,textarea{font-family:inherit;}
 .btn-copy{padding:5px 12px;border-radius:7px;border:1.5px solid #e2d9cc;background:#fff;font-size:0.78rem;font-weight:600;color:#0891b2;cursor:pointer;transition:border-color 0.18s;white-space:nowrap;}
 .btn-copy:hover{border-color:#06B6D4;}
 
-/* ── ALERTS ── */
 .adm-alert{padding:10px 14px;border-radius:9px;font-size:0.84rem;line-height:1.55;}
 .adm-alert--info{background:rgba(6,182,212,0.07);border:1px solid rgba(6,182,212,0.2);color:#0891b2;}
 .adm-alert--success{background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.25);color:#16a34a;}
 .adm-alert--danger{background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);color:#dc2626;}
 .adm-alert--warning{background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.2);color:#d97706;}
 
-/* ── COPY BOX ── */
 .copy-box{background:#fff;border:1.5px solid rgba(6,182,212,0.3);border-radius:10px;padding:12px 14px;}
 .copy-label{font-size:0.73rem;font-weight:600;color:#0891b2;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;}
 .copy-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .copy-value{font-family:'Space Grotesk',monospace;font-size:0.82rem;color:#0f172a;flex:1;word-break:break-all;}
 
-/* ── USER CARD ── */
 .user-card{background:#fff;border:1px solid #e2d9cc;border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:16px;}
 .user-card-header{display:flex;align-items:center;gap:12px;}
 .user-avatar{width:42px;height:42px;border-radius:50%;background:rgba(6,182,212,0.1);border:1.5px solid rgba(6,182,212,0.2);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:#0891b2;flex-shrink:0;}
@@ -587,7 +716,6 @@ button,input,select,textarea{font-family:inherit;}
 .user-table td{padding:7px 0;}
 .user-table-key{color:#64748b;width:140px;font-weight:500;}
 
-/* ── DATA TABLE ── */
 .table-wrap{overflow-x:auto;border-radius:12px;border:1px solid #e2d9cc;}
 .data-table{width:100%;border-collapse:collapse;font-size:0.83rem;}
 .data-table thead tr{background:#f3efe9;border-bottom:1px solid #e2d9cc;}
@@ -597,7 +725,6 @@ button,input,select,textarea{font-family:inherit;}
 .data-table tbody tr:hover{background:rgba(6,182,212,0.03);}
 .data-table td{padding:10px 14px;}
 
-/* ── TEAM ── */
 .inner-card{background:#fff;border:1px solid #e2d9cc;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:14px;}
 .inner-card-title{font-size:0.83rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.05em;}
 .team-list{display:flex;flex-direction:column;gap:8px;}
@@ -609,29 +736,24 @@ button,input,select,textarea{font-family:inherit;}
 .team-name{font-weight:600;font-size:0.9rem;color:#0f172a;}
 .team-email{font-size:0.78rem;color:#94a3b8;margin-top:1px;}
 
-/* ── BADGES ── */
 .badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:0.72rem;font-weight:700;letter-spacing:0.03em;}
 .badge--success{background:rgba(34,197,94,0.1);color:#16a34a;border:1px solid rgba(34,197,94,0.25);}
+.badge--warning{background:rgba(245,158,11,0.1);color:#d97706;border:1px solid rgba(245,158,11,0.25);}
 .badge--super{background:rgba(245,158,11,0.1);color:#d97706;border:1px solid rgba(245,158,11,0.25);}
 .badge--role{background:rgba(6,182,212,0.08);color:#0891b2;border:1px solid rgba(6,182,212,0.2);}
 
-/* ── PAGINATION ── */
 .pagination{display:flex;gap:10px;align-items:center;margin-top:4px;}
 
-/* ── SHARED UTILS ── */
 .dim{color:#94a3b8;}
 .mono{font-family:'Space Grotesk',monospace;font-size:0.82rem;color:#0f172a;}
 
-/* ── EYEBROW ── */
 .hero-eyebrow{display:inline-block;padding:3px 12px;border-radius:99px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);font-size:0.7rem;font-weight:600;color:#d97706;letter-spacing:0.08em;text-transform:uppercase;}
 .hero-accent{color:#06B6D4;}
 
-/* ── TOAST ── */
 .toast{position:fixed;bottom:26px;right:22px;z-index:9999;display:flex;align-items:center;gap:10px;padding:13px 18px;border-radius:11px;max-width:340px;font-size:0.87rem;font-weight:500;cursor:pointer;box-shadow:0 8px 28px rgba(15,23,42,0.13);animation:slideUp 0.28s ease;}
 .toast-success{background:#f0fdf4;border:1px solid rgba(34,197,94,0.3);color:#15803d;}
 .toast-error{background:#fef2f2;border:1px solid rgba(239,68,68,0.28);color:#dc2626;}
 @keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
 
-/* ── FOOTER ── */
 .page-footer{text-align:center;margin-top:28px;font-size:0.75rem;color:#94a3b8;}
 `;
