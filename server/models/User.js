@@ -1,111 +1,119 @@
-// models/User.js
+// models/User.js — ESM
+// Word-based visual password system.
+// Old sentence fields preserved but inactive (see BACKUP comments).
+
 import mongoose from "mongoose";
 import bcrypt   from "bcryptjs";
 import crypto   from "crypto";
 
+const PasskeyCredentialSchema = new mongoose.Schema({
+  credentialID:        { type: String, required: true },
+  credentialPublicKey: { type: String, required: true },
+  counter:             { type: Number, required: true, default: 0 },
+  transports:          [String],
+}, { _id: false });
+
 const UserSchema = new mongoose.Schema(
   {
     email: {
-      type: String, required: true, unique: true,
-      lowercase: true, trim: true,
+      type:      String,
+      required:  true,
+      unique:    true,
+      lowercase: true,
+      trim:      true,
     },
-    password: { type: String, default: "" },
-    selectedSentence: {
-      type: String, required: true,
+    password: {
+      type:     String,
+      required: true,
     },
-    wordpressSite: {
-      type: String, default: null,
+
+    /* ── Word-based visual password ─────────────────────────── */
+    selectedWord: {
+      type:    String,
+      default: null,
     },
-    wordpressUsername: {
-      type: String, default: null,
+    selectedWordLang: {
+      type:    String,
+      enum:    ["en", "hi", "mr"],
+      default: "en",
     },
-    secretNouns: {
-      type: [String], default: [],
+    // e.g. ["Ra","me","sh"] or ["Mo","bi","le"]
+    secretParts: {
+      type:    [String],
+      default: [],
     },
-    secretPositions: {
-      type: [String], default: [],
+    // 2 letters the user chose, e.g. ["R","Y"]
+    secretLetters: {
+      type:    [String],
+      default: [],
     },
+    // 5 fixed letters for this user's register row (contains secretLetters)
+    registerLetters: {
+      type:    [String],
+      default: [],
+    },
+    // 10–99
     offset: {
-      type: Number, required: true,
-    },
-    // API key — generated on signup, used by WordPress plugin
-    // Stored as a bcrypt hash; the raw key is shown once at signup
-    apiKeyHash: {
-      type: String, default: null,
-    },
-    // Last 6 chars of the raw key — shown in dashboard so user can identify it
-    apiKeyHint: {
-      type: String, default: null,
-    },
-    apiKeyPrefix: {
-      type: String,
-      default: null,
-      index: true, 
-    },
-    apiKeyCreatedAt: {
-      type: Date, default: null,
-    },
-    resetPasswordToken: {
-      type: String,
+      type:    Number,
       default: null,
     },
-    resetPasswordExpires: {
-      type: Date,
-      default: null,
-    },
-    passkeyEnabled: {
-      type: Boolean,
-      default: false
+    // true = WordPress single-word flow
+    wpFlow: {
+      type:    Boolean,
+      default: true,
     },
 
-    pendingSetup: { type: Boolean, default: false },
-    inviteToken:  { type: String, default: null },
-    inviteTokenExpires: { type: Date, default: null },
+    /* ── BACKUP: sentence-based fields (inactive) ─────────────
+    selectedSentence: { type: String, default: null },
+    secretNouns:      { type: [String], default: [] },
+    secretPositions:  { type: [String], default: [] },
+    ── end backup ── */
 
-    passkeyCredentials: [{
-      credentialID:        { type: String, required: true }, // base64url
-      credentialPublicKey: { type: String, required: true }, // base64url
-      counter:             { type: Number, default: 0 },
-      transports:          [String],
-      createdAt:           { type: Date,   default: Date.now },
-    }],
-    passkeyChallenge: { type: String, default: null },
+    /* ── WordPress / invite ─────────────────────────────────── */
+    wordpressSite:     { type: String, default: null },
+    wordpressUsername: { type: String, default: null },
+    pendingSetup:      { type: Boolean, default: false },
+    inviteToken:       { type: String,  default: null },
+    inviteTokenExpires:{ type: Date,    default: null },
+
+    /* ── API key (admin-issued) ─────────────────────────────── */
+    apiKeyHash:      { type: String, default: null },
+    apiKeyHint:      { type: String, default: null },   // last 4 chars
+    apiKeyPrefix:    { type: String, default: null },   // first 8 chars
+    apiKeyCreatedAt: { type: Date,   default: null },
+
+    /* ── Passkeys ───────────────────────────────────────────── */
+    passkeyCredentials: { type: [PasskeyCredentialSchema], default: [] },
+    passkeyChallenge:   { type: String, default: null },
+
+    /* ── Password reset ─────────────────────────────────────── */
+    resetPasswordToken:   { type: String, default: null },
+    resetPasswordExpires: { type: Date,   default: null },
   },
   { timestamps: true }
 );
 
+/* ── pre-save: hash password ── */
 UserSchema.pre("save", async function (next) {
-  if (!this.isModified("password") || !this.password) return next();
+  if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-UserSchema.methods.comparePassword = async function (plain) {
-  return bcrypt.compare(plain, this.password);
+/* ── generateApiKey — called by admin route ── */
+UserSchema.methods.generateApiKey = async function () {
+  const rawKey        = crypto.randomBytes(32).toString("hex");
+  this.apiKeyHash     = await bcrypt.hash(rawKey, 10);
+  this.apiKeyHint     = rawKey.slice(-4);
+  this.apiKeyPrefix   = rawKey.slice(0, 8);
+  this.apiKeyCreatedAt = new Date();
+  return rawKey;
 };
 
-// Verify a raw API key against the stored hash
+/* ── verifyApiKey ── */
 UserSchema.methods.verifyApiKey = async function (rawKey) {
   if (!this.apiKeyHash) return false;
   return bcrypt.compare(rawKey, this.apiKeyHash);
-};
-
-// Generate a new API key, store its hash, return the raw key (shown once)
-UserSchema.methods.generateApiKey = async function () {
-  const raw = "s2s_" + crypto.randomBytes(32).toString("hex");
-
-  // store prefix (first 10 chars for lookup)
-  this.apiKeyPrefix = raw.slice(0, 10);
-
-  // hash full key
-  this.apiKeyHash = await bcrypt.hash(raw, 10);
-
-  // store hint (last 6 chars for UI)
-  this.apiKeyHint = raw.slice(-6);
-
-  this.apiKeyCreatedAt = new Date();
-
-  return raw;
 };
 
 export default mongoose.model("User", UserSchema);

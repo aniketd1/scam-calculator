@@ -1,11 +1,19 @@
 // routes/auth.js — ESM
+// Word-based visual password system.
+// Sentences preserved but inactive (see BACKUP comment below).
+
 import express  from "express";
 import bcrypt   from "bcryptjs";
 import jwt      from "jsonwebtoken";
 import crypto   from "crypto";
 import User          from "../models/User.js";
 import LoginSession  from "../models/LoginSession.js";
-import { SENTENCES } from "../data/sentences.js";
+import { WORDS, WORD_PAIRS } from "../data/words.js";
+
+// ── BACKUP: sentence-based system ────────────────────────────
+// import { SENTENCES } from "../data/sentences.js";
+// ─────────────────────────────────────────────────────────────
+
 import nodemailer    from "nodemailer";
 import {
   generateRegistrationOptions,
@@ -27,66 +35,136 @@ const transporter = nodemailer.createTransport({
 const router = express.Router();
 
 /* ── CONSTANTS ──────────────────────────────────────────────── */
-const POSITIONS = ["A", "B", "C", "D", "E"];
-const GRID_SIZE = 12;
+const ALPHABET  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const GRID_SIZE = 21;                   // 21 word-part cards shown at login
 const RP_NAME   = process.env.RP_NAME   || "Scam2Safe";
 const RP_ID     = process.env.RP_ID     || "localhost";
 const RP_ORIGIN = process.env.RP_ORIGIN || "http://localhost:3000";
 
-const NOUN_WORDS = new Set([
-  "boy","girl","dog","cat","bird","monkey","farmer","teacher","child","baby",
-  "rabbit","chef","driver","ball","toy","stick","doll","dress","bone","mouse",
-  "milk","nest","egg","banana","tree","seed","crops","tractor","book","chart",
-  "house","flower","picture","rattle","bicycle","bell","park","rose","basket",
-  "carrot","log","burrow","car","road","market","door","room","bag","box",
-  "wall","plant","soil","field","clouds","letter","paper","spoon","cup",
-  "table","kitchen","blocks","model","star","garden","kite","bucket",
-  "vegetables","dinner","lesson","rope","question","answer",
-]);
-
-function extractNouns(sentence) {
-  return [...new Set(
-    sentence.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/)
-      .filter(w => w && NOUN_WORDS.has(w))
-  )];
+/* ── build masked display ────────────────────────────────────
+   parts=["Ra","me","sh"], revealIdx=0  →  "Ra _ _"
+─────────────────────────────────────────────────────────────── */
+function buildMask(parts, revealIdx) {
+  return parts
+    .filter(Boolean)
+    .map((p, i) => (i === revealIdx ? p : "_"))
+    .join(" ");
 }
 
-function generateChallengeGrid(secretNouns) {
-  const secrets      = [...new Set(secretNouns.filter(Boolean))];
-  const chosenSecret = secrets[Math.floor(Math.random() * secrets.length)];
-  const distractors  = [...NOUN_WORDS]
-    .filter(n => !secrets.includes(n))
+/* ── generate challenge grid ─────────────────────────────────
+   Picks one part of the user's secret word(s) to reveal.
+   Fills remaining 20 slots with random parts from other words.
+   Each card: { mask, value }
+   value is a single digit 1–9 (not 10–90 — the VALUE shown on
+   the card is always 1–9; offset 10–99 ensures a 2-digit result).
+─────────────────────────────────────────────────────────────── */
+function generateWordChallengeGrid(secretWord, secretParts) {
+  // Pick which part to reveal (rotating by login count is handled
+  // server-side via session; here we pick randomly for simplicity —
+  // rotation can be added later by storing a counter on the user).
+  const revealIdx   = Math.floor(Math.random() * secretParts.filter(Boolean).length);
+  const secretMask  = buildMask(secretParts, revealIdx);
+  const secretValue = Math.floor(Math.random() * 9) + 1; // 1–9
+
+  // Build distractor cards from all other words
+  const allParts = [];
+
+  for (const w of WORDS) {
+    if (!w?.word || !Array.isArray(w.parts)) continue;
+    if (w.word === secretWord) continue;
+
+    const cleanParts = w.parts.filter(p => typeof p === "string" && p.trim().length > 0);
+
+    if (cleanParts.length === 0) continue;
+
+    cleanParts.forEach((p, i) => {
+      allParts.push({
+        mask: buildMask(cleanParts, i),
+        word: w.word,
+        partIndex: i
+      });
+    });
+  }
+
+  if (!Array.isArray(secretParts) || secretParts.length === 0) {
+    throw new Error("Invalid secretParts passed to grid generator");
+  }
+
+  const seen = new Set();
+
+  const distractors = allParts
     .sort(() => Math.random() - 0.5)
-    .slice(0, GRID_SIZE - 1);
-  const challengeGrid = [chosenSecret, ...distractors]
-    .sort(() => Math.random() - 0.5)
-    .map(noun => ({ noun, value: Math.floor(Math.random() * 90) + 10 }));
-  return { challengeGrid, chosenSecret };
+    .filter(d => {
+      if (seen.has(d.mask)) return false;
+      seen.add(d.mask);
+      return true;
+    })
+    .slice(0, GRID_SIZE - 1)
+
+  const grid = [{ mask: secretMask, value: secretValue, isSecret: true }, ...distractors];
+
+  // Find where the secret card ended up
+  const secretIdx = grid.findIndex(c => c.isSecret);
+  // Strip isSecret before sending to client
+  const clientGrid = grid.map(({ mask, value, word }) => ({
+    mask,
+    value,
+    word
+  }));
+
+  return { clientGrid, secretIdx, secretValue };
 }
 
-function buildRegister(secretValue, offset, secretPositions) {
+/* ── build register row ──────────────────────────────────────
+   secretValue: 1–9 (from grid card)
+   offset:      10–99 (user's mental offset)
+   secretLetters: ["R","Y"]  (2 of the 5 fixed letters)
+   registerLetters: 5 letters, always includes secretLetters[0] & [1]
+   Returns the 5 fixed letters (same every login for this user)
+   and the two expected digits.
+─────────────────────────────────────────────────────────────── */
+function buildWordRegister(secretValue, offset, secretLetters, registerLetters) {
   const result     = (secretValue + offset) % 100;
   const normalized = String(result).padStart(2, "0");
   const d1 = parseInt(normalized[0], 10);
   const d2 = parseInt(normalized[1], 10);
-  const reg = Array.from({ length: 5 }, () => Math.floor(Math.random() * 10));
-  reg[POSITIONS.indexOf(secretPositions[0])] = d1;
-  reg[POSITIONS.indexOf(secretPositions[1])] = d2;
-  return { register: reg, d1, d2 };
+  // Find positions of the two secret letters in the 5-letter row
+  const pos1 = registerLetters.indexOf(secretLetters[0]);
+  const pos2 = registerLetters.indexOf(secretLetters[1]);
+  return { d1, d2, pos1, pos2 };
 }
 
-async function createLoginSession(userId, secretNouns) {
-  const { challengeGrid, chosenSecret } = generateChallengeGrid(secretNouns);
-  const revealedItem = challengeGrid.find(i => i.noun === chosenSecret);
+/* ── generate 5 fixed register letters for a user ───────────
+   Always contains the user's 2 secret letters.
+   The other 3 are random from A–Z, fixed per-user (stored in DB).
+─────────────────────────────────────────────────────────────── */
+function generateRegisterLetters(secretLetters) {
+  const others = ALPHABET.filter(l => !secretLetters.includes(l));
+  const three  = others.sort(() => Math.random() - 0.5).slice(0, 3);
+  return [...secretLetters, ...three].sort(() => Math.random() - 0.5);
+}
+
+async function createLoginSession(userId, secretWord, secretParts, offset, secretLetters, registerLetters) {
+  const { clientGrid, secretIdx, secretValue } = generateWordChallengeGrid(secretWord, secretParts);
+  const { d1, d2, pos1, pos2 } = buildWordRegister(secretValue, offset, secretLetters, registerLetters);
+
   const sessionId = crypto.randomUUID();
   await LoginSession.create({
-    sessionId, userId, challengeGrid,
-    revealedItem: { noun: revealedItem.noun, value: revealedItem.value },
-    register: null, expectedD1: null, expectedD2: null,
-    attempts: 0,
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    sessionId,
+    userId,
+    challengeGrid:   clientGrid,
+    secretCardIndex: secretIdx,
+    secretValue,
+    registerLetters,
+    expectedD1: d1,
+    expectedD2: d2,
+    secretPos1: pos1,
+    secretPos2: pos2,
+    attempts:   0,
+    expiresAt:  new Date(Date.now() + 10 * 60 * 1000),
   });
-  return { sessionId, challengeGrid };
+
+  return { sessionId, challengeGrid: clientGrid, registerLetters };
 }
 
 /* ── MIDDLEWARE ─────────────────────────────────────────────── */
@@ -102,18 +180,27 @@ function verifyUserToken(req, res, next) {
   }
 }
 
-/* ── GET /api/auth/sentences ────────────────────────────────── */
-router.get("/sentences", (_req, res) => {
-  res.json({ success: true, sentences: SENTENCES });
+/* ══════════════════════════════════════════════════════════════
+   ROUTES
+══════════════════════════════════════════════════════════════ */
+
+/* ── GET /api/auth/words ────────────────────────────────────── */
+router.get("/words", (_req, res) => {
+  res.json({ success: true, words: WORDS, wordPairs: WORD_PAIRS });
 });
+
+// ── BACKUP: sentence endpoint preserved but inactive ─────────
+// router.get("/sentences", (_req, res) => {
+//   res.json({ success: true, sentences: SENTENCES });
+// });
 
 /* ── GET /api/auth/profile ──────────────────────────────────── */
 router.get("/profile", verifyUserToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId, [
       "email", "wordpressSite", "wordpressUsername",
-      "secretNouns", "secretPositions", "offset",
-      "selectedSentence", "apiKeyHint", "apiKeyPrefix", "apiKeyCreatedAt",
+      "selectedWord", "secretParts", "secretLetters", "registerLetters",
+      "offset", "apiKeyHint", "apiKeyPrefix", "apiKeyCreatedAt",
       "pendingSetup", "passkeyCredentials",
     ]);
     if (!user)
@@ -125,11 +212,7 @@ router.get("/profile", verifyUserToken, async (req, res) => {
         email:             user.email,
         wordpressSite:     user.wordpressSite     || null,
         wordpressUsername: user.wordpressUsername || null,
-        hasVisualPassword: (
-          user.secretNouns?.length > 0 &&
-          user.secretPositions?.length === 2 &&
-          user.offset != null
-        ),
+        hasVisualPassword: !!(user.selectedWord && user.secretParts?.length && user.secretLetters?.length === 2 && user.offset != null),
         apiKeyHint:        user.apiKeyHint      || null,
         apiKeyCreatedAt:   user.apiKeyCreatedAt || null,
         pendingSetup:      user.pendingSetup    || false,
@@ -142,73 +225,76 @@ router.get("/profile", verifyUserToken, async (req, res) => {
   }
 });
 
-/* ── POST /api/auth/complete-invite ─────────────────────────────
-   User completes their account after admin created it.
-   Body: { token, password, selectedSentence, secretPositions, offset,
-           wordpressSite?, wordpressUsername? }
-─────────────────────────────────────────────────────────────── */
-router.post("/complete-invite", async (req, res) => {
+/* ── POST /api/auth/signup ───────────────────────────────────── */
+router.post("/signup", async (req, res) => {
   try {
     const {
-      token, password, selectedSentence,
-      secretPositions, offset,
+      email, password,
+      selectedWord, selectedWordParts, selectedWordLang,
+      secretLetters,
+      offset,
+      wpFlow,
       wordpressSite, wordpressUsername,
     } = req.body;
 
-    if (!token || !password || !selectedSentence || !secretPositions || offset == null)
+    if (!email || !password || !selectedWord || !selectedWordParts || !secretLetters || offset == null)
       return res.status(400).json({ success: false, error: "All fields are required." });
 
-    if (!Array.isArray(secretPositions) || secretPositions.length !== 2)
-      return res.status(400).json({ success: false, error: "Exactly 2 positions required." });
-    if (secretPositions[0] === secretPositions[1])
-      return res.status(400).json({ success: false, error: "Positions must be different." });
-    for (const p of secretPositions)
-      if (!POSITIONS.includes(p))
-        return res.status(400).json({ success: false, error: `Invalid position: ${p}` });
+    if (!Array.isArray(secretLetters) || secretLetters.length !== 2)
+      return res.status(400).json({ success: false, error: "Exactly 2 secret letters required." });
+
+    if (secretLetters[0] === secretLetters[1])
+      return res.status(400).json({ success: false, error: "Secret letters must be different." });
+
+    for (const l of secretLetters)
+      if (!ALPHABET.includes(l))
+        return res.status(400).json({ success: false, error: `Invalid letter: ${l}` });
 
     const off = parseInt(offset, 10);
-    if (isNaN(off) || off < 0 || off > 99)
-      return res.status(400).json({ success: false, error: "Offset must be 0–99." });
+    if (isNaN(off) || off < 10 || off > 99)
+      return res.status(400).json({ success: false, error: "Offset must be 10–99." });
 
-    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
-    const user = await User.findOne({
-      inviteToken:        hashedToken,
-      inviteTokenExpires: { $gt: Date.now() },
+    if (!Array.isArray(selectedWordParts) || selectedWordParts.filter(Boolean).length < 2)
+      return res.status(400).json({ success: false, error: "Word must have at least 2 parts." });
+
+    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existing)
+      return res.status(409).json({ success: false, error: "An account with that email already exists." });
+
+    // Generate fixed 5-letter register row for this user
+    const regLetters = generateRegisterLetters(secretLetters);
+
+    const user = new User({
+      email:             email.toLowerCase().trim(),
+      password,
+      selectedWord,
+      selectedWordLang:  selectedWordLang || "en",
+      secretParts:       selectedWordParts.filter(Boolean),
+      secretLetters,
+      registerLetters:   regLetters,
+      offset:            off,
+      wpFlow:            !!wpFlow,
+      wordpressSite:     wordpressSite     || null,
+      wordpressUsername: wordpressUsername || null,
+      pendingSetup:      false,
     });
-    if (!user)
-      return res.status(400).json({ success: false, error: "Invalid or expired invite link." });
 
-    const secretNouns = extractNouns(selectedSentence);
-    if (!secretNouns.length)
-      return res.status(400).json({ success: false, error: "No recognisable nouns found in that sentence." });
-
-    user.password          = password;
-    user.selectedSentence  = selectedSentence;
-    user.secretNouns       = secretNouns;
-    user.secretPositions   = secretPositions;
-    user.offset            = off;
-    user.wordpressSite     = wordpressSite     || null;
-    user.wordpressUsername = wordpressUsername || null;
-    user.pendingSetup      = false;
-    user.inviteToken       = null;
-    user.inviteTokenExpires = null;
     await user.save();
 
-    const jwtToken = jwt.sign(
+    const token = jwt.sign(
       { userId: user._id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    return res.json({
+    return res.status(201).json({
       success: true,
-      message: "Account setup complete. Welcome!",
-      token: jwtToken,
+      token,
       user: { id: user._id, email: user.email },
     });
   } catch (err) {
-    console.error("[complete-invite]", err);
-    return res.status(500).json({ success: false, error: "Server error." });
+    console.error("[signup]", err);
+    return res.status(500).json({ success: false, error: "Server error during signup." });
   }
 });
 
@@ -228,8 +314,12 @@ router.post("/login", async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ success: false, error: "Invalid email or password." });
 
-    const { sessionId, challengeGrid } = await createLoginSession(user._id, user.secretNouns);
-    return res.json({ success: true, sessionId, challengeGrid });
+    const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
+      user._id, user.selectedWord, user.secretParts,
+      user.offset, user.secretLetters, user.registerLetters
+    );
+
+    return res.json({ success: true, sessionId, challengeGrid, registerLetters });
   } catch (err) {
     console.error("[login]", err);
     return res.status(500).json({ success: false, error: "Server error during login." });
@@ -251,55 +341,31 @@ router.post("/wordpress-login", async (req, res) => {
     if (!keyValid)
       return res.status(401).json({ success: false, error: "Invalid API key." });
 
-    const { sessionId, challengeGrid } = await createLoginSession(user._id, user.secretNouns);
-    return res.json({ success: true, sessionId, challengeGrid });
+    const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
+      user._id, user.selectedWord, user.secretParts,
+      user.offset, user.secretLetters, user.registerLetters
+    );
+
+    return res.json({ success: true, sessionId, challengeGrid, registerLetters });
   } catch (err) {
     console.error("[wordpress-login]", err);
     return res.status(500).json({ success: false, error: "Server error." });
   }
 });
 
-/* ── POST /api/auth/register ────────────────────────────────── */
-router.post("/register", async (req, res) => {
-  try {
-    const { sessionId } = req.body;
-    if (!sessionId)
-      return res.status(400).json({ success: false, error: "sessionId is required." });
-
-    const session = await LoginSession.findOne({ sessionId });
-    if (!session || session.expiresAt < new Date()) {
-      if (session) await LoginSession.deleteOne({ sessionId });
-      return res.status(404).json({ success: false, error: "Session not found or expired. Please sign in again." });
-    }
-
-    const user = await User.findById(session.userId);
-    if (!user) return res.status(404).json({ success: false, error: "User not found." });
-
-    const secretPositions = user.secretPositions;
-    if (!Array.isArray(secretPositions) || secretPositions.length !== 2)
-      return res.status(400).json({ success: false, error: "User secret positions corrupted." });
-
-    const { register, d1, d2 } = buildRegister(session.revealedItem.value, user.offset, secretPositions);
-    session.register   = register;
-    session.expectedD1 = d1;
-    session.expectedD2 = d2;
-    await session.save();
-
-    return res.json({ success: true, register, revealedItem: session.revealedItem });
-  } catch (err) {
-    console.error("[register]", err);
-    return res.status(500).json({ success: false, error: "Server error building register." });
-  }
-});
-
-/* ── POST /api/auth/verify ──────────────────────────────────── */
+/* ── POST /api/auth/verify ───────────────────────────────────
+   Now combined: user selects card + submits register in one step.
+   Body: { sessionId, selectedCardIndex, registerInputs: [5 ints] }
+─────────────────────────────────────────────────────────────── */
 router.post("/verify", async (req, res) => {
   try {
-    const { sessionId, registerInputs } = req.body;
-    if (!sessionId || !Array.isArray(registerInputs))
-      return res.status(400).json({ success: false, error: "sessionId and registerInputs are required." });
+    const { sessionId, selectedCardIndex, registerInputs } = req.body;
+
+    if (!sessionId || selectedCardIndex == null || !Array.isArray(registerInputs))
+      return res.status(400).json({ success: false, error: "sessionId, selectedCardIndex, and registerInputs are required." });
+
     if (registerInputs.length !== 5)
-      return res.status(400).json({ success: false, error: "registerInputs must have exactly 5 values (A–E)." });
+      return res.status(400).json({ success: false, error: "registerInputs must have exactly 5 values." });
 
     const session = await LoginSession.findOne({ sessionId });
     if (!session)
@@ -310,9 +376,6 @@ router.post("/verify", async (req, res) => {
       return res.status(410).json({ success: false, error: "Session expired. Please sign in again." });
     }
 
-    if (session.expectedD1 == null || session.expectedD2 == null)
-      return res.status(400).json({ success: false, error: "Register not built yet. Please complete step 2 first." });
-
     session.attempts += 1;
     if (session.attempts > 3) {
       await LoginSession.deleteOne({ sessionId });
@@ -320,13 +383,22 @@ router.post("/verify", async (req, res) => {
     }
     await session.save();
 
-    const user = await User.findById(session.userId);
-    if (!user) return res.status(404).json({ success: false, error: "User not found." });
+    // 1. Check card selection
+    if (selectedCardIndex !== session.secretCardIndex) {
+      const remaining = 3 - session.attempts;
+      if (remaining <= 0) {
+        await LoginSession.deleteOne({ sessionId });
+        return res.status(401).json({ success: false, error: "Too many failed attempts. Please sign in again." });
+      }
+      return res.status(401).json({
+        success: false,
+        error: `गलत कार्ड चुना। ${remaining} प्रयास बचे हैं।`,
+      });
+    }
 
-    const posIdx1 = POSITIONS.indexOf(user.secretPositions[0]);
-    const posIdx2 = POSITIONS.indexOf(user.secretPositions[1]);
-    const input1  = parseInt(registerInputs[posIdx1], 10);
-    const input2  = parseInt(registerInputs[posIdx2], 10);
+    // 2. Check register inputs at the two secret positions
+    const input1 = parseInt(registerInputs[session.secretPos1], 10);
+    const input2 = parseInt(registerInputs[session.secretPos2], 10);
 
     if (isNaN(input1) || isNaN(input2))
       return res.status(400).json({ success: false, error: "Invalid input format." });
@@ -344,20 +416,24 @@ router.post("/verify", async (req, res) => {
       }
       return res.status(401).json({
         success: false,
-        error: `Incorrect digits. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`,
+        error: `गलत अंक। ${remaining} प्रयास बचे हैं।`,
       });
     }
 
     await LoginSession.deleteOne({ sessionId });
+
+    const user = await User.findById(session.userId);
+    if (!user) return res.status(404).json({ success: false, error: "User not found." });
 
     const token = jwt.sign(
       { userId: user._id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
+
     return res.json({
       success: true,
-      message: "Identity verified. Welcome back!",
+      message: "पहचान सत्यापित। वापस आपका स्वागत है!",
       token,
       user: { id: user._id, email: user.email },
     });
@@ -367,41 +443,30 @@ router.post("/verify", async (req, res) => {
   }
 });
 
-/* ═══════════════════════════════════════════════════════════════
-   WEBAUTHN — PASSKEY REGISTRATION (authenticated users)
-   Used after normal login to register a passkey for future recovery.
-═══════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   WEBAUTHN — PASSKEY (unchanged from previous version)
+══════════════════════════════════════════════════════════════ */
 
-/* ── POST /api/auth/passkey/register-options ────────────────── */
 router.post("/passkey/register-options", verifyUserToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ success: false, error: "User not found." });
 
     const existingCredentials = (user.passkeyCredentials || []).map(c => ({
-      id:         c.credentialID,
-      type:       "public-key",
-      transports: c.transports,
+      id: c.credentialID, type: "public-key", transports: c.transports,
     }));
 
     const options = await generateRegistrationOptions({
-      rpName:                  RP_NAME,
-      rpID:                    RP_ID,
-      userID:                  Buffer.from(user._id.toString()),
-      userName:                user.email,
-      userDisplayName:         user.email,
-      attestationType:         "none",
-      excludeCredentials:      existingCredentials,
-      authenticatorSelection:  {
-        residentKey:       "preferred",
-        userVerification:  "preferred",
-      },
+      rpName: RP_NAME, rpID: RP_ID,
+      userID: Buffer.from(user._id.toString()),
+      userName: user.email, userDisplayName: user.email,
+      attestationType: "none",
+      excludeCredentials: existingCredentials,
+      authenticatorSelection: { residentKey: "preferred", userVerification: "preferred" },
     });
 
-    // Save challenge temporarily
     user.passkeyChallenge = options.challenge;
     await user.save();
-
     return res.json({ success: true, options });
   } catch (err) {
     console.error("[passkey/register-options]", err);
@@ -409,23 +474,21 @@ router.post("/passkey/register-options", verifyUserToken, async (req, res) => {
   }
 });
 
-/* ── POST /api/auth/passkey/register-complete ───────────────── */
 router.post("/passkey/register-complete", verifyUserToken, async (req, res) => {
   try {
     const { response } = req.body;
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ success: false, error: "User not found." });
-
     if (!user.passkeyChallenge)
-      return res.status(400).json({ success: false, error: "No pending challenge. Call register-options first." });
+      return res.status(400).json({ success: false, error: "No pending challenge." });
 
     let verification;
     try {
       verification = await verifyRegistrationResponse({
         response,
         expectedChallenge: user.passkeyChallenge,
-        expectedOrigin:    RP_ORIGIN,
-        expectedRPID:      RP_ID,
+        expectedOrigin: RP_ORIGIN,
+        expectedRPID: RP_ID,
       });
     } catch (e) {
       return res.status(400).json({ success: false, error: `Passkey verification failed: ${e.message}` });
@@ -435,7 +498,6 @@ router.post("/passkey/register-complete", verifyUserToken, async (req, res) => {
       return res.status(400).json({ success: false, error: "Passkey registration not verified." });
 
     const { credential } = verification.registrationInfo;
-
     user.passkeyCredentials.push({
       credentialID:        Buffer.from(credential.id).toString("base64url"),
       credentialPublicKey: Buffer.from(credential.publicKey).toString("base64url"),
@@ -444,7 +506,6 @@ router.post("/passkey/register-complete", verifyUserToken, async (req, res) => {
     });
     user.passkeyChallenge = null;
     await user.save();
-
     return res.json({ success: true, message: "Passkey registered successfully." });
   } catch (err) {
     console.error("[passkey/register-complete]", err);
@@ -452,36 +513,25 @@ router.post("/passkey/register-complete", verifyUserToken, async (req, res) => {
   }
 });
 
-/* ═══════════════════════════════════════════════════════════════
-   WEBAUTHN — PASSKEY LOGIN (account recovery / bypass visual pw)
-═══════════════════════════════════════════════════════════════ */
-
-/* ── POST /api/auth/passkey/login-options ───────────────────── */
 router.post("/passkey/login-options", async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email)
-      return res.status(400).json({ success: false, error: "email is required." });
+    if (!email) return res.status(400).json({ success: false, error: "email is required." });
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user || !user.passkeyCredentials?.length)
       return res.status(404).json({ success: false, error: "No passkey registered for this account." });
 
     const allowCredentials = user.passkeyCredentials.map(c => ({
-      id:         c.credentialID,
-      type:       "public-key",
-      transports: c.transports,
+      id: c.credentialID, type: "public-key", transports: c.transports,
     }));
 
     const options = await generateAuthenticationOptions({
-      rpID:             RP_ID,
-      userVerification: "preferred",
-      allowCredentials,
+      rpID: RP_ID, userVerification: "preferred", allowCredentials,
     });
 
     user.passkeyChallenge = options.challenge;
     await user.save();
-
     return res.json({ success: true, options });
   } catch (err) {
     console.error("[passkey/login-options]", err);
@@ -489,7 +539,6 @@ router.post("/passkey/login-options", async (req, res) => {
   }
 });
 
-/* ── POST /api/auth/passkey/login-complete ──────────────────── */
 router.post("/passkey/login-complete", async (req, res) => {
   try {
     const { email, response } = req.body;
@@ -497,15 +546,11 @@ router.post("/passkey/login-complete", async (req, res) => {
       return res.status(400).json({ success: false, error: "email and response are required." });
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user)
-      return res.status(404).json({ success: false, error: "User not found." });
-
+    if (!user) return res.status(404).json({ success: false, error: "User not found." });
     if (!user.passkeyChallenge)
-      return res.status(400).json({ success: false, error: "No pending challenge. Call login-options first." });
+      return res.status(400).json({ success: false, error: "No pending challenge." });
 
-    // Find the matching credential
-    const credentialID = response.id;
-    const storedCred   = user.passkeyCredentials.find(c => c.credentialID === credentialID);
+    const storedCred = user.passkeyCredentials.find(c => c.credentialID === response.id);
     if (!storedCred)
       return res.status(400).json({ success: false, error: "Credential not found." });
 
@@ -530,120 +575,20 @@ router.post("/passkey/login-complete", async (req, res) => {
     if (!verification.verified)
       return res.status(401).json({ success: false, error: "Passkey authentication failed." });
 
-    // Update counter to prevent replay attacks
     storedCred.counter    = verification.authenticationInfo.newCounter;
     user.passkeyChallenge = null;
     await user.save();
 
-    // Issue JWT — passkey bypasses the visual password challenge
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+    // Passkey verified — still show the word grid for the visual layer
+    const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
+      user._id, user.selectedWord, user.secretParts,
+      user.offset, user.secretLetters, user.registerLetters
     );
 
-    return res.json({
-      success: true,
-      message: "Passkey verified. Welcome back!",
-      token,
-      user: { id: user._id, email: user.email },
-    });
+    return res.json({ success: true, sessionId, challengeGrid, registerLetters });
   } catch (err) {
     console.error("[passkey/login-complete]", err);
     return res.status(500).json({ success: false, error: "Server error." });
-  }
-});
-
-/* ── POST /api/auth/regenerate-api-key ─────────────────────────
-   REMOVED — API key management is now admin-only.
-   Kept as a stub that returns a clear error so old clients get a
-   useful message instead of a 404.
-─────────────────────────────────────────────────────────────── */
-router.post("/regenerate-api-key", verifyUserToken, (_req, res) => {
-  return res.status(403).json({
-    success: false,
-    error: "API key management has moved to the admin dashboard. Contact your administrator.",
-  });
-});
-
-/* ── POST /api/auth/signup ──────────────────────────────────────
-   Direct self-registration (no admin invite required).
-   Creates user, returns JWT. No API key generated.
-   Passkey registration is handled separately by the frontend
-   immediately after this call succeeds.
-   Body: { email, password, selectedSentence,
-           secretPositions, offset,
-           wordpressSite?, wordpressUsername? }
-─────────────────────────────────────────────────────────────── */
-router.post("/signup", async (req, res) => {
-  try {
-    const {
-      email, password, selectedSentence,
-      secretPositions, offset,
-      wordpressSite, wordpressUsername,
-    } = req.body;
-
-    /* ── basic field validation ── */
-    if (!email || !password || !selectedSentence || !secretPositions || offset == null)
-      return res.status(400).json({ success: false, error: "All fields are required." });
-
-    if (!Array.isArray(secretPositions) || secretPositions.length !== 2)
-      return res.status(400).json({ success: false, error: "Exactly 2 positions required." });
-
-    if (secretPositions[0] === secretPositions[1])
-      return res.status(400).json({ success: false, error: "Positions must be different." });
-
-    for (const p of secretPositions)
-      if (!POSITIONS.includes(p))
-        return res.status(400).json({ success: false, error: `Invalid position: ${p}` });
-
-    const off = parseInt(offset, 10);
-    if (isNaN(off) || off < 0 || off > 99)
-      return res.status(400).json({ success: false, error: "Offset must be 0–99." });
-
-    /* ── duplicate check ── */
-    const existing = await User.findOne({ email: email.toLowerCase().trim() });
-    if (existing)
-      return res.status(409).json({ success: false, error: "An account with that email already exists." });
-
-    /* ── extract secret nouns from sentence ── */
-    const secretNouns = extractNouns(selectedSentence);
-    if (!secretNouns.length)
-      return res.status(400).json({
-        success: false,
-        error: "No recognisable nouns found in that sentence. Try a different one.",
-      });
-
-    /* ── create user ── */
-    const user = new User({
-      email:             email.toLowerCase().trim(),
-      password,                          // pre-save hook hashes this
-      selectedSentence,
-      secretNouns,
-      secretPositions,
-      offset:            off,
-      wordpressSite:     wordpressSite     || null,
-      wordpressUsername: wordpressUsername || null,
-      pendingSetup:      false,           // self-registered users are immediately active
-    });
-
-    await user.save();
-
-    /* ── issue JWT ── */
-    const token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    return res.status(201).json({
-      success: true,
-      token,
-      user: { id: user._id, email: user.email },
-    });
-  } catch (err) {
-    console.error("[signup]", err);
-    return res.status(500).json({ success: false, error: "Server error during signup." });
   }
 });
 
@@ -652,8 +597,7 @@ router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user)
-      return res.json({ success: true, message: "If account exists, reset link sent." });
+    if (!user) return res.json({ success: true, message: "If account exists, reset link sent." });
 
     const token = crypto.randomBytes(32).toString("hex");
     user.resetPasswordToken   = crypto.createHash("sha256").update(token).digest("hex");
@@ -661,30 +605,20 @@ router.post("/forgot-password", async (req, res) => {
     await user.save();
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
-
     await transporter.sendMail({
       from: `"Visual Password Security" <${process.env.SMTP_USER}>`,
       to: email,
       subject: "🔐 Reset Your Password (valid for 15 minutes)",
-      html: `
-      <div style="font-family:Arial,sans-serif;background:#f7f7f7;padding:20px">
-        <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #eee">
-          <h2 style="color:#0f172a;margin-bottom:10px">Password Reset Request for Scam2Safe.com</h2>
-          <p style="color:#334155;font-size:14px;line-height:1.6">
-            We received a request to reset your password. Click below — expires in <b>15 minutes</b>.
-          </p>
-          <a href="${resetUrl}" style="display:inline-block;margin:16px 0;padding:12px 18px;background:linear-gradient(135deg,#06B6D4,#0891b2);color:white;text-decoration:none;border-radius:8px;font-weight:600">
-            Reset Password
-          </a>
-          <p style="color:#64748b;font-size:12px;">
-            If the button doesn't work: <a href="${resetUrl}">${resetUrl}</a>
-          </p>
+      html: `<div style="font-family:Arial,sans-serif;background:#f7f7f7;padding:20px">
+        <div style="max-width:520px;margin:auto;background:#fff;border-radius:12px;padding:24px;border:1px solid #eee">
+          <h2 style="color:#0f172a">Password Reset — Scam2Safe</h2>
+          <p style="color:#334155;font-size:14px">Click below to reset your password. Expires in <b>15 minutes</b>.</p>
+          <a href="${resetUrl}" style="display:inline-block;margin:16px 0;padding:12px 18px;background:linear-gradient(135deg,#06B6D4,#0891b2);color:white;text-decoration:none;border-radius:8px;font-weight:600">Reset Password</a>
+          <p style="color:#64748b;font-size:12px">If the button doesn't work: <a href="${resetUrl}">${resetUrl}</a></p>
           <hr style="border:none;border-top:1px solid #eee;margin:20px 0"/>
           <p style="color:#94a3b8;font-size:12px">If you didn't request this, ignore this email.</p>
-        </div>
-      </div>`,
+        </div></div>`,
     });
-
     return res.json({ success: true, message: "If account exists, reset link sent." });
   } catch (err) {
     console.error("[forgot-password]", err);
@@ -701,27 +635,12 @@ router.post("/reset-password", async (req, res) => {
       resetPasswordToken:   hashedToken,
       resetPasswordExpires: { $gt: Date.now() },
     });
-    if (!user)
-      return res.status(400).json({ success: false, error: "Invalid or expired token." });
+    if (!user) return res.status(400).json({ success: false, error: "Invalid or expired token." });
 
     user.password             = newPassword;
     user.resetPasswordToken   = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
-
-    await transporter.sendMail({
-      from: `"Visual Password Security" <${process.env.SMTP_USER}>`,
-      to: user.email,
-      subject: "✅ Your Password Was Successfully Reset",
-      html: `
-      <div style="font-family:Arial,sans-serif;background:#f7f7f7;padding:20px">
-        <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:12px;padding:24px;border:1px solid #eee">
-          <h2 style="color:#0f172a">Password Updated</h2>
-          <p style="color:#334155;font-size:14px">Your password has been successfully changed. If this was not you, contact support immediately.</p>
-        </div>
-      </div>`,
-    });
-
     return res.json({ success: true, message: "Password reset successful." });
   } catch (err) {
     console.error("[reset-password]", err);
@@ -743,6 +662,14 @@ router.post("/delete-user", async (req, res) => {
     console.error(err);
     res.status(500).json({ success: false, error: "Server error" });
   }
+});
+
+/* ── POST /api/auth/regenerate-api-key — admin-only stub ─── */
+router.post("/regenerate-api-key", verifyUserToken, (_req, res) => {
+  return res.status(403).json({
+    success: false,
+    error: "API key management has moved to the admin dashboard. Contact your administrator.",
+  });
 });
 
 router.get("/test", (_req, res) => res.json({ message: "Auth route working ✓" }));

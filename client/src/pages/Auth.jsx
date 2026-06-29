@@ -1,92 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { SENTENCES } from "../../../server/data/sentences";
-import { startRegistration, startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-/* ── ASSET MAP ─────────────────────────────────────────────── */
-const _nounGlob = import.meta.glob("../assets/nouns/*.png", { eager: true });
-const _fileMap = {};
-for (const [fullPath, module] of Object.entries(_nounGlob)) {
-  const stem = fullPath.split("/").pop().replace(/\.png$/i, "").toLowerCase();
-  _fileMap[stem] = module.default;
-}
-
-const NOUN_STEM = {
-  boy:"boy", girl:"girl", dog:"dog", monkey:"monkey", farmer:"farmer",
-  teacher:"teacher", child:"child", bird:"bird", baby:"baby", cat:"cat",
-  driver:"driver", chef:"chef", rabbit:"rabbit",
-  ball:"ball", park:"park", bag:"bag", apple:"apple", water:"water",
-  book:"book", banana:"banana", tree:"tree", tractor:"tractor", field:"field",
-  crops:"crops", bicycle:"bicycle", playground:"playground", worm:"worm",
-  nest:"nest", toy:"toy", balloon:"balloon", box:"box", pencil:"pencil",
-  basket:"basket", flower:"flower", mouse:"mouse", chair:"chair", bus:"bus",
-  school:"school", carrot:"carrot", food:"food", kite:"kite", sky:"sky",
-  plant:"plant", pot:"pot", door:"door", car:"car", bucket:"bucket",
-  table:"table", log:"log", board:"board",
-  doctor:"doctor", laptop:"laptop", mobile:"mobile", hospital:"hospital",
-  house:"house", train:"train", mountain:"mountain", ocean:"ocean",
-  river:"river", rose:"rose", eye:"eye", ear:"ear", hand:"hand",
-  stick:"stick", doll:"doll", dress:"dress", bone:"bone", rattle:"rattle",
-  seed:"seed", road:"road", market:"market", burrow:"burrow", wall:"wall",
-  clouds:"clouds", letter:"letter", paper:"paper", spoon:"spoon", cup:"cup",
-  blocks:"blocks", model:"model", kitchen:"kitchen", star:"star", eggs:"eggs",
-};
-
-const POSITIONS = ["A", "B", "C", "D", "E"];
-const DIGITS    = ["0","1","2","3","4","5","6","7","8","9"];
-
-const NOUN_WORDS = new Set([
-  "boy","girl","dog","cat","bird","monkey","farmer","teacher",
-  "child","children","baby","rabbit","driver","chef",
-  "dress","doll",
-  "ball","toy","bone","stick","milk","mouse","nest","eggs",
-  "rope","banana","tree","crops","tractor","chart","book","lesson",
-  "house","flower","picture","rattle","bicycle","bell","park",
-  "rose","basket","carrot","log","burrow","vegetables","dinner",
-  "car","road","market","door","room","bag","box","kite","clouds",
-  "field","letter","paper","seed","babies","bucket","garden",
-  "question","answer","star","spoon","cup","tower","blocks",
-  "model","table","kitchen","plant","soil","flowers","bus",
-  "apple","water","bag","banana","tractor","field",
-  "playground","worm","food","sky","pot","school",
-  "doctor","laptop","mobile","hospital",
-  "train","mountain","ocean","river","eye","ear","hand",
-  "stick","doll","bone","rattle","seed","wall",
-]);
-
-const NOUN_STEM_OVERRIDE = {
-  children: "child",
-  babies:   "baby",
-  flowers:  "flower",
-  eggs:     "eggs",
-};
-
-function getNounImage(noun) {
-  if (!noun) return null;
-  const key  = noun.toLowerCase();
-  const stem = NOUN_STEM_OVERRIDE[key] ?? key;
-  const file = NOUN_STEM[stem] ?? stem;
-  return _fileMap[file] ?? _fileMap[file.replace(/\s+/g, "")] ?? null;
-}
-
-function extractNouns(sentence) {
-  const nouns = [
-    ...new Set(
-      sentence.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/)
-        .filter(w => w && NOUN_WORDS.has(w))
-    ),
-  ];
-  const valid = nouns.filter(n => {
-    const stem = NOUN_STEM_OVERRIDE[n] ?? n;
-    return _fileMap[stem] || _fileMap[stem.replace(/\s+/g, "")];
-  });
-  return valid.slice(0, 3);
-}
-
-function buildMnemonic(nouns) {
-  return nouns.map(n => n[0].toUpperCase()).join("");
-}
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const DIGITS   = ["0","1","2","3","4","5","6","7","8","9"];
 
 function shuffle(a) {
   const r = [...a];
@@ -96,51 +13,61 @@ function shuffle(a) {
   }
   return r;
 }
-function getRandomOffset() { return String(Math.floor(Math.random() * 10)); }
-function getRandomPositions() { const s = shuffle([...POSITIONS]); return [s[0], s[1]]; }
+function getRandomOffset()     { return String(10 + Math.floor(Math.random() * 90)); }
+function getRandomLetterPair() { const s = shuffle([...ALPHABET]); return [s[0], s[1]]; }
 
 async function postJson(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
+    method:  "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body:    JSON.stringify(body),
   });
   return res.json();
 }
 
-/* ── GRID CARD ─────────────────────────────────────────────── */
-function GridCard({ noun, value }) {
-  const img = getNounImage(noun);
+function buildMask(parts, revealIdx) {
+  if (!Array.isArray(parts) || parts.length === 0) return "_ _ _";
+  return parts.filter(Boolean).map((p, i) => (i === revealIdx ? p : "_")).join(" ");
+}
+
+/* ── Word Card ── */
+function WordCard({ mask, value, onClick, selected }) {
+  const displayValue = Number.isFinite(value) ? String(value) : "?";
+  const displayMask  = mask || "_ _ _";
   return (
-    <div className="gc-card">
-      <div className="gc-img-wrap">
-        {img
-          ? <img src={img} alt={noun} className="gc-img" />
-          : <div className="gc-fallback">{noun?.[0]?.toUpperCase()}</div>}
-      </div>
-      <div className="gc-noun">{noun}</div>
-      <div className="gc-value">{value}</div>
+    <div
+      className={`wc-card${selected ? " wc-card--selected" : ""}`}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => e.key === "Enter" && onClick?.()}
+    >
+      <div className="wc-mask">{displayMask}</div>
+      <div className="wc-value">{displayValue}</div>
     </div>
   );
 }
 
-/* ── REGISTER DROPDOWN BAR ─────────────────────────────────── */
-function RegisterDropdownBar({ inputs, onChange }) {
+/* ── Register Dropdown Bar ── */
+function RegisterDropdownBar({ letters, inputs, onChange }) {
   const digitCount = {};
   for (const v of inputs) if (v !== "") digitCount[v] = (digitCount[v] || 0) + 1;
+
   return (
     <div className="reg-wrap">
       <div className="reg-header">
-        {POSITIONS.map(p => <div key={p} className="reg-head-cell">{p}</div>)}
+        {letters.map(l => <div key={l} className="reg-head-cell">{l}</div>)}
       </div>
       <div className="reg-dropdowns">
-        {POSITIONS.map((p, i) => {
+        {letters.map((l, i) => {
           const current    = inputs[i];
           const isDisabled = i > 0 && inputs[i - 1] === "";
           return (
-            <select key={p}
+            <select
+              key={l}
               className={`reg-select${isDisabled ? " reg-select--disabled" : ""}`}
-              value={current} disabled={isDisabled}
+              value={current}
+              disabled={isDisabled}
               onChange={e => onChange(i, e.target.value)}
             >
               <option value="">·</option>
@@ -157,7 +84,7 @@ function RegisterDropdownBar({ inputs, onChange }) {
   );
 }
 
-/* ── TOAST ─────────────────────────────────────────────────── */
+/* ── Toast Stack ── */
 function Toast({ toasts, onClose }) {
   if (!toasts.length) return null;
   return (
@@ -174,39 +101,38 @@ function Toast({ toasts, onClose }) {
   );
 }
 
-/* ── MAIN ──────────────────────────────────────────────────── */
-export default function Auth({
-  initialMode = "signup",
-  prefillEmail = "",
-  prefillApiKey = "",
-  lockMode = null,
-  hideLogin = false,
-}) {
-  const [mode,      setMode]      = useState("signup");
-  const [email,     setEmail]     = useState("");
-  const [password,  setPassword]  = useState("");
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState("");
-  const [toasts,    setToasts]    = useState([]);
+/* ══════════════════════════════════════════════════════════════
+   MAIN AUTH COMPONENT
+══════════════════════════════════════════════════════════════ */
+export default function Auth() {
+  const [mode,     setMode]     = useState("signup");
+  const [email,    setEmail]    = useState("");
+  const [password, setPassword] = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState("");
+  const [toasts,   setToasts]   = useState([]);
+
   const [isWordpressLogin, setIsWordpressLogin] = useState(false);
   const [wpLoginStarted,   setWpLoginStarted]   = useState(false);
-  const [apiKey,    setApiKey]    = useState("");
-  const [passkeyOverlay, setPasskeyOverlay] = useState(null);
+  const [apiKey,           setApiKey]           = useState("");
 
-  const [sentence,  setSentence]  = useState("");
-  const [offset,    setOffset]    = useState(getRandomOffset);
-  const [positions, setPositions] = useState(getRandomPositions);
-  const [preview,   setPreview]   = useState(null);
-  const [shuffled,  setShuffled]  = useState([]);
+  // signup state
+  const [words,        setWords]        = useState([]);
+  const [wordPairs,    setWordPairs]    = useState([]);
+  const [isWpFlow,     setIsWpFlow]     = useState(true);
+  const [selectedWord, setSelectedWord] = useState(null);
+  const [offset,       setOffset]       = useState(getRandomOffset);
+  const [letterPair,   setLetterPair]   = useState(getRandomLetterPair);
+  const [preview,      setPreview]      = useState(null);
 
-  const [loginStep,      setLoginStep]      = useState("creds");
-  const [sessionId,      setSessionId]      = useState("");
-  const [challengeGrid,  setChallengeGrid]  = useState([]);
-  const [serverRegister, setServerRegister] = useState(null);
-  const [regInputs,      setRegInputs]      = useState(Array(5).fill(""));
+  // login state
+  const [loginStep,       setLoginStep]       = useState("creds");
+  const [sessionId,       setSessionId]       = useState("");
+  const [challengeGrid,   setChallengeGrid]   = useState([]);
+  const [registerLetters, setRegisterLetters] = useState([]);
+  const [regInputs,       setRegInputs]       = useState(Array(5).fill(""));
+  const [selectedCard,    setSelectedCard]    = useState(null);
 
-  const registerRef  = useRef(null);
-  const createBtnRef = useRef(null);
   const toastCounter = useRef(0);
   const allFilled    = regInputs.every(v => v !== "");
 
@@ -216,16 +142,16 @@ export default function Auth({
     setToasts(prev => [...prev, { id, type, message }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
   };
-  const closeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
+  const closeToast = id => setToasts(prev => prev.filter(t => t.id !== id));
 
-  /* ── URL param handling (WordPress SSO) ── */
+  /* ── URL params (WordPress SSO) ── */
   useEffect(() => {
     const params   = new URLSearchParams(window.location.search);
     const em       = params.get("email");
     const ak       = params.get("apikey");
     const callback = params.get("callback");
-    if (em)       setEmail(em);
-    if (ak)       setApiKey(ak);
+    if (em) setEmail(em);
+    if (ak) setApiKey(ak);
     if (callback) localStorage.setItem("wp_callback", callback);
     if (em && ak) { setMode("login"); setIsWordpressLogin(true); }
     window.history.replaceState({}, "", window.location.pathname);
@@ -238,39 +164,44 @@ export default function Auth({
     }
   }, [isWordpressLogin, email, apiKey, wpLoginStarted]);
 
+  /* ── load words on mount ── */
   useEffect(() => {
     if (isWordpressLogin) return;
-    fetch(`${API_BASE}/api/auth/sentences`)
-      .then(r => r.json())
-      .then(d => { if (d.success) setShuffled(shuffle(d.sentences)); })
-      .catch(err => console.error("Failed to load sentences", err));
+    fetch(`${API_BASE}/api/auth/words`)
+  .then(r => r.json())
+  .then(d => {
+      console.log("WORDS", d.words);
+      console.log("WORD PAIRS", d.wordPairs);
+
+      if (d.success && Array.isArray(d.words)) {
+          setWords(shuffle(d.words));
+          setWordPairs(shuffle(d.wordPairs || []));
+      }
+  });
   }, []);
 
+  /* ── resetAll ── */
   const resetAll = useCallback((m) => {
     setMode(m);
     if (!isWordpressLogin) setEmail("");
     setPassword(""); setError("");
-    setSentence(""); setOffset(getRandomOffset()); setPositions(getRandomPositions());
+    setSelectedWord(null); setOffset(getRandomOffset()); setLetterPair(getRandomLetterPair());
     setPreview(null);
     setLoginStep("creds"); setSessionId(""); setChallengeGrid([]);
-    setServerRegister(null); setRegInputs(Array(5).fill(""));
+    setRegisterLetters([]); setRegInputs(Array(5).fill("")); setSelectedCard(null);
     if (m === "signup") {
-      fetch(`${API_BASE}/api/auth/sentences`)
+      fetch(`${API_BASE}/api/auth/words`)
         .then(r => r.json())
-        .then(d => { if (d.success) setShuffled(shuffle(d.sentences)); });
+        .then(d => {
+          if (d.success && Array.isArray(d.words)) {
+            setWords(shuffle(d.words));
+            setWordPairs(shuffle(d.wordPairs || []));
+          }
+        });
     }
   }, [isWordpressLogin]);
 
-  const setPos = (slot, val) => {
-    setPositions(prev => {
-      const next = [...prev];
-      next[slot] = val;
-      if (slot === 0) next[1] = "";
-      return next;
-    });
-  };
-
-  /* ── passkey registration (called after account created) ── */
+  /* ── passkey registration ── */
   const registerPasskey = async (token) => {
     const optRes = await fetch(`${API_BASE}/api/auth/passkey/register-options`, {
       method: "POST",
@@ -278,10 +209,8 @@ export default function Auth({
     });
     const optData = await optRes.json();
     if (!optData.success) throw new Error(optData.error || "Could not get passkey options.");
-    if (!optData?.options?.challenge) throw new Error("Invalid WebAuthn options received from server");
-
+    if (!optData?.options?.challenge) throw new Error("Invalid WebAuthn options received from server.");
     const attestation = await startRegistration({ optionsJSON: optData.options });
-
     const verRes = await fetch(`${API_BASE}/api/auth/passkey/register-complete`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -295,94 +224,87 @@ export default function Auth({
   /* ── SIGNUP ── */
   const handleSignup = () => {
     setError("");
-    if (!email.trim())              { setError("Enter your email."); return; }
-    if (!password.trim())           { setError("Enter a password."); return; }
-    if (!sentence)                  { setError("Select a sentence."); return; }
-    if (!positions[0] || !positions[1]) { setError("Select both positions."); return; }
-    if (positions[0] === positions[1])  { setError("Positions must be different."); return; }
+    if (!email.trim())       { setError("Please enter your email."); return; }
+    if (!password.trim())    { setError("Please enter a password."); return; }
+    if (!selectedWord)       { setError("Please choose a word."); return; }
+    if (!letterPair[0] || !letterPair[1]) { setError("Please choose two letters."); return; }
+    if (letterPair[0] === letterPair[1])  { setError("The two letters must be different."); return; }
     const off = parseInt(offset, 10);
-    if (isNaN(off) || off < 0 || off > 99) { setError("Offset must be 0–99."); return; }
-    setPreview({ sentence, nouns: extractNouns(sentence) });
+    if (isNaN(off) || off < 10 || off > 99) { setError("Offset must be between 10 and 99."); return; }
+    setPreview({ word: selectedWord, offset: off, letterPair });
   };
 
   const confirmSignup = async () => {
     setPreview(null);
     setLoading(true);
     setError("");
-    setPasskeyOverlay({ step: "creating", error: "" });
 
     try {
       const data = await postJson("/api/auth/signup", {
         email, password,
-        selectedSentence: sentence,
-        secretPositions:  positions,
-        offset:           parseInt(offset, 10),
+        selectedWord:      selectedWord.word,
+        selectedWordParts: selectedWord.parts,
+        selectedWordLang:  selectedWord.lang,
+        secretLetters:     letterPair,
+        offset:            parseInt(offset, 10),
+        wpFlow:            isWpFlow,
       });
 
       if (!data.success) {
-        setPasskeyOverlay(null);
-        setError(data.error || "Could not create account.");
+        setError(data.error || "Could not create account. Please try again.");
         return;
       }
 
       const { token } = data;
       localStorage.setItem("token", token);
-      setPasskeyOverlay({ step: "registering", error: "" });
 
       try {
         await registerPasskey(token);
-        setPasskeyOverlay({ step: "success", error: "" });
-        // ✅ toast fires immediately when passkey is saved
-        showToast("success", "Passkey saved successfully! You can now use Face ID / Touch ID to sign in.");
+        showToast("success", "Passkey saved successfully!");
       } catch (passkeyErr) {
         console.warn("[signup] passkey skipped:", passkeyErr.message);
-        setPasskeyOverlay({ step: "skipped", error: passkeyErr.message });
-        showToast("warning", "Account created, but no passkey was saved. You can add one later.");
+        showToast("warning", "Account created, but passkey was not saved.");
       }
-
     } catch (err) {
-      setPasskeyOverlay(null);
       setError("Server error. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  const continueToSignIn = () => {
+    resetAll("login");
+    showToast("success", "Account created! Please sign in.");
+  };
+
   /* ── PASSKEY LOGIN ── */
   const handlePasskeyLogin = async () => {
-    setError("");
-    setLoading(true);
+    setError(""); setLoading(true);
     try {
       const optRes = await fetch(`${API_BASE}/api/auth/passkey/login-options`, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body:    JSON.stringify({ email }),
       });
       const optData = await optRes.json();
       if (!optData.success) { setError(optData.error || "Passkey login not available."); return; }
-      if (!optData.options?.challenge) throw new Error("Invalid authentication options from server");
-
       const assertion = await startAuthentication({ optionsJSON: optData.options });
-
       const verRes = await fetch(`${API_BASE}/api/auth/passkey/login-complete`, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, response: assertion }),
+        body:    JSON.stringify({ email, response: assertion }),
       });
       const verData = await verRes.json();
       if (!verData.success) { setError(verData.error || "Passkey authentication failed."); return; }
-
       setSessionId(verData.sessionId);
       setChallengeGrid(verData.challengeGrid || []);
+      setRegisterLetters(verData.registerLetters || []);
       setRegInputs(Array(5).fill(""));
       setLoginStep("grid");
-      showToast("success", "Passkey verified — complete your visual password to finish signing in.");
-
+      showToast("success", "Passkey verified — complete the grid.");
     } catch (err) {
       if (err.name === "NotAllowedError") {
-        setError("No passkey found for this account, or the request timed out. Try your password instead.");
-      } else if (err.name === "InvalidStateError") {
-        setError("This passkey is already registered.");
+        setError("No passkey found for this account. Please sign in with your password.");
       } else {
         setError(err.message || "Passkey login failed.");
       }
@@ -394,210 +316,198 @@ export default function Auth({
   /* ── LOGIN STEP 1 ── */
   const handleLoginCreds = async () => {
     setError("");
-    if (!email.trim()) { setError("Enter email."); return; }
+    if (!email.trim()) { setError("Please enter your email."); return; }
     setLoading(true);
     try {
       const data = await postJson("/api/auth/login", { email, password: password || null });
       if (data.success) {
         setSessionId(data.sessionId);
         setChallengeGrid(data.challengeGrid || []);
+        setRegisterLetters(data.registerLetters || []);
         setRegInputs(Array(5).fill(""));
         setLoginStep("grid");
         return;
       }
-      if (data.passkeyRequired) { setError("Password incorrect. Try passkey login."); return; }
-      setError(data.error || "Invalid credentials.");
+      setError(data.error || "Incorrect credentials.");
     } catch {
-      setError("Server error. Try again.");
+      setError("Server error. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ── LOGIN STEP 2 ── */
-  const handleContinueToRegister = async () => {
-    setError(""); setLoading(true);
+  /* ── WORDPRESS LOGIN ── */
+  const handleWordpressLogin = async () => {
     try {
-      const data = await postJson("/api/auth/register", { sessionId });
-      if (!data.success) { setError(data.error || "Could not build register."); setLoginStep("creds"); return; }
-      setServerRegister(data.register);
+      setLoading(true);
+      const data = await postJson("/api/auth/wordpress-login", { email, apiKey });
+      if (!data.success) {
+        if (data.error === "User not found.") {
+          setMode("signup");
+          showToast("error", "No Visual Password account found.");
+        } else {
+          setError(data.error);
+        }
+        return;
+      }
+      setSessionId(data.sessionId);
+      setChallengeGrid(data.challengeGrid || []);
+      setRegisterLetters(data.registerLetters || []);
       setRegInputs(Array(5).fill(""));
-      setLoginStep("register");
-      setTimeout(() => registerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
-    } catch { setError("Server error. Try again."); }
-    finally { setLoading(false); }
+      setLoginStep("grid");
+    } catch (err) {
+      setError(err.message || "WordPress login failed.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /* ── LOGIN STEP 3 ── */
+  /* ── GRID: user taps their card ── */
+  const handleCardSelect = (idx) => {
+    setSelectedCard(idx);
+    setRegInputs(Array(5).fill(""));
+  };
+
+  /* ── LOGIN STEP 2+3 combined: verify ── */
   const handleVerify = async () => {
     setError("");
-    if (!allFilled) { setError("Fill all 5 positions (A–E)."); return; }
+    if (selectedCard === null) { setError("Please select your word card."); return; }
+    if (!allFilled)            { setError("Please fill in all 5 positions."); return; }
     setLoading(true);
     try {
       const data = await postJson("/api/auth/verify", {
         sessionId,
-        registerInputs: regInputs.map(v => parseInt(v, 10)),
+        selectedCardIndex: selectedCard,
+        registerInputs:    regInputs.map(v => parseInt(v, 10)),
       });
       if (!data.success) {
         setError(data.error || "Verification failed.");
         if (!data.error?.includes("attempt")) {
-          setLoginStep("creds"); setChallengeGrid([]); setSessionId(""); setServerRegister(null);
+          setLoginStep("creds"); setChallengeGrid([]); setSessionId(""); setSelectedCard(null);
         }
         return;
       }
       if (data.token) localStorage.setItem("token", data.token);
-
       const callback = localStorage.getItem("wp_callback");
       if (callback) {
         localStorage.removeItem("wp_callback");
         window.location.href = decodeURIComponent(callback);
         return;
       }
-
-      showToast("success", data.message || "Identity verified. Welcome back!");
+      showToast("success", data.message || "Identity verified! Welcome back.");
       setLoginStep("success");
-    } catch { setError("Server error. Try again."); }
-    finally { setLoading(false); }
+    } catch {
+      setError("Server error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const continueToSignIn = () => {
-    setPasskeyOverlay(null);
-    setEmail(""); setPassword(""); setSentence("");
-    setOffset(getRandomOffset()); setPositions(getRandomPositions());
-    resetAll("login");
-    showToast("success", "Account created! Sign in to continue.");
-  };
-
-  /* ── RENDER ── */
+  /* ═══════════════════════════════════════════════════════════
+     RENDER
+  ═══════════════════════════════════════════════════════════ */
   return (
     <>
       <style>{CSS}</style>
       <Toast toasts={toasts} onClose={closeToast} />
 
-      {/* ── PASSKEY OVERLAY ── */}
-      {passkeyOverlay && (
-        <div className="overlay-bg">
-          <div className="overlay-card" style={{ gap: 20, textAlign: "center" }}>
-            {passkeyOverlay.step === "creating" && (
-              <>
-                <div className="passkey-spinner" />
-                <p className="overlay-eyebrow">One moment…</p>
-                <h2 className="overlay-title">Creating your account</h2>
-                <p className="overlay-hint">Saving your visual password settings.</p>
-              </>
-            )}
-            {passkeyOverlay.step === "registering" && (
-              <>
-                <div className="passkey-icon">🔑</div>
-                <p className="overlay-eyebrow">Almost there</p>
-                <h2 className="overlay-title">Register your passkey</h2>
-                <p className="overlay-hint">
-                  Your browser will now ask you to save a passkey (Face ID, Touch ID, Windows Hello, etc.).
-                  This lets you sign in without typing your password next time.
-                </p>
-                <p className="overlay-hint" style={{ color: "#94a3b8", fontSize: "0.76rem" }}>
-                  You can skip this and add a passkey later from your profile settings.
-                </p>
-              </>
-            )}
-            {passkeyOverlay.step === "success" && (
-              <>
-                <div className="success-check" style={{ margin: "0 auto" }}>✓</div>
-                <p className="overlay-eyebrow">All done</p>
-                <h2 className="overlay-title">Account ready</h2>
-                <p className="overlay-hint">
-                  Your account and passkey have been set up. Sign in with your visual password to continue.
-                </p>
-                <button className="overlay-btn" onClick={continueToSignIn}>
-                  Continue to sign in →
-                </button>
-              </>
-            )}
-            {passkeyOverlay.step === "skipped" && (
-              <>
-                <div className="success-check" style={{ margin: "0 auto", background: "rgba(245,158,11,0.1)", borderColor: "rgba(245,158,11,0.3)", color: "#d97706" }}>!</div>
-                <p className="overlay-eyebrow">Account created</p>
-                <h2 className="overlay-title">No passkey registered</h2>
-                <p className="overlay-hint">
-                  Your account is ready, but no passkey was saved — you can add one later from profile settings.
-                </p>
-                {passkeyOverlay.error && (
-                  <p style={{ fontSize: "0.75rem", color: "#94a3b8" }}>({passkeyOverlay.error})</p>
-                )}
-                <button className="overlay-btn" onClick={continueToSignIn}>
-                  Continue to sign in →
-                </button>
-              </>
-            )}
+
+      {/* ── SIGNUP PREVIEW OVERLAY ── */}
+      {preview && (
+        <div className="overlay-bg" onClick={e => { if (e.target === e.currentTarget) setPreview(null); }}>
+          <div className="overlay-card overlay-card--wide">
+            <button className="overlay-close" onClick={() => setPreview(null)}>✕</button>
+            <p className="overlay-eyebrow">Confirm</p>
+            <h2 className="overlay-title">Review before creating your account</h2>
+
+            <div className="preview-details">
+              <div className="preview-row">
+                <span className="preview-key">Word</span>
+                <span className="preview-val" style={{ fontFamily: preview.word.lang !== "en" ? "'Noto Sans Devanagari', sans-serif" : "inherit", fontSize: "1.05rem" }}>
+                  {preview.word.word}
+                </span>
+              </div>
+              <div className="preview-row">
+                <span className="preview-key">Parts</span>
+                <span className="preview-val" style={{ fontFamily: preview.word.lang !== "en" ? "'Noto Sans Devanagari', sans-serif" : "inherit" }}>
+                  {preview.word.parts.map((p, i) => (
+                    <span key={i} className="part-chip">{p || "—"}</span>
+                  ))}
+                </span>
+              </div>
+              <div className="preview-row">
+                <span className="preview-key">Offset</span>
+                <span className="preview-val">{preview.offset} <span style={{ color: "#94a3b8", fontSize: "0.78rem" }}>(10–99)</span></span>
+              </div>
+              <div className="preview-row">
+                <span className="preview-key">Letters</span>
+                <span className="preview-val">
+                  <strong style={{ color: "#0891b2" }}>{preview.letterPair[0]}</strong>
+                  <span style={{ margin: "0 8px", color: "#94a3b8" }}>+</span>
+                  <strong style={{ color: "#0891b2" }}>{preview.letterPair[1]}</strong>
+                  <span style={{ color: "#64748b", fontSize: "0.8rem", marginLeft: 8 }}>(initials of your chosen person)</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Mnemonic */}
+            <div className="mnemonic-box">
+              <div className="mnemonic-letters" style={{ fontFamily: preview.word.lang !== "en" ? "'Noto Sans Devanagari', sans-serif" : "'Space Grotesk', sans-serif", letterSpacing: preview.word.lang !== "en" ? "0.1em" : "0.18em" }}>
+                {preview.word.word}
+              </div>
+              <div className="mnemonic-pairs">
+                {preview.word.parts.filter(Boolean).map((p, i) => (
+                  <span key={i} className="mnemonic-pair" style={{ fontFamily: preview.word.lang !== "en" ? "'Noto Sans Devanagari', sans-serif" : "inherit" }}>
+                    <strong>{p}</strong>
+                  </span>
+                ))}
+              </div>
+              <p className="mnemonic-hint">
+                At login, one part of your word will be shown — e.g. "{buildMask(preview.word.parts, 0)}".<br />
+                Recognise it to recall your full word.
+              </p>
+            </div>
+
+            {/* Parts visual */}
+            <div className="preview-grid">
+              {preview.word.parts.filter(Boolean).map((p, i) => (
+                <div key={i} className="preview-item">
+                  <div className="preview-img-wrap" style={{ fontFamily: preview.word.lang !== "en" ? "'Noto Sans Devanagari', sans-serif" : "'Space Grotesk', sans-serif" }}>
+                    <span style={{ fontSize: "1.4rem", fontWeight: 800, color: "#0891b2" }}>{p}</span>
+                  </div>
+                  <div className="preview-label">{buildMask(preview.word.parts, i)}</div>
+                </div>
+              ))}
+            </div>
+
+            <p className="overlay-hint">Remember your offset and letters — they will not be shown again.</p>
+            <button className="overlay-btn" disabled={loading} onClick={confirmSignup}>
+              {loading ? "Creating…" : "Confirm and create account"}
+            </button>
           </div>
         </div>
       )}
 
-      {/* ── SIGNUP PREVIEW OVERLAY ── */}
-      {preview && (() => {
-        const nouns    = preview.nouns;
-        const mnemonic = buildMnemonic(nouns);
-        return (
-          <div className="overlay-bg" onClick={e => { if (e.target === e.currentTarget) setPreview(null); }}>
-            <div className="overlay-card overlay-card--wide">
-              <button className="overlay-close" onClick={() => setPreview(null)}>✕</button>
-              <p className="overlay-eyebrow">Confirm your setup</p>
-              <h2 className="overlay-title">Review before creating account</h2>
-              <div className="preview-details">
-                <div className="preview-row"><span className="preview-key">Sentence</span><span className="preview-val">{preview.sentence}</span></div>
-                <div className="preview-row"><span className="preview-key">Offset</span><span className="preview-val">{offset}</span></div>
-                <div className="preview-row"><span className="preview-key">Positions</span><span className="preview-val">{positions[0]} &amp; {positions[1]}</span></div>
-              </div>
-              {nouns.length > 0 && (
-                <div className="mnemonic-box">
-                  <div className="mnemonic-letters">{mnemonic}</div>
-                  <div className="mnemonic-pairs">
-                    {nouns.map(n => (
-                      <span key={n} className="mnemonic-pair">
-                        <strong>{n[0].toUpperCase()}</strong> = {n}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="mnemonic-hint">Use this code to remember your sentence's key objects.</p>
-                </div>
-              )}
-              <div className="preview-grid">
-                {nouns.map(n => {
-                  const img = getNounImage(n);
-                  return (
-                    <div key={n} className="preview-item">
-                      <div className="preview-img-wrap">
-                        {img ? <img src={img} alt={n} className="preview-img" /> : <div className="preview-fallback">{n[0].toUpperCase()}</div>}
-                      </div>
-                      <div className="preview-label">{n}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="overlay-hint">Memorise your offset and positions — they are never shown again.</p>
-              <button className="overlay-btn" disabled={loading} onClick={confirmSignup}>
-                {loading ? "Creating…" : "Confirm & create account"}
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
+      {/* ══ PAGE ══ */}
       <div className="auth-page">
         <header className="auth-hero">
-          <p className="hero-eyebrow">Visual Sentence Password</p>
-          <h1 className="hero-title">Sign in with your <span className="hero-accent">Visual Sentence</span></h1>
-          <p className="hero-sub">Pick a sentence, a private offset, and two secret positions (A–E). At login: spot your image, add your offset, enter the two digits at your positions.</p>
+          <p className="hero-eyebrow">Visual Word Password</p>
+          <h1 className="hero-title">Sign in with a <span className="hero-accent">Visual Word</span></h1>
+          <p className="hero-sub">
+            Choose a word, a personal offset (10–99), and 2 initials from someone you trust.
+            At login, spot your word hint, add your offset, and enter the digits in the right positions.
+          </p>
         </header>
 
         <div className="auth-shell">
           <div className="auth-card">
 
+            {/* SUCCESS */}
             {loginStep === "success" && (
               <div className="success-box">
                 <div className="success-check">✓</div>
                 <h2 className="success-title">Identity Verified</h2>
-                <p className="success-msg">Your visual sentence login succeeded. Welcome back!</p>
+                <p className="success-msg">Your Visual Word login was successful. Welcome back!</p>
                 <button className="btn-outline" onClick={() => resetAll("login")}>Sign in again</button>
               </div>
             )}
@@ -614,9 +524,15 @@ export default function Auth({
                 {/* ══ SIGNUP ══ */}
                 {mode === "signup" && (
                   <div className="form-stack">
+                    {/* flow toggle */}
+                    <div className="flow-toggle">
+                      <button className={`flow-btn${isWpFlow ? " flow-btn--active" : ""}`} onClick={() => setIsWpFlow(true)}>WordPress (single word)</button>
+                      <button className={`flow-btn${!isWpFlow ? " flow-btn--active" : ""}`} onClick={() => setIsWpFlow(false)}>Regular (two words)</button>
+                    </div>
+
                     <div className="field-row">
                       <div className="field-group">
-                        <label className="field-label">Email address</label>
+                        <label className="field-label">Email</label>
                         <input className="field-input" type="email" placeholder="you@example.com"
                           value={email} onChange={e => setEmail(e.target.value)} />
                       </div>
@@ -626,54 +542,133 @@ export default function Auth({
                           value={password} onChange={e => setPassword(e.target.value)} />
                       </div>
                     </div>
-                    <p className="section-label">Choose your visual password sentence</p>
-                    <p className="section-hint">One noun from your sentence appears in the login grid. Find it, add your offset, enter the digits at your two positions.</p>
-                    <div className="sentence-list">
-                      {shuffled.map(s => {
-                        const ns    = extractNouns(s);
-                        const isSel = sentence === s;
+
+                    {/* Offset */}
+                    <div className="field-group">
+                      <label className="field-label">Offset (10–99)</label>
+                      <div className="offset-row">
+                        <input className="ctrl-offset" type="text" inputMode="numeric" maxLength={2}
+                          value={offset}
+                          onChange={e => setOffset(e.target.value.replace(/\D/, "").slice(0, 2))} />
+                        <span className="ctrl-hint">Age of a loved one, favourite jersey number, or any memorable number</span>
+                      </div>
+                    </div>
+
+                    {/* Letter pair */}
+                    <div className="field-group">
+                      <label className="field-label">2 initials from someone you trust</label>
+                      <p className="section-hint" style={{ marginTop: 2 }}>
+                        e.g. Rajkumar Yadav → R &amp; Y. These will always appear in your login row.
+                      </p>
+                      <div className="letter-row">
+                        <select className="ctrl-select" value={letterPair[0]}
+                          onChange={e => setLetterPair(prev => [e.target.value, prev[1] === e.target.value ? "" : prev[1]])}>
+                          <option value="">Choose</option>
+                          {ALPHABET.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                        <span className="ctrl-plus">+</span>
+                        <select className="ctrl-select" value={letterPair[1]} disabled={!letterPair[0]}
+                          onChange={e => setLetterPair(prev => [prev[0], e.target.value])}>
+                          <option value="">Choose</option>
+                          {ALPHABET.filter(l => l !== letterPair[0]).map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                        <span className="ctrl-hint" style={{ marginLeft: 6 }}>A–Z</span>
+                      </div>
+                    </div>
+
+                    {/* Word selector */}
+                    <p className="section-label">Choose your Visual Password word</p>
+                    <p className="section-hint">
+                      At login, one unique part of your word will appear — e.g. "Ra _ _".
+                      {!isWpFlow && " In Regular mode two words appear together."}
+                    </p>
+
+                    <div className="word-grid">
+                      {(isWpFlow ? words : wordPairs).map((item, idx) => {
+                        // Resolve string pair into full word objects
+                        const w0 = isWpFlow ? item : words.find(w => w.word === item[0]);
+                        const w1 = isWpFlow ? null : words.find(w => w.word === item[1]);
+
+                        const isSel = isWpFlow
+                          ? selectedWord?.word === item.word
+                          : selectedWord?.word === `${w0?.word} + ${w1?.word}`;
+
+                        const displayWord = isWpFlow
+                          ? item.word
+                          : `${w0?.word} + ${w1?.word}`;
+
+                        const displayParts = isWpFlow
+                          ? item.parts
+                          : [...(w0?.parts || []), ...(w1?.parts || [])];
+
+                        const isDevanagari = isWpFlow
+                          ? (item.lang === "hi" || item.lang === "mr")
+                          : (w0?.lang === "hi" || w0?.lang === "mr");
+
                         return (
-                          <div key={s} role="button" tabIndex={0}
-                            className={`sentence-card${isSel ? " sentence-card--selected" : ""}`}
-                            onClick={() => { setSentence(s); setTimeout(() => createBtnRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 120); }}
-                            onKeyDown={e => e.key === "Enter" && setSentence(s)}
+                          <div
+                            key={idx}
+                            className={`word-card${isSel ? " word-card--selected" : ""}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() =>
+                              setSelectedWord(
+                                isWpFlow
+                                  ? item
+                                  : {
+                                      word: displayWord,
+                                      parts: displayParts,
+                                      lang: w0?.lang || "en",
+                                    }
+                              )
+                            }
+                            onKeyDown={e =>
+                              e.key === "Enter" &&
+                              setSelectedWord(
+                                isWpFlow
+                                  ? item
+                                  : {
+                                      word: displayWord,
+                                      parts: displayParts,
+                                      lang: w0?.lang || "en",
+                                    }
+                              )
+                            }
                           >
-                            <div className="sentence-text">{s}</div>
-                            <div className="noun-chips">{ns.map(n => <span key={n} className="noun-chip">{n}</span>)}</div>
-                            {isSel && (
-                              <div className="card-controls" onClick={e => e.stopPropagation()}>
-                                <div className="control-row">
-                                  <label className="ctrl-label">Offset</label>
-                                  <input className="ctrl-offset" type="text" inputMode="numeric" maxLength={2}
-                                    value={offset} onChange={e => setOffset(e.target.value.replace(/\D/, "").slice(0, 2))} />
-                                  <span className="ctrl-hint">0 – 99</span>
-                                </div>
-                                <div className="control-row">
-                                  <label className="ctrl-label">Positions</label>
-                                  <select className="ctrl-select" value={positions[0]} onChange={e => setPos(0, e.target.value)}>
-                                    <option value="">Select</option>
-                                    {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                                  </select>
-                                  <span className="ctrl-plus">+</span>
-                                  <select className="ctrl-select" value={positions[1]} disabled={!positions[0]} onChange={e => setPos(1, e.target.value)}>
-                                    <option value="">Select</option>
-                                    {POSITIONS.filter(p => p !== positions[0]).map(p => <option key={p} value={p}>{p}</option>)}
-                                  </select>
-                                  <span className="ctrl-hint">A–E · digits of ({offset || 0} + image value)</span>
-                                </div>
-                                <button className="btn-primary" style={{ marginTop: 10 }}
-                                  onClick={e => { e.stopPropagation(); handleSignup(); }}>
-                                  Review & Create Account →
-                                </button>
-                              </div>
-                            )}
+                            <div
+                              className="word-display"
+                              style={{
+                                fontFamily: isDevanagari
+                                  ? "'Noto Sans Devanagari', sans-serif"
+                                  : "'Space Grotesk', sans-serif",
+                              }}
+                            >
+                              {displayWord}
+                            </div>
+
+                            <div className="word-parts">
+                              {displayParts.filter(Boolean).map((p, i) => (
+                                <span
+                                  key={i}
+                                  className="part-chip"
+                                  style={{
+                                    fontFamily: isDevanagari
+                                      ? "'Noto Sans Devanagari', sans-serif"
+                                      : "inherit",
+                                  }}
+                                >
+                                  {p}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         );
                       })}
                     </div>
+
                     {error && <div className="alert-error">{error}</div>}
-                    <button ref={createBtnRef} className="btn-primary" disabled={loading} onClick={handleSignup}>
-                      {loading ? "Creating account…" : "Review & Create Account"}
+                    <button className="btn-primary" disabled={loading} onClick={handleSignup}>
+                      {loading ? "Creating…" : "Review and create account →"}
                     </button>
                   </div>
                 )}
@@ -681,14 +676,12 @@ export default function Auth({
                 {/* ══ LOGIN ══ */}
                 {mode === "login" && (
                   <>
+                    {/* Step 1 — creds */}
                     {loginStep === "creds" && !isWordpressLogin && (
                       <div className="form-stack">
-                        <div className="step-badge">
-                          Step 1 of 3 — Credentials
-                          {isWordpressLogin && <span style={{ marginLeft: 8, color: "#0891b2" }}>(WordPress SSO)</span>}
-                        </div>
+                        <div className="step-badge">Step 1 / 2 — Sign in</div>
                         <div className="field-group">
-                          <label className="field-label">Email address</label>
+                          <label className="field-label">Email</label>
                           <input className="field-input" type="email" placeholder="you@example.com"
                             value={email} onChange={e => setEmail(e.target.value)}
                             onKeyDown={e => e.key === "Enter" && handleLoginCreds()} />
@@ -705,20 +698,16 @@ export default function Auth({
                         </div>
                         {error && <div className="alert-error">{error}</div>}
                         <button className="btn-primary" disabled={loading} onClick={handleLoginCreds}>
-                          {loading ? "Please wait…" : "Next →"}
+                          {loading ? "Please wait…" : "Continue →"}
                         </button>
-                        {browserSupportsWebAuthn() && (
-                          <button className="btn-outline" disabled={loading || !email} onClick={handlePasskeyLogin}>
-                            Sign in with passkey 🔑
-                          </button>
-                        )}
                       </div>
                     )}
 
+                    {/* Forgot password */}
                     {loginStep === "forgot" && (
                       <div className="form-stack">
-                        <div className="step-badge">Reset password</div>
-                        <div className="info-box">Enter your email and we'll send a reset link.</div>
+                        <div className="step-badge">Reset Password</div>
+                        <div className="info-box">Enter your email — a reset link will be sent.</div>
                         <input className="field-input" type="email" placeholder="you@example.com"
                           value={email} onChange={e => setEmail(e.target.value)} />
                         {error && <div className="alert-error">{error}</div>}
@@ -726,10 +715,10 @@ export default function Auth({
                           setLoading(true); setError("");
                           try {
                             const data = await postJson("/api/auth/forgot-password", { email });
-                            if (!data.success) { setError(data.error || "Failed to send reset email."); return; }
+                            if (!data.success) { setError(data.error || "Could not send reset email."); return; }
                             showToast("success", "Reset link sent — check your inbox.");
                             setLoginStep("creds");
-                          } catch { setError("Server error. Try again."); }
+                          } catch { setError("Server error. Please try again."); }
                           finally { setLoading(false); }
                         }}>
                           {loading ? "Sending…" : "Send reset link"}
@@ -738,11 +727,12 @@ export default function Auth({
                       </div>
                     )}
 
+                    {/* Delete account */}
                     {loginStep === "delete" && (
                       <div className="form-stack">
-                        <div className="step-badge">Delete account</div>
+                        <div className="step-badge">Delete Account</div>
                         <div className="info-box" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.05)", color: "#92400e" }}>
-                          This action is permanent and cannot be undone. Enter your credentials to confirm.
+                          This action is permanent and cannot be undone.
                         </div>
                         <input className="field-input" type="email" placeholder="Email"
                           value={email} onChange={e => setEmail(e.target.value)} />
@@ -754,10 +744,9 @@ export default function Auth({
                           try {
                             const data = await postJson("/api/auth/delete-user", { email, password });
                             if (!data.success) { setError(data.error || "Could not delete account."); return; }
-                            // ✅ toast for account deletion
                             showToast("success", "Your account has been permanently deleted.");
                             resetAll("signup");
-                          } catch { setError("Server error. Try again."); }
+                          } catch { setError("Server error. Please try again."); }
                           finally { setLoading(false); }
                         }}>
                           {loading ? "Deleting…" : "Delete my account"}
@@ -766,45 +755,61 @@ export default function Auth({
                       </div>
                     )}
 
+                    {/* ── Step 2+3 COMBINED: grid + register inline ── */}
                     {loginStep === "grid" && (
                       <div className="form-stack">
-                        <div className="step-badge">Step 2 of 3 — Find your secret image</div>
+                        <div className="step-badge">Step 2 / 2 — Identify your word and enter digits</div>
                         <div className="info-box">
-                          <strong>Look for your image.</strong> One noun from your sentence is hidden here. Note its number, then click Continue.
+                          <strong>Find your word hint.</strong> Select the card that shows part of your secret word.
+                          The number below it is your card value — add your offset to get a 2-digit result,
+                          then enter each digit under your two chosen letters.
                         </div>
+
+                        {/* 21-card grid */}
                         <div className="cg-grid">
                           {challengeGrid.length > 0
-                            ? challengeGrid.map((item, i) => <GridCard key={i} noun={item.noun} value={item.value} />)
-                            : <div style={{ gridColumn: "1/-1", textAlign: "center", color: "#dc2626", padding: 40 }}>No grid received — start over.</div>}
+                            ? challengeGrid.map((item, i) => (
+                                <WordCard
+                                  key={i}
+                                  mask={item.mask}
+                                  value={item.value}
+                                  selected={selectedCard === i}
+                                  onClick={() => handleCardSelect(i)}
+                                />
+                              ))
+                            : <div style={{ gridColumn: "1/-1", textAlign: "center", color: "#dc2626", padding: 40 }}>
+                                Grid not found — please start over.
+                              </div>
+                          }
                         </div>
-                        {error && <div className="alert-error">{error}</div>}
-                        <button className="btn-primary" disabled={loading} onClick={handleContinueToRegister}>
-                          {loading ? "Building register…" : "I've found my image →"}
-                        </button>
-                        <button className="btn-outline" onClick={() => resetAll("login")}>← Start over</button>
-                      </div>
-                    )}
 
-                    {loginStep === "register" && (
-                      <div className="form-stack" ref={registerRef}>
-                        <div className="step-badge">Step 3 of 3 — Fill positions A–E</div>
-                        <div className="info-box">
-                          <strong>Fill sequentially A → B → C → D → E.</strong> At your two secret positions
-                          enter the digits of your result (image value + offset) in <em>any order</em>.
-                          Fill other positions with any digit. Max 3 attempts.
-                        </div>
-                        <RegisterDropdownBar
-                          inputs={regInputs}
-                          onChange={(i, v) => setRegInputs(p => { const n = [...p]; n[i] = v; return n; })}
-                        />
-                        <p className="field-hint">
-                          Example: result = 52, positions A &amp; D → enter 5 at A and 2 at D, or 2 at A and 5 at D — both work.
-                        </p>
+                        {/* Register bar immediately below grid */}
+                        {registerLetters.length === 5 && (
+                          <>
+                            <div className="register-sep">
+                              <span>Enter digits under your letters</span>
+                            </div>
+                            <div className="info-box" style={{ fontSize: "0.8rem" }}>
+                              Example: result = 58, letters R &amp; Y → put 5 under R and 8 under Y (or 8 and 5 — either order works). Fill the remaining slots with any digit.
+                            </div>
+                            <RegisterDropdownBar
+                              letters={registerLetters}
+                              inputs={regInputs}
+                              onChange={(i, v) => setRegInputs(p => { const n = [...p]; n[i] = v; return n; })}
+                            />
+                          </>
+                        )}
+
                         {error && <div className="alert-error">{error}</div>}
-                        <button className="btn-primary" disabled={loading || !allFilled} onClick={handleVerify}>
+
+                        <button
+                          className="btn-primary"
+                          disabled={loading || selectedCard === null || !allFilled}
+                          onClick={handleVerify}
+                        >
                           {loading ? "Verifying…" : "Verify →"}
                         </button>
-                        <button className="btn-outline" onClick={() => setLoginStep("grid")}>← Back to grid</button>
+                        <button className="btn-outline" onClick={() => resetAll("login")}>← Start over</button>
                       </div>
                     )}
                   </>
@@ -813,129 +818,152 @@ export default function Auth({
             )}
           </div>
         </div>
-        <p className="page-footer">ScamRisk — Sentence Password is phishing-resistant. Your secret never leaves this device.</p>
+        <p className="page-footer">ScamRisk — Visual Word Password is phishing-resistant. Your secret never leaves this device.</p>
       </div>
     </>
   );
 }
 
-/* ── STYLES ─────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════
+   STYLES
+══════════════════════════════════════════════════════════════ */
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}button,input,select{font-family:inherit;}
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600;800&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+button,input,select{font-family:inherit;}
+
 .auth-page{min-height:100vh;background:#f7efe6;color:#0f172a;font-family:'Inter',sans-serif;padding:48px 20px 72px;position:relative;overflow:hidden;}
 .auth-page::before{content:'';position:fixed;top:-140px;right:-140px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(6,182,212,0.06) 0%,transparent 70%);pointer-events:none;z-index:0;}
+
 .auth-hero{text-align:center;max-width:680px;margin:0 auto 36px;position:relative;z-index:1;}
 .hero-eyebrow{display:inline-block;padding:4px 14px;border-radius:99px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);font-size:0.72rem;font-weight:600;color:#d97706;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px;}
 .hero-title{font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:clamp(1.6rem,3.2vw,2.4rem);letter-spacing:-0.04em;line-height:1.12;color:#0f172a;margin-bottom:10px;}
 .hero-accent{color:#06B6D4;}
 .hero-sub{font-size:0.88rem;color:#64748b;line-height:1.7;}
-.auth-shell{max-width:920px;margin:0 auto;position:relative;z-index:1;}
+
+.auth-shell{max-width:960px;margin:0 auto;position:relative;z-index:1;}
 .auth-card{background:#fbf7f0;border:1px solid #e2d9cc;border-radius:20px;padding:36px 40px;display:flex;flex-direction:column;gap:20px;box-shadow:0 4px 28px rgba(15,23,42,0.06);}
 @media(max-width:600px){.auth-card{padding:24px 18px;}}
+
 .mode-tabs{display:flex;gap:8px;}
 .mode-tab{flex:1;padding:11px;border-radius:99px;background:#fff;border:1.5px solid #e2d9cc;color:#475569;font-size:0.9rem;font-weight:500;cursor:pointer;transition:all 0.18s;}
 .mode-tab:hover{border-color:rgba(6,182,212,0.4);color:#0891b2;}
 .mode-tab--active{background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;border-color:transparent;font-weight:700;}
+
+.flow-toggle{display:flex;gap:6px;background:#f3efe9;border-radius:99px;padding:4px;}
+.flow-btn{flex:1;padding:7px 14px;border-radius:99px;background:transparent;border:none;font-size:0.82rem;font-weight:500;color:#475569;cursor:pointer;transition:all 0.18s;}
+.flow-btn--active{background:#fff;color:#0891b2;font-weight:700;box-shadow:0 1px 4px rgba(15,23,42,0.08);}
+
 .step-badge{padding:9px 14px;border-radius:9px;background:rgba(6,182,212,0.07);border:1px solid rgba(6,182,212,0.15);font-size:0.83rem;color:#0891b2;font-weight:600;}
 .info-box{padding:13px 16px;border-radius:11px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);font-size:0.84rem;color:#92400e;line-height:1.65;}
 .info-box strong{font-weight:700;color:#78350f;}
+
 .form-stack{display:flex;flex-direction:column;gap:16px;}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media(max-width:540px){.field-row{grid-template-columns:1fr;}}
 .field-group{display:flex;flex-direction:column;gap:5px;}
 .field-label{font-size:0.73rem;font-weight:600;color:#475569;letter-spacing:0.05em;text-transform:uppercase;}
-.field-hint{font-size:0.79rem;color:#94a3b8;line-height:1.6;}
 .field-input{width:100%;padding:11px 13px;border-radius:10px;border:1.5px solid #e2d9cc;background:#fff;font-size:0.91rem;color:#0f172a;outline:none;transition:border-color 0.18s,box-shadow 0.18s;}
 .field-input:focus{border-color:#06B6D4;box-shadow:0 0 0 3px rgba(6,182,212,0.1);}
 .field-input::placeholder{color:#94a3b8;}
-.section-label{font-size:0.73rem;font-weight:700;color:#475569;letter-spacing:0.06em;text-transform:uppercase;}
-.section-hint{font-size:0.79rem;color:#94a3b8;line-height:1.6;margin-top:4px;margin-bottom:10px;}
-.sentence-list{display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto;padding-right:4px;}
-.sentence-list::-webkit-scrollbar{width:4px;}
-.sentence-list::-webkit-scrollbar-thumb{background:#d1c4b0;border-radius:2px;}
-.sentence-card{width:100%;padding:13px 16px;border-radius:12px;background:#fff;border:1.5px solid #e2d9cc;cursor:pointer;text-align:left;transition:border-color 0.16s,box-shadow 0.16s,transform 0.14s;}
-.sentence-card:hover{border-color:rgba(6,182,212,0.4);transform:translateY(-1px);}
-.sentence-card--selected{border-color:#06B6D4;background:rgba(6,182,212,0.04);box-shadow:0 0 0 3px rgba(6,182,212,0.1);}
-.sentence-text{font-size:0.87rem;color:#334155;line-height:1.55;}
-.noun-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
-.noun-chip{padding:4px 8px;border-radius:999px;background:rgba(15,23,42,0.05);color:#475569;font-size:0.72rem;font-weight:600;text-transform:capitalize;}
-.card-controls{margin-top:12px;padding-top:12px;border-top:1px dashed rgba(6,182,212,0.25);display:flex;flex-direction:column;gap:10px;}
-.control-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-.ctrl-label{font-size:0.73rem;font-weight:700;color:#475569;letter-spacing:0.05em;text-transform:uppercase;white-space:nowrap;width:60px;}
-.ctrl-offset{width:60px;padding:7px 10px;border-radius:8px;border:1.5px solid #e2d9cc;background:#fff;font-family:'Space Grotesk',sans-serif;font-size:1.1rem;font-weight:800;color:#0f172a;text-align:center;outline:none;}
+
+.offset-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.letter-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px;}
+.ctrl-offset{width:64px;padding:9px 10px;border-radius:8px;border:1.5px solid #e2d9cc;background:#fff;font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:800;color:#0f172a;text-align:center;outline:none;}
 .ctrl-offset:focus{border-color:#06B6D4;}
-.ctrl-select{padding:7px 10px;border-radius:8px;border:1.5px solid #e2d9cc;background:#fff;font-family:'Space Grotesk',sans-serif;font-size:0.9rem;font-weight:700;color:#0f172a;cursor:pointer;outline:none;}
+.ctrl-select{padding:8px 12px;border-radius:8px;border:1.5px solid #e2d9cc;background:#fff;font-family:'Space Grotesk',sans-serif;font-size:0.95rem;font-weight:700;color:#0f172a;cursor:pointer;outline:none;}
 .ctrl-select:focus{border-color:#06B6D4;}
 .ctrl-select:disabled{background:#f3efe9;color:#94a3b8;cursor:not-allowed;}
-.ctrl-plus{font-family:'Space Grotesk',sans-serif;font-weight:800;color:#06B6D4;font-size:1.1rem;}
+.ctrl-plus{font-family:'Space Grotesk',sans-serif;font-weight:800;color:#06B6D4;font-size:1.2rem;}
 .ctrl-hint{font-size:0.75rem;color:#94a3b8;line-height:1.5;}
-.cg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;width:100%;margin-top:4px;}
+.section-label{font-size:0.73rem;font-weight:700;color:#475569;letter-spacing:0.06em;text-transform:uppercase;}
+.section-hint{font-size:0.79rem;color:#94a3b8;line-height:1.6;}
+
+.word-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;max-height:320px;overflow-y:auto;padding-right:4px;}
+.word-grid::-webkit-scrollbar{width:4px;}
+.word-grid::-webkit-scrollbar-thumb{background:#d1c4b0;border-radius:2px;}
+.word-card{padding:12px 14px;border-radius:12px;background:#fff;border:1.5px solid #e2d9cc;cursor:pointer;text-align:left;transition:border-color 0.16s,box-shadow 0.16s,transform 0.14s;}
+.word-card:hover{border-color:rgba(6,182,212,0.4);transform:translateY(-1px);}
+.word-card--selected{border-color:#06B6D4;background:rgba(6,182,212,0.04);box-shadow:0 0 0 3px rgba(6,182,212,0.1);}
+.word-display{font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:6px;}
+.word-parts{display:flex;flex-wrap:wrap;gap:4px;}
+.part-chip{padding:3px 7px;border-radius:99px;background:rgba(6,182,212,0.08);color:#0891b2;font-size:0.72rem;font-weight:600;border:1px solid rgba(6,182,212,0.15);}
+
+.cg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%;margin-top:4px;}
 @media(max-width:900px){.cg-grid{grid-template-columns:repeat(3,1fr);}}
-@media(max-width:540px){.cg-grid{grid-template-columns:repeat(2,1fr);gap:10px;}}
-.gc-card{background:#fff;border:1px solid #e2d9cc;border-radius:12px;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;}
-.gc-img-wrap{width:90px;height:90px;background:#f3efe9;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;}
-@media(max-width:540px){.gc-img-wrap{width:56px;height:56px;}}
-.gc-img{width:100%;height:100%;object-fit:contain;}
-.gc-fallback{font-size:1.5rem;font-weight:800;color:#94a3b8;font-family:'Space Grotesk',sans-serif;}
-.gc-noun{font-family:'Space Grotesk',sans-serif;font-size:0.72rem;font-weight:600;color:#475569;text-transform:capitalize;text-align:center;}
-.gc-value{font-family:'Space Grotesk',sans-serif;font-size:1.15rem;font-weight:800;color:#0f172a;}
+@media(max-width:540px){.cg-grid{grid-template-columns:repeat(3,1fr);gap:7px;}}
+
+.wc-card{background:#fff;border:1.5px solid #e2d9cc;border-radius:12px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:border-color 0.16s,box-shadow 0.16s,transform 0.14s;min-height:80px;}
+.wc-card:hover{border-color:rgba(6,182,212,0.4);transform:translateY(-1px);}
+.wc-card--selected{border-color:#06B6D4;background:rgba(6,182,212,0.06);box-shadow:0 0 0 3px rgba(6,182,212,0.15);}
+.wc-mask{font-family:'Space Grotesk','Noto Sans Devanagari',sans-serif;font-size:1.05rem;font-weight:800;color:#0f172a;text-align:center;letter-spacing:0.04em;line-height:1.2;}
+.wc-value{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:800;color:#0891b2;}
+
+.register-sep{display:flex;align-items:center;gap:12px;margin:4px 0 0;}
+.register-sep::before,.register-sep::after{content:'';flex:1;height:1px;background:#e2d9cc;}
+.register-sep span{font-size:0.75rem;font-weight:600;color:#64748b;white-space:nowrap;text-transform:uppercase;letter-spacing:0.05em;}
+
 .reg-wrap{width:100%;border:1px solid #e2d9cc;border-radius:12px;overflow:hidden;overflow-x:auto;}
 .reg-header,.reg-dropdowns{display:grid;grid-template-columns:repeat(5,1fr);min-width:260px;}
-.reg-head-cell{height:36px;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:0.75rem;font-weight:700;color:#475569;background:#f3efe9;border-bottom:1px solid #e2d9cc;}
+.reg-head-cell{height:36px;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:0.78rem;font-weight:800;color:#0891b2;background:#f3efe9;border-bottom:1px solid #e2d9cc;letter-spacing:0.04em;}
 .reg-select{border:none;border-right:1px solid #e2d9cc;border-top:1px solid #e2d9cc;padding:10px 0;text-align:center;font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;text-align-last:center;transition:background 0.15s;}
 .reg-select:last-child{border-right:none;}
 .reg-select:focus{background:rgba(6,182,212,0.07);}
 .reg-select--disabled{background:#f3efe9;color:#cbd5e1;cursor:not-allowed;}
+
 .overlay-bg{position:fixed;inset:0;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;z-index:9000;padding:20px;}
-.overlay-card{position:relative;background:#fbf7f0;border:1px solid #e2d9cc;border-radius:20px;padding:36px 32px;max-width:360px;width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 20px 60px rgba(15,23,42,0.2);animation:oIn 0.22s ease;}
+.overlay-card{position:relative;background:#fbf7f0;border:1px solid #e2d9cc;border-radius:20px;padding:36px 32px;max-width:380px;width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 20px 60px rgba(15,23,42,0.2);animation:oIn 0.22s ease;}
 .overlay-card--wide{max-width:820px;align-items:flex-start;max-height:90vh;overflow-y:auto;}
 @keyframes oIn{from{transform:scale(0.94);opacity:0}to{transform:scale(1);opacity:1}}
 .overlay-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:1.1rem;color:#94a3b8;cursor:pointer;}
 .overlay-close:hover{color:#0f172a;}
 .overlay-eyebrow{font-size:0.72rem;font-weight:600;color:#0891b2;letter-spacing:0.08em;text-transform:uppercase;}
-.overlay-title{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:800;color:#0f172a;}
-.overlay-hint{font-size:0.8rem;color:#64748b;text-align:center;line-height:1.6;}
+.overlay-title{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:800;color:#0f172a;text-align:center;}
+.overlay-hint{font-size:0.8rem;color:#64748b;text-align:center;line-height:1.7;}
 .overlay-btn{width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.94rem;cursor:pointer;}
 .overlay-btn:hover{opacity:0.9;}
 .overlay-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
 .preview-details{width:100%;background:#fff;border:1px solid #e2d9cc;border-radius:12px;padding:14px 18px;display:flex;flex-direction:column;gap:10px;}
-.preview-row{display:flex;gap:14px;font-size:0.88rem;line-height:1.5;}
-.preview-key{font-weight:700;color:#475569;min-width:80px;}
-.preview-val{color:#0f172a;}
+.preview-row{display:flex;gap:14px;font-size:0.88rem;line-height:1.6;align-items:flex-start;}
+.preview-key{font-weight:700;color:#475569;min-width:70px;font-size:0.82rem;text-transform:uppercase;letter-spacing:0.04em;padding-top:2px;}
+.preview-val{color:#0f172a;display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+
 .mnemonic-box{width:100%;background:rgba(6,182,212,0.06);border:1.5px solid rgba(6,182,212,0.2);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;}
-.mnemonic-letters{font-family:'Space Grotesk',sans-serif;font-size:2.8rem;font-weight:800;color:#0891b2;letter-spacing:0.18em;line-height:1;}
-.mnemonic-pairs{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;}
-.mnemonic-pair{font-size:0.84rem;color:#334155;background:#fff;border:1px solid #e2d9cc;border-radius:8px;padding:4px 12px;}
-.mnemonic-pair strong{color:#0891b2;margin-right:2px;}
-.mnemonic-hint{font-size:0.76rem;color:#64748b;text-align:center;}
+.mnemonic-letters{font-size:2.4rem;font-weight:800;color:#0891b2;line-height:1.15;text-align:center;}
+.mnemonic-pairs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.mnemonic-pair{font-size:0.9rem;color:#334155;background:#fff;border:1px solid #e2d9cc;border-radius:8px;padding:5px 14px;}
+.mnemonic-pair strong{color:#0891b2;}
+.mnemonic-hint{font-size:0.78rem;color:#64748b;text-align:center;line-height:1.7;}
+
 .preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;width:100%;}
-.preview-item{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px;border-radius:12px;background:#fff;border:1px solid #e2d9cc;}
+.preview-item{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;border-radius:12px;background:#fff;border:1px solid #e2d9cc;}
 .preview-img-wrap{width:80px;height:80px;border-radius:10px;background:#f3efe9;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e2d9cc;}
-.preview-img{width:100%;height:100%;object-fit:contain;}
-.preview-fallback{font-size:1.6rem;font-weight:800;color:#94a3b8;font-family:'Space Grotesk',sans-serif;}
-.preview-label{font-size:0.8rem;font-weight:700;color:#0f172a;text-transform:capitalize;}
+.preview-label{font-size:0.78rem;font-weight:700;color:#0f172a;text-align:center;font-family:'Space Grotesk','Noto Sans Devanagari',sans-serif;}
+
 .btn-primary{width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.94rem;cursor:pointer;box-shadow:0 0 18px rgba(6,182,212,0.22);transition:transform 0.18s,box-shadow 0.18s,opacity 0.18s;}
 .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 26px rgba(6,182,212,0.36);}
 .btn-primary:disabled{opacity:0.36;cursor:not-allowed;box-shadow:none;transform:none;}
 .btn-primary--danger{background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 18px rgba(239,68,68,0.2);}
-.btn-primary--danger:hover:not(:disabled){box-shadow:0 0 26px rgba(239,68,68,0.35);}
 .btn-outline{width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2d9cc;background:transparent;color:#475569;font-size:0.9rem;font-weight:500;cursor:pointer;transition:border-color 0.18s,color 0.18s;}
 .btn-outline:hover{border-color:#06B6D4;color:#0891b2;}
+.btn-outline:disabled{opacity:0.4;cursor:not-allowed;}
+
 .alert-error{padding:11px 14px;border-radius:9px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);color:#dc2626;font-size:0.84rem;line-height:1.5;}
 .auth-links{display:flex;justify-content:space-between;margin-top:6px;gap:10px;}
 .auth-link{background:none;border:none;font-size:0.78rem;color:#0891b2;font-weight:600;cursor:pointer;padding:2px 0;}
 .auth-link:hover{text-decoration:underline;}
 .auth-link--danger{color:#dc2626;}
+
 .passkey-spinner{width:44px;height:44px;border-radius:50%;border:3px solid #e2d9cc;border-top-color:#06B6D4;animation:spin 0.8s linear infinite;margin:0 auto;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .passkey-icon{font-size:2.4rem;line-height:1;}
+
 .success-box{display:flex;flex-direction:column;align-items:center;gap:14px;padding:32px 20px;text-align:center;}
 .success-check{width:64px;height:64px;border-radius:50%;background:rgba(34,197,94,0.12);border:2px solid rgba(34,197,94,0.3);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:#16a34a;}
 .success-title{font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;color:#0f172a;}
 .success-msg{font-size:0.88rem;color:#64748b;line-height:1.65;max-width:380px;}
 
-/* ── multi-toast stack ── */
 .toast-stack{position:fixed;bottom:26px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
 .toast{display:flex;align-items:center;gap:10px;padding:13px 18px;border-radius:11px;max-width:340px;font-size:0.87rem;font-weight:500;cursor:pointer;box-shadow:0 8px 28px rgba(15,23,42,0.13);animation:slideUp 0.28s ease;}
 .toast-icon{font-size:1rem;flex-shrink:0;}
@@ -943,5 +971,6 @@ const CSS = `
 .toast-warning{background:#fffbeb;border:1px solid rgba(245,158,11,0.3);color:#d97706;}
 .toast-error{background:#fef2f2;border:1px solid rgba(239,68,68,0.28);color:#dc2626;}
 @keyframes slideUp{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+
 .page-footer{text-align:center;margin-top:28px;font-size:0.75rem;color:#94a3b8;position:relative;z-index:1;}
 `;
