@@ -575,9 +575,6 @@ export default function Auth() {
                       At login, one unique part of your word will appear — e.g. "Ra _ _".
                       {!isWpFlow && " In Regular mode two words appear together."}
                     </p>
-                    <div className="word-grid">
-                      {/* ...existing map... */}
-                    </div>
 
                     <div className="word-grid">
                       {(isWpFlow ? words : wordPairs).map((item, idx) => {
@@ -875,12 +872,7 @@ button,input,select{font-family:inherit;}
 .word-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;max-height:320px;overflow-y:auto;padding-right:4px;}
 .word-grid::-webkit-scrollbar{width:4px;}
 .word-grid::-webkit-scrollbar-thumb{background:#d1c4b0;border-radius:2px;}
-.word-card{padding:12px 14px;border-radius:12px;background:#fff;border:1.5px solid #e2d9cc;cursor:pointer;text-align:left;transition:border-color 0.16s,box-shadow 0.16s,transform 0.14s;}
-.word-card:hover{border-color:rgba(6,182,212,0.4);transform:translateY(-1px);}
-.word-card--selected{border-color:#06B6D4;background:rgba(6,182,212,0.04);box-shadow:0 0 0 3px rgba(6,182,212,0.1);}
-.word-display{font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:6px;}
 .word-parts{display:flex;flex-wrap:wrap;gap:4px;}
-.part-chip{padding:3px 7px;border-radius:99px;background:rgba(6,182,212,0.08);color:#0891b2;font-size:0.72rem;font-weight:600;border:1px solid rgba(6,182,212,0.15);}
 
 .cg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%;margin-top:4px;}
 @media(max-width:900px){.cg-grid{grid-template-columns:repeat(3,1fr);}}
@@ -925,69 +917,136 @@ button,input,select{font-family:inherit;}
 .preview-img-wrap{width:80px;height:80px;border-radius:10px;background:#f3efe9;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e2d9cc;}
 .preview-label{font-size:0.78rem;font-weight:700;color:#0f172a;text-align:center;font-family:'Space Grotesk','Noto Sans Devanagari',sans-serif;}
 
-/* Letter-pair selects (signup) */
-.ctrl-select{
-  padding:12px 18px;
-  border-radius:10px;
-  border:2px solid #0f172a;
-  background:#ffffff;
-  font-family:'Space Grotesk',sans-serif;
-  font-size:1.6rem;          /* was 0.95rem */
-  font-weight:800;
-  color:#000000;             /* pure black on white */
-  cursor:pointer;
-  outline:none;
-  min-width:64px;
-  text-align:center;
-}
-.ctrl-select:focus{border-color:#06B6D4;box-shadow:0 0 0 3px rgba(6,182,212,0.25);}
-.ctrl-select:disabled{background:#f3efe9;color:#94a3b8;cursor:not-allowed;}
-
 /* Register letter headers (login grid) */
 .reg-head-cell{
-  height:52px;               /* was 36px */
-  font-size:1.4rem;          /* was 0.78rem */
-  font-weight:900;
+  height:auto;              /* fixed: was 5px, clipping the letters */
+  min-height:48px;
+  padding:10px 8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.25rem;        /* slightly smaller than before, still large */
+  font-weight:800;
   color:#000000;
   background:#ffffff;
   border:2px solid #0f172a;
   border-bottom:none;
-  letter-spacing:0.06em;
+  letter-spacing:0.04em;
+  text-align:center;
 }
 
 /* Register digit selects (login grid) */
 .reg-select{
-  padding:16px 0;            /* was 10px 0 */
-  font-size:1.7rem;          /* was 1rem */
-  font-weight:900;
+  padding:14px 0;
+  font-size:1.4rem;
+  font-weight:800;
   color:#000000;
   background:#ffffff;
   border:2px solid #0f172a;
-  min-height:60px;
+  min-height:54px;
+  text-align:center;
+  text-align-last:center;
 }
 .reg-select--disabled{background:#f1f1f1;color:#9ca3af;}
 
 /* Word card masks shown during login (the _ _ le hints) */
 .wc-mask{
-  font-size:1.5rem;          /* was 1.05rem */
-  font-weight:900;
+  font-size:1.3rem;
+  font-weight:800;
   color:#000000;
-  letter-spacing:0.06em;
+  letter-spacing:0.04em;
+  text-align:center;
 }
 .wc-value{
-  font-size:1.6rem;          /* was 1.2rem */
-  font-weight:900;
-  color:#000000;             /* switched from teal to black for max contrast */
+  font-size:1.4rem;
+  font-weight:800;
+  color:#000000;
+  text-align:center;
 }
 .wc-card{
+  padding:14px 12px;
   border:2px solid #0f172a;
   background:#ffffff;
-  min-height:96px;           /* slightly taller to fit bigger text comfortably */
+  min-height:88px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border-radius:10px;
 }
 .wc-card--selected{
   border-color:#0891b2;
   background:#e0f7fa;
   box-shadow:0 0 0 3px rgba(8,145,178,0.3);
+}
+
+/* Letter-pair selects (signup) — toned down slightly */
+.ctrl-select{
+  padding:10px 16px;
+  border-radius:10px;
+  border:2px solid #0f172a;
+  background:#ffffff;
+  font-family:'Space Grotesk',sans-serif;
+  font-size:1.3rem;
+  font-weight:800;
+  color:#000000;
+  cursor:pointer;
+  outline:none;
+  min-width:58px;
+  text-align:center;
+}
+.ctrl-select:focus{border-color:#06B6D4;box-shadow:0 0 0 3px rgba(6,182,212,0.25);}
+.ctrl-select:disabled{background:#f3efe9;color:#94a3b8;cursor:not-allowed;}
+
+/* part-chip — also toned down to match, centered */
+.part-chip{
+  padding:5px 10px;
+  font-size:0.92rem;
+  font-weight:700;
+  border:2px solid #0f172a;
+  background:#fff;
+  color:#000;
+  border-radius:8px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.word-display{
+  font-size:1.2rem;
+  font-weight:800;
+  line-height:1.3;
+  color:#000;
+  text-align:center;
+}
+
+.word-card{
+  background:#fff;
+  border:2px solid #0f172a;
+  border-radius:12px;
+  padding:16px 14px;
+  min-height:100px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  cursor:pointer;
+  transition:border-color .15s, box-shadow .15s;
+  text-align:center;
+}
+.word-card--selected{
+  border-color:#0891b2;
+  background:#e0f7fa;
+  box-shadow:0 0 0 3px rgba(8,145,178,0.25);
+}
+
+.word-parts{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  justify-content:center;
 }
 
 .btn-primary{width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.94rem;cursor:pointer;box-shadow:0 0 18px rgba(6,182,212,0.22);transition:transform 0.18s,box-shadow 0.18s,opacity 0.18s;}
