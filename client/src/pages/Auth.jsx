@@ -124,6 +124,7 @@ export default function Auth() {
   const [offset,       setOffset]       = useState(getRandomOffset);
   const [letterPair,   setLetterPair]   = useState(getRandomLetterPair);
   const [preview,      setPreview]      = useState(null);
+  const [lang, setLang] = useState("en"); // "en" | "hi" | "mr"
 
   // login state
   const [loginStep,       setLoginStep]       = useState("creds");
@@ -167,18 +168,15 @@ export default function Auth() {
   /* ── load words on mount ── */
   useEffect(() => {
     if (isWordpressLogin) return;
-    fetch(`${API_BASE}/api/auth/words`)
-  .then(r => r.json())
-  .then(d => {
-      console.log("WORDS", d.words);
-      console.log("WORD PAIRS", d.wordPairs);
-
-      if (d.success && Array.isArray(d.words)) {
+    fetch(`${API_BASE}/api/auth/words?lang=${lang}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && Array.isArray(d.words)) {
           setWords(shuffle(d.words));
           setWordPairs(shuffle(d.wordPairs || []));
-      }
-  });
-  }, []);
+        }
+      });
+  }, [lang]);
 
   /* ── resetAll ── */
   const resetAll = useCallback((m) => {
@@ -190,7 +188,7 @@ export default function Auth() {
     setLoginStep("creds"); setSessionId(""); setChallengeGrid([]);
     setRegisterLetters([]); setRegInputs(Array(5).fill("")); setSelectedCard(null);
     if (m === "signup") {
-      fetch(`${API_BASE}/api/auth/words`)
+      fetch(`${API_BASE}/api/auth/words?lang=${lang}`)
         .then(r => r.json())
         .then(d => {
           if (d.success && Array.isArray(d.words)) {
@@ -199,7 +197,7 @@ export default function Auth() {
           }
         });
     }
-  }, [isWordpressLogin]);
+  }, [isWordpressLogin, lang]);
 
   /* ── passkey registration ── */
   const registerPasskey = async (token) => {
@@ -258,13 +256,9 @@ export default function Auth() {
       const { token } = data;
       localStorage.setItem("token", token);
 
-      try {
-        await registerPasskey(token);
-        showToast("success", "Passkey saved successfully!");
-      } catch (passkeyErr) {
-        console.warn("[signup] passkey skipped:", passkeyErr.message);
-        showToast("warning", "Account created, but passkey was not saved.");
-      }
+      // Passkey step removed for now — go straight to success + sign-in.
+      showToast("success", "Account created! Please sign in.");
+      resetAll("login");
     } catch (err) {
       setError("Server error. Please try again.");
     } finally {
@@ -525,6 +519,11 @@ export default function Auth() {
                 {mode === "signup" && (
                   <div className="form-stack">
                     {/* flow toggle */}
+                    <div className="flow-toggle">
+                      <button className={`flow-btn${lang === "en" ? " flow-btn--active" : ""}`} onClick={() => setLang("en")}>English</button>
+                      <button className={`flow-btn${lang === "hi" ? " flow-btn--active" : ""}`} onClick={() => setLang("hi")}>हिंदी</button>
+                      <button className={`flow-btn${lang === "mr" ? " flow-btn--active" : ""}`} onClick={() => setLang("mr")}>मराठी</button>
+                    </div>
                     <div className="flow-toggle">
                       <button className={`flow-btn${isWpFlow ? " flow-btn--active" : ""}`} onClick={() => setIsWpFlow(true)}>WordPress (single word)</button>
                       <button className={`flow-btn${!isWpFlow ? " flow-btn--active" : ""}`} onClick={() => setIsWpFlow(false)}>Regular (two words)</button>

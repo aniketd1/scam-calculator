@@ -8,7 +8,7 @@ import jwt      from "jsonwebtoken";
 import crypto   from "crypto";
 import User          from "../models/User.js";
 import LoginSession  from "../models/LoginSession.js";
-import { WORDS, WORD_PAIRS } from "../data/words.js";
+import { WORDS_BY_LANG, WORDS, WORD_PAIRS } from "../data/words.js";
 
 // ── BACKUP: sentence-based system ────────────────────────────
 // import { SENTENCES } from "../data/sentences.js";
@@ -36,7 +36,7 @@ const router = express.Router();
 
 /* ── CONSTANTS ──────────────────────────────────────────────── */
 const ALPHABET  = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-const GRID_SIZE = 21;                   // 21 word-part cards shown at login
+const GRID_SIZE = 9;                  
 const RP_NAME   = process.env.RP_NAME   || "Scam2Safe";
 const RP_ID     = process.env.RP_ID     || "localhost";
 const RP_ORIGIN = process.env.RP_ORIGIN || "http://localhost:3000";
@@ -52,65 +52,104 @@ function buildMask(parts, revealIdx) {
 }
 
 /* ── generate challenge grid ─────────────────────────────────
-   Picks one part of the user's secret word(s) to reveal.
-   Fills remaining 20 slots with random parts from other words.
-   Each card: { mask, value }
-   value is a single digit 1–9 (not 10–90 — the VALUE shown on
-   the card is always 1–9; offset 10–99 ensures a 2-digit result).
+    Rules:
+    1. Only 9 cards total.
+    2. Every card reveals the SAME part index as the secret word
+      (e.g. if secret reveals index 0 → "Ra _ _", every distractor
+      also reveals its own index 0, so they're all "Xx _ _" style —
+      never mixed like "_ pa _" alongside "ra _ _").
+    3. Distractors are pulled from the SAME language pool as the
+      secret word, and only from words with the SAME number of
+      parts as the secret (so underscore-count matches visually).
+    4. Words that happen to share the same revealed text as the
+      secret (e.g. Ramesh & Rajesh both reveal "Ra") are allowed to
+      appear — that's intentional ambiguity — but each mask must be
+      a real distinct word's masked form (no literal duplicate mask
+      strings beyond what naturally occurs from same-prefix words,
+      since the user must still tell their card apart by mask+value
+      pairing if duplicate text appears, the session itself tracks
+      index, not text, so this is safe).
 ─────────────────────────────────────────────────────────────── */
-function generateWordChallengeGrid(secretWord, secretParts) {
-  // Pick which part to reveal (rotating by login count is handled
-  // server-side via session; here we pick randomly for simplicity —
-  // rotation can be added later by storing a counter on the user).
-  const revealIdx   = Math.floor(Math.random() * secretParts.filter(Boolean).length);
+function generateWordChallengeGrid(secretWord, secretParts, lang) {
+  const pool = WORDS_BY_LANG[lang] || WORDS;
+
+  const cleanSecretParts = secretParts.filter(Boolean);
+  const revealIdx   = Math.floor(Math.random() * cleanSecretParts.length);
   const secretMask  = buildMask(secretParts, revealIdx);
   const secretValue = Math.floor(Math.random() * 9) + 1; // 1–9
 
-  // Build distractor cards from all other words
-  const allParts = [];
+  // 1. Try single-word candidates first (WordPress / single-word flow)
+  const singleCandidates = pool.filter(w => {
+    if (!w?.word || !Array.isArray(w.parts)) return false;
+    if (w.word === secretWord) return false;
+    const clean = w.parts.filter(p => typeof p === "string" && p.trim().length > 0);
+    return clean.length === cleanSecretParts.length && clean[revealIdx];
+  });
 
-  for (const w of WORDS) {
-    if (!w?.word || !Array.isArray(w.parts)) continue;
-    if (w.word === secretWord) continue;
+  let buildDistractor; // returns { mask, word } or null
 
-    const cleanParts = w.parts.filter(p => typeof p === "string" && p.trim().length > 0);
-
-    if (cleanParts.length === 0) continue;
-
-    cleanParts.forEach((p, i) => {
-      allParts.push({
-        mask: buildMask(cleanParts, i),
+  if (singleCandidates.length > 0) {
+    const shuffled = singleCandidates.sort(() => Math.random() - 0.5);
+    let i = 0;
+    buildDistractor = () => {
+      const w = shuffled[i % shuffled.length];
+      i++;
+      const clean = w.parts.filter(Boolean);
+      return {
+        mask: buildMask(clean, revealIdx),
         word: w.word,
-        partIndex: i
-      });
-    });
+        value: Math.floor(Math.random() * 9) + 1, // ← add this
+      };
+    };
+  } else {
+    const usableWords = pool.filter(w => Array.isArray(w.parts) && w.parts.filter(Boolean).length > 0);
+    if (usableWords.length < 2) {
+      throw new Error(`Not enough words in '${lang}' pool to build a paired grid.`);
+    }
+
+    buildDistractor = () => {
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const a = usableWords[Math.floor(Math.random() * usableWords.length)];
+        const b = usableWords[Math.floor(Math.random() * usableWords.length)];
+        if (a.word === b.word) continue;
+        const combined = [...a.parts.filter(Boolean), ...b.parts.filter(Boolean)];
+        if (combined.length === cleanSecretParts.length && combined[revealIdx]) {
+          return {
+            mask: buildMask(combined, revealIdx),
+            word: `${a.word} + ${b.word}`,
+            value: Math.floor(Math.random() * 9) + 1, // ← add this
+          };
+        }
+      }
+      return null;
+    };
   }
 
-  if (!Array.isArray(secretParts) || secretParts.length === 0) {
-    throw new Error("Invalid secretParts passed to grid generator");
+  const distractors = [];
+  const seenMasks = new Set([secretMask]);
+  let tries = 0;
+  while (distractors.length < GRID_SIZE - 1 && tries < (GRID_SIZE - 1) * 20) {
+    tries++;
+    const d = buildDistractor();
+    if (!d) continue;
+    distractors.push(d);
   }
 
-  const seen = new Set();
+  // If we still came up short (tiny pool), pad by repeating — acceptable
+  // since duplicate text is fine, the session tracks index not text.
+  while (distractors.length < GRID_SIZE - 1 && distractors.length > 0) {
+    distractors.push(distractors[distractors.length % distractors.length]);
+  }
 
-  const distractors = allParts
-    .sort(() => Math.random() - 0.5)
-    .filter(d => {
-      if (seen.has(d.mask)) return false;
-      seen.add(d.mask);
-      return true;
-    })
-    .slice(0, GRID_SIZE - 1)
+  if (distractors.length === 0) {
+    throw new Error(`Could not generate any distractor cards for '${lang}' pool with ${cleanSecretParts.length} parts.`);
+  }
 
   const grid = [{ mask: secretMask, value: secretValue, isSecret: true }, ...distractors];
+  const shuffledGrid = grid.sort(() => Math.random() - 0.5);
 
-  // Find where the secret card ended up
-  const secretIdx = grid.findIndex(c => c.isSecret);
-  // Strip isSecret before sending to client
-  const clientGrid = grid.map(({ mask, value, word }) => ({
-    mask,
-    value,
-    word
-  }));
+  const secretIdx = shuffledGrid.findIndex(c => c.isSecret);
+  const clientGrid = shuffledGrid.map(({ mask, value, word }) => ({ mask, value, word }));
 
   return { clientGrid, secretIdx, secretValue };
 }
@@ -144,8 +183,8 @@ function generateRegisterLetters(secretLetters) {
   return [...secretLetters, ...three].sort(() => Math.random() - 0.5);
 }
 
-async function createLoginSession(userId, secretWord, secretParts, offset, secretLetters, registerLetters) {
-  const { clientGrid, secretIdx, secretValue } = generateWordChallengeGrid(secretWord, secretParts);
+async function createLoginSession(userId, secretWord, secretParts, offset, secretLetters, registerLetters, lang) {
+  const { clientGrid, secretIdx, secretValue } = generateWordChallengeGrid(secretWord, secretParts, lang || "en");
   const { d1, d2, pos1, pos2 } = buildWordRegister(secretValue, offset, secretLetters, registerLetters);
 
   const sessionId = crypto.randomUUID();
@@ -184,9 +223,20 @@ function verifyUserToken(req, res, next) {
    ROUTES
 ══════════════════════════════════════════════════════════════ */
 
-/* ── GET /api/auth/words ────────────────────────────────────── */
-router.get("/words", (_req, res) => {
-  res.json({ success: true, words: WORDS, wordPairs: WORD_PAIRS });
+/* ── GET /api/auth/words?lang=en|hi|mr ──────────────────────── */
+router.get("/words", (req, res) => {
+  const lang = ["en", "hi", "mr"].includes(req.query.lang) ? req.query.lang : "en";
+  const words = WORDS_BY_LANG[lang] || WORDS_BY_LANG.en;
+
+  // Build word pairs on the fly for "Regular (two words)" mode,
+  // restricted to the same language so masks stay consistent.
+  const shuffled = [...words].sort(() => Math.random() - 0.5);
+  const wordPairs = [];
+  for (let i = 0; i + 1 < shuffled.length && wordPairs.length < 12; i += 2) {
+    wordPairs.push([shuffled[i].word, shuffled[i + 1].word]);
+  }
+
+  res.json({ success: true, lang, words, wordPairs });
 });
 
 // ── BACKUP: sentence endpoint preserved but inactive ─────────
@@ -316,7 +366,8 @@ router.post("/login", async (req, res) => {
 
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
-      user.offset, user.secretLetters, user.registerLetters
+      user.offset, user.secretLetters, user.registerLetters,
+      user.selectedWordLang
     );
 
     return res.json({ success: true, sessionId, challengeGrid, registerLetters });
@@ -343,7 +394,8 @@ router.post("/wordpress-login", async (req, res) => {
 
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
-      user.offset, user.secretLetters, user.registerLetters
+      user.offset, user.secretLetters, user.registerLetters,
+      user.selectedWordLang
     );
 
     return res.json({ success: true, sessionId, challengeGrid, registerLetters });
@@ -582,7 +634,8 @@ router.post("/passkey/login-complete", async (req, res) => {
     // Passkey verified — still show the word grid for the visual layer
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
-      user.offset, user.secretLetters, user.registerLetters
+      user.offset, user.secretLetters, user.registerLetters,
+      user.selectedWordLang
     );
 
     return res.json({ success: true, sessionId, challengeGrid, registerLetters });
