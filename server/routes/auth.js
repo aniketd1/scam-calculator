@@ -126,19 +126,23 @@ function generateWordChallengeGrid(secretWord, secretParts, lang) {
   }
 
   const distractors = [];
-  const seenMasks = new Set([secretMask]);
+  const seenMasks = new Set([secretMask]); // secret's mask can't repeat either
   let tries = 0;
-  while (distractors.length < GRID_SIZE - 1 && tries < (GRID_SIZE - 1) * 20) {
+  while (distractors.length < GRID_SIZE - 1 && tries < (GRID_SIZE - 1) * 40) {
     tries++;
     const d = buildDistractor();
     if (!d) continue;
+    if (seenMasks.has(d.mask)) continue;   // ← skip exact duplicate masks
+    seenMasks.add(d.mask);
     distractors.push(d);
   }
 
-  // If we still came up short (tiny pool), pad by repeating — acceptable
-  // since duplicate text is fine, the session tracks index not text.
-  while (distractors.length < GRID_SIZE - 1 && distractors.length > 0) {
-    distractors.push(distractors[distractors.length % distractors.length]);
+  // Only pad with repeats as an absolute last resort (tiny pool edge case)
+  if (distractors.length < GRID_SIZE - 1) {
+    console.warn(`[grid] could not find ${GRID_SIZE - 1} unique masks for lang=${lang}, len=${cleanSecretParts.length}, idx=${revealIdx}`);
+    while (distractors.length < GRID_SIZE - 1 && distractors.length > 0) {
+      distractors.push(distractors[distractors.length % distractors.length]);
+    }
   }
 
   if (distractors.length === 0) {

@@ -238,27 +238,17 @@ export default function Auth() {
     setError("");
 
     try {
-      const data = await postJson("/api/auth/signup", {
-        email, password,
-        selectedWord:      selectedWord.word,
-        selectedWordParts: selectedWord.parts,
-        selectedWordLang:  selectedWord.lang,
-        secretLetters:     letterPair,
-        offset:            parseInt(offset, 10),
-        wpFlow:            isWpFlow,
-      });
+      const data = await postJson("/api/auth/signup", { /* ...unchanged... */ });
 
       if (!data.success) {
         setError(data.error || "Could not create account. Please try again.");
         return;
       }
 
-      const { token } = data;
-      localStorage.setItem("token", token);
-
-      // Passkey step removed for now — go straight to success + sign-in.
+      localStorage.setItem("token", data.token);
       showToast("success", "Account created! Please sign in.");
       resetAll("login");
+      window.scrollTo({ top: 0, behavior: "smooth" }); // ← scroll up so user sees the sign-in form + toast
     } catch (err) {
       setError("Server error. Please try again.");
     } finally {
@@ -518,12 +508,6 @@ export default function Auth() {
                 {/* ══ SIGNUP ══ */}
                 {mode === "signup" && (
                   <div className="form-stack">
-                    {/* flow toggle */}
-                    <div className="flow-toggle">
-                      <button className={`flow-btn${lang === "en" ? " flow-btn--active" : ""}`} onClick={() => setLang("en")}>English</button>
-                      <button className={`flow-btn${lang === "hi" ? " flow-btn--active" : ""}`} onClick={() => setLang("hi")}>हिंदी</button>
-                      <button className={`flow-btn${lang === "mr" ? " flow-btn--active" : ""}`} onClick={() => setLang("mr")}>मराठी</button>
-                    </div>
                     <div className="flow-toggle">
                       <button className={`flow-btn${isWpFlow ? " flow-btn--active" : ""}`} onClick={() => setIsWpFlow(true)}>WordPress (single word)</button>
                       <button className={`flow-btn${!isWpFlow ? " flow-btn--active" : ""}`} onClick={() => setIsWpFlow(false)}>Regular (two words)</button>
@@ -575,12 +559,25 @@ export default function Auth() {
                       </div>
                     </div>
 
+                    {/* Language selector — sits above the word grid, controls which pool loads */}
+                    <div className="field-group">
+                      <label className="field-label">Choose language for your word</label>
+                      <div className="flow-toggle">
+                        <button className={`flow-btn${lang === "mr" ? " flow-btn--active" : ""}`} onClick={() => setLang("mr")}>मराठी</button>
+                        <button className={`flow-btn${lang === "en" ? " flow-btn--active" : ""}`} onClick={() => setLang("en")}>English</button>
+                        <button className={`flow-btn${lang === "hi" ? " flow-btn--active" : ""}`} onClick={() => setLang("hi")}>हिंदी</button>
+                      </div>
+                    </div>
+
                     {/* Word selector */}
                     <p className="section-label">Choose your Visual Password word</p>
                     <p className="section-hint">
                       At login, one unique part of your word will appear — e.g. "Ra _ _".
                       {!isWpFlow && " In Regular mode two words appear together."}
                     </p>
+                    <div className="word-grid">
+                      {/* ...existing map... */}
+                    </div>
 
                     <div className="word-grid">
                       {(isWpFlow ? words : wordPairs).map((item, idx) => {
@@ -850,7 +847,7 @@ button,input,select{font-family:inherit;}
 .mode-tab--active{background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;border-color:transparent;font-weight:700;}
 
 .flow-toggle{display:flex;gap:6px;background:#f3efe9;border-radius:99px;padding:4px;}
-.flow-btn{flex:1;padding:7px 14px;border-radius:99px;background:transparent;border:none;font-size:0.82rem;font-weight:500;color:#475569;cursor:pointer;transition:all 0.18s;}
+.flow-btn{flex:1;padding:7px 14px;border-radius:99px;background:transparent;border:none;font-size:0.9rem;font-weight:500;color:#475569;cursor:pointer;transition:all 0.18s;}
 .flow-btn--active{background:#fff;color:#0891b2;font-weight:700;box-shadow:0 1px 4px rgba(15,23,42,0.08);}
 
 .step-badge{padding:9px 14px;border-radius:9px;background:rgba(6,182,212,0.07);border:1px solid rgba(6,182,212,0.15);font-size:0.83rem;color:#0891b2;font-weight:600;}
@@ -870,9 +867,6 @@ button,input,select{font-family:inherit;}
 .letter-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px;}
 .ctrl-offset{width:64px;padding:9px 10px;border-radius:8px;border:1.5px solid #e2d9cc;background:#fff;font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:800;color:#0f172a;text-align:center;outline:none;}
 .ctrl-offset:focus{border-color:#06B6D4;}
-.ctrl-select{padding:8px 12px;border-radius:8px;border:1.5px solid #e2d9cc;background:#fff;font-family:'Space Grotesk',sans-serif;font-size:0.95rem;font-weight:700;color:#0f172a;cursor:pointer;outline:none;}
-.ctrl-select:focus{border-color:#06B6D4;}
-.ctrl-select:disabled{background:#f3efe9;color:#94a3b8;cursor:not-allowed;}
 .ctrl-plus{font-family:'Space Grotesk',sans-serif;font-weight:800;color:#06B6D4;font-size:1.2rem;}
 .ctrl-hint{font-size:0.75rem;color:#94a3b8;line-height:1.5;}
 .section-label{font-size:0.73rem;font-weight:700;color:#475569;letter-spacing:0.06em;text-transform:uppercase;}
@@ -892,11 +886,7 @@ button,input,select{font-family:inherit;}
 @media(max-width:900px){.cg-grid{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:540px){.cg-grid{grid-template-columns:repeat(3,1fr);gap:7px;}}
 
-.wc-card{background:#fff;border:1.5px solid #e2d9cc;border-radius:12px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:border-color 0.16s,box-shadow 0.16s,transform 0.14s;min-height:80px;}
 .wc-card:hover{border-color:rgba(6,182,212,0.4);transform:translateY(-1px);}
-.wc-card--selected{border-color:#06B6D4;background:rgba(6,182,212,0.06);box-shadow:0 0 0 3px rgba(6,182,212,0.15);}
-.wc-mask{font-family:'Space Grotesk','Noto Sans Devanagari',sans-serif;font-size:1.05rem;font-weight:800;color:#0f172a;text-align:center;letter-spacing:0.04em;line-height:1.2;}
-.wc-value{font-family:'Space Grotesk',sans-serif;font-size:1.2rem;font-weight:800;color:#0891b2;}
 
 .register-sep{display:flex;align-items:center;gap:12px;margin:4px 0 0;}
 .register-sep::before,.register-sep::after{content:'';flex:1;height:1px;background:#e2d9cc;}
@@ -904,11 +894,6 @@ button,input,select{font-family:inherit;}
 
 .reg-wrap{width:100%;border:1px solid #e2d9cc;border-radius:12px;overflow:hidden;overflow-x:auto;}
 .reg-header,.reg-dropdowns{display:grid;grid-template-columns:repeat(5,1fr);min-width:260px;}
-.reg-head-cell{height:36px;display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:0.78rem;font-weight:800;color:#0891b2;background:#f3efe9;border-bottom:1px solid #e2d9cc;letter-spacing:0.04em;}
-.reg-select{border:none;border-right:1px solid #e2d9cc;border-top:1px solid #e2d9cc;padding:10px 0;text-align:center;font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:700;color:#0f172a;background:#fff;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;text-align-last:center;transition:background 0.15s;}
-.reg-select:last-child{border-right:none;}
-.reg-select:focus{background:rgba(6,182,212,0.07);}
-.reg-select--disabled{background:#f3efe9;color:#cbd5e1;cursor:not-allowed;}
 
 .overlay-bg{position:fixed;inset:0;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;z-index:9000;padding:20px;}
 .overlay-card{position:relative;background:#fbf7f0;border:1px solid #e2d9cc;border-radius:20px;padding:36px 32px;max-width:380px;width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 20px 60px rgba(15,23,42,0.2);animation:oIn 0.22s ease;}
@@ -939,6 +924,71 @@ button,input,select{font-family:inherit;}
 .preview-item{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;border-radius:12px;background:#fff;border:1px solid #e2d9cc;}
 .preview-img-wrap{width:80px;height:80px;border-radius:10px;background:#f3efe9;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e2d9cc;}
 .preview-label{font-size:0.78rem;font-weight:700;color:#0f172a;text-align:center;font-family:'Space Grotesk','Noto Sans Devanagari',sans-serif;}
+
+/* Letter-pair selects (signup) */
+.ctrl-select{
+  padding:12px 18px;
+  border-radius:10px;
+  border:2px solid #0f172a;
+  background:#ffffff;
+  font-family:'Space Grotesk',sans-serif;
+  font-size:1.6rem;          /* was 0.95rem */
+  font-weight:800;
+  color:#000000;             /* pure black on white */
+  cursor:pointer;
+  outline:none;
+  min-width:64px;
+  text-align:center;
+}
+.ctrl-select:focus{border-color:#06B6D4;box-shadow:0 0 0 3px rgba(6,182,212,0.25);}
+.ctrl-select:disabled{background:#f3efe9;color:#94a3b8;cursor:not-allowed;}
+
+/* Register letter headers (login grid) */
+.reg-head-cell{
+  height:52px;               /* was 36px */
+  font-size:1.4rem;          /* was 0.78rem */
+  font-weight:900;
+  color:#000000;
+  background:#ffffff;
+  border:2px solid #0f172a;
+  border-bottom:none;
+  letter-spacing:0.06em;
+}
+
+/* Register digit selects (login grid) */
+.reg-select{
+  padding:16px 0;            /* was 10px 0 */
+  font-size:1.7rem;          /* was 1rem */
+  font-weight:900;
+  color:#000000;
+  background:#ffffff;
+  border:2px solid #0f172a;
+  min-height:60px;
+}
+.reg-select--disabled{background:#f1f1f1;color:#9ca3af;}
+
+/* Word card masks shown during login (the _ _ le hints) */
+.wc-mask{
+  font-size:1.5rem;          /* was 1.05rem */
+  font-weight:900;
+  color:#000000;
+  letter-spacing:0.06em;
+}
+.wc-value{
+  font-size:1.6rem;          /* was 1.2rem */
+  font-weight:900;
+  color:#000000;             /* switched from teal to black for max contrast */
+}
+.wc-card{
+  border:2px solid #0f172a;
+  background:#ffffff;
+  min-height:96px;           /* slightly taller to fit bigger text comfortably */
+}
+.wc-card--selected{
+  border-color:#0891b2;
+  background:#e0f7fa;
+  box-shadow:0 0 0 3px rgba(8,145,178,0.3);
+}
 
 .btn-primary{width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.94rem;cursor:pointer;box-shadow:0 0 18px rgba(6,182,212,0.22);transition:transform 0.18s,box-shadow 0.18s,opacity 0.18s;}
 .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 26px rgba(6,182,212,0.36);}
