@@ -304,8 +304,8 @@ router.post("/signup", async (req, res) => {
     if (isNaN(off) || off < 10 || off > 99)
       return res.status(400).json({ success: false, error: "Offset must be 10–99." });
 
-    if (!Array.isArray(selectedWordParts) || selectedWordParts.filter(Boolean).length < 2)
-      return res.status(400).json({ success: false, error: "Word must have at least 2 parts." });
+    if (!Array.isArray(selectedWordParts) || ![3, 6].includes(selectedWordParts.filter(Boolean).length))
+      return res.status(400).json({ success: false, error: "Word must have exactly 3 parts (or 6 for two-word combos)." });
 
     const existing = await User.findOne({ email: email.toLowerCase().trim() });
     if (existing)
