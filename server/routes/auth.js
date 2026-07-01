@@ -243,6 +243,55 @@ router.get("/words", (req, res) => {
   res.json({ success: true, lang, words, wordPairs });
 });
 
+// wordpress security endpoint
+router.post("/verify-wp-token", async (req, res) => {
+    try {
+
+        const { token } = req.body;
+
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing token."
+            });
+        }
+
+        let decoded;
+
+        try {
+
+            decoded = jwt.verify(
+                token,
+                process.env.JWT_SECRET
+            );
+
+        } catch (err) {
+
+            return res.status(401).json({
+                success: false,
+                error: "Invalid or expired token."
+            });
+
+        }
+
+        return res.json({
+            success: true,
+            userId: decoded.userId,
+            email: decoded.email
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        return res.status(500).json({
+            success: false,
+            error: "Server error."
+        });
+
+    }
+});
+
 // ── BACKUP: sentence endpoint preserved but inactive ─────────
 // router.get("/sentences", (_req, res) => {
 //   res.json({ success: true, sentences: SENTENCES });
