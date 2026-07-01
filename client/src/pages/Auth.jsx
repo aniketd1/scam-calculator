@@ -238,7 +238,16 @@ export default function Auth() {
     setError("");
 
     try {
-      const data = await postJson("/api/auth/signup", { /* ...unchanged... */ });
+      const data = await postJson("/api/auth/signup", {
+        email,
+        password,
+        selectedWord:      selectedWord.word,
+        selectedWordParts: selectedWord.parts,
+        selectedWordLang:  selectedWord.lang,
+        secretLetters:     letterPair,
+        offset:            parseInt(offset, 10),
+        wpFlow:            isWpFlow,
+      });
 
       if (!data.success) {
         setError(data.error || "Could not create account. Please try again.");
@@ -248,7 +257,7 @@ export default function Auth() {
       localStorage.setItem("token", data.token);
       showToast("success", "Account created! Please sign in.");
       resetAll("login");
-      window.scrollTo({ top: 0, behavior: "smooth" }); // ← scroll up so user sees the sign-in form + toast
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setError("Server error. Please try again.");
     } finally {
