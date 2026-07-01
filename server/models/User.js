@@ -24,7 +24,8 @@ const UserSchema = new mongoose.Schema(
     },
     password: {
       type:     String,
-      required: true,
+      required: false,
+      default: null,
     },
 
     /* ── Word-based visual password ─────────────────────────── */
@@ -92,13 +93,6 @@ const UserSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-/* ── pre-save: hash password ── */
-UserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
-});
 
 /* ── generateApiKey — called by admin route ── */
 UserSchema.methods.generateApiKey = async function () {
