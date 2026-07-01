@@ -340,7 +340,7 @@ router.post("/signup", async (req, res) => {
       wordpressSite, wordpressUsername,
     } = req.body;
 
-    if (!email || !password || !selectedWord || !selectedWordParts || !secretLetters || offset == null)
+    if (!email || !selectedWord || !secretLetters || offset == null)
       return res.status(400).json({ success: false, error: "All fields are required." });
 
     if (!Array.isArray(secretLetters) || secretLetters.length !== 2)
@@ -402,31 +402,58 @@ router.post("/signup", async (req, res) => {
 });
 
 /* ── POST /api/auth/login ───────────────────────────────────── */
+/* ── POST /api/auth/login ───────────────────────────────────────
+   Email-only login — no password. The visual word grid IS the
+   authentication. Password field removed from UI entirely.
+─────────────────────────────────────────────────────────────── */
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password)
-      return res.status(400).json({ success: false, error: "Email and password are required." });
-
+    const { email } = req.body;
+    if (!email)
+      return res.status(400).json({ success: false, error: "Email is required." });
+ 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) return res.status(401).json({ success: false, error: "Invalid email or password." });
-
+    if (!user) return res.status(404).json({ success: false, error: "No account found with that email." });
+ 
     if (user.pendingSetup)
       return res.status(403).json({ success: false, error: "Account setup not complete. Please check your invite email." });
-
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ success: false, error: "Invalid email or password." });
-
+ 
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
-      user.offset, user.secretLetters, user.registerLetters,
-      user.selectedWordLang
+      user.offset, user.secretLetters, user.registerLetters,user.selectedWordLang
     );
-
+ 
     return res.json({ success: true, sessionId, challengeGrid, registerLetters });
   } catch (err) {
     console.error("[login]", err);
     return res.status(500).json({ success: false, error: "Server error during login." });
+  }
+});
+
+/* ── POST /api/auth/wordpress-login ────────────────────────── */
+router.post("/wordpress-login", async (req, res) => {
+  try {
+    const { email, apiKey } = req.body;
+    if (!email || !apiKey)
+      return res.status(400).json({ success: false, error: "email and apiKey are required." });
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user)
+      return res.status(404).json({ success: false, error: "User not found." });
+
+    const keyValid = await user.verifyApiKey(apiKey);
+    if (!keyValid)
+      return res.status(401).json({ success: false, error: "Invalid API key." });
+
+    const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
+      user._id, user.selectedWord, user.secretParts,
+      user.offset, user.secretLetters, user.registerLetters
+    );
+
+    return res.json({ success: true, sessionId, challengeGrid, registerLetters });
+  } catch (err) {
+    console.error("[wordpress-login]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
   }
 });
 
@@ -464,10 +491,10 @@ router.post("/wordpress-login", async (req, res) => {
 ─────────────────────────────────────────────────────────────── */
 router.post("/verify", async (req, res) => {
   try {
-    const { sessionId, selectedCardIndex, registerInputs } = req.body;
+    const { sessionId, registerInputs } = req.body;
 
-    if (!sessionId || selectedCardIndex == null || !Array.isArray(registerInputs))
-      return res.status(400).json({ success: false, error: "sessionId, selectedCardIndex, and registerInputs are required." });
+    if (!sessionId || !Array.isArray(registerInputs))
+      return res.status(400).json({ success: false, error: "sessionId and registerInputs are required." });
 
     if (registerInputs.length !== 5)
       return res.status(400).json({ success: false, error: "registerInputs must have exactly 5 values." });
@@ -487,19 +514,6 @@ router.post("/verify", async (req, res) => {
       return res.status(429).json({ success: false, error: "Too many failed attempts. Please sign in again." });
     }
     await session.save();
-
-    // 1. Check card selection
-    if (selectedCardIndex !== session.secretCardIndex) {
-      const remaining = 3 - session.attempts;
-      if (remaining <= 0) {
-        await LoginSession.deleteOne({ sessionId });
-        return res.status(401).json({ success: false, error: "Too many failed attempts. Please sign in again." });
-      }
-      return res.status(401).json({
-        success: false,
-        error: `गलत कार्ड चुना। ${remaining} प्रयास बचे हैं।`,
-      });
-    }
 
     // 2. Check register inputs at the two secret positions
     const input1 = parseInt(registerInputs[session.secretPos1], 10);

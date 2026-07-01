@@ -17,12 +17,33 @@ function getRandomOffset()     { return String(10 + Math.floor(Math.random() * 9
 function getRandomLetterPair() { const s = shuffle([...ALPHABET]); return [s[0], s[1]]; }
 
 async function postJson(path, body) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify(body),
-  });
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const text = await res.text(); // IMPORTANT (not json yet)
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("Non-JSON response:", text);
+      throw new Error("Server returned invalid response");
+    }
+
+    if (!res.ok) {
+      console.error("HTTP error:", res.status, data);
+      return { success: false, error: data?.error || "Request failed" };
+    }
+
+    return data;
+  } catch (err) {
+    console.error("postJson failed:", err);
+    return { success: false, error: err.message };
+  }
 }
 
 function buildMask(parts, revealIdx) {
@@ -101,13 +122,9 @@ function Toast({ toasts, onClose }) {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   MAIN AUTH COMPONENT
-══════════════════════════════════════════════════════════════ */
 export default function Auth() {
   const [mode,     setMode]     = useState("signup");
   const [email,    setEmail]    = useState("");
-  const [password, setPassword] = useState("");
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
   const [toasts,   setToasts]   = useState([]);
@@ -124,7 +141,7 @@ export default function Auth() {
   const [offset,       setOffset]       = useState(getRandomOffset);
   const [letterPair,   setLetterPair]   = useState(getRandomLetterPair);
   const [preview,      setPreview]      = useState(null);
-  const [lang, setLang] = useState("en"); // "en" | "hi" | "mr"
+  const [lang,         setLang]         = useState("en");
 
   // login state
   const [loginStep,       setLoginStep]       = useState("creds");
@@ -132,12 +149,10 @@ export default function Auth() {
   const [challengeGrid,   setChallengeGrid]   = useState([]);
   const [registerLetters, setRegisterLetters] = useState([]);
   const [regInputs,       setRegInputs]       = useState(Array(5).fill(""));
-  const [selectedCard,    setSelectedCard]    = useState(null);
 
   const toastCounter = useRef(0);
   const allFilled    = regInputs.every(v => v !== "");
 
-  /* ── toast helpers ── */
   const showToast = (type, message, duration = 4500) => {
     const id = ++toastCounter.current;
     setToasts(prev => [...prev, { id, type, message }]);
@@ -165,7 +180,7 @@ export default function Auth() {
     }
   }, [isWordpressLogin, email, apiKey, wpLoginStarted]);
 
-  /* ── load words on mount ── */
+  /* ── load words on mount / lang change ── */
   useEffect(() => {
     if (isWordpressLogin) return;
     fetch(`${API_BASE}/api/auth/words?lang=${lang}`)
@@ -178,15 +193,14 @@ export default function Auth() {
       });
   }, [lang]);
 
-  /* ── resetAll ── */
   const resetAll = useCallback((m) => {
     setMode(m);
     if (!isWordpressLogin) setEmail("");
-    setPassword(""); setError("");
+    setError("");
     setSelectedWord(null); setOffset(getRandomOffset()); setLetterPair(getRandomLetterPair());
     setPreview(null);
     setLoginStep("creds"); setSessionId(""); setChallengeGrid([]);
-    setRegisterLetters([]); setRegInputs(Array(5).fill("")); setSelectedCard(null);
+    setRegisterLetters([]); setRegInputs(Array(5).fill("")); 
     if (m === "signup") {
       fetch(`${API_BASE}/api/auth/words?lang=${lang}`)
         .then(r => r.json())
@@ -199,31 +213,10 @@ export default function Auth() {
     }
   }, [isWordpressLogin, lang]);
 
-  /* ── passkey registration ── */
-  const registerPasskey = async (token) => {
-    const optRes = await fetch(`${API_BASE}/api/auth/passkey/register-options`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    });
-    const optData = await optRes.json();
-    if (!optData.success) throw new Error(optData.error || "Could not get passkey options.");
-    if (!optData?.options?.challenge) throw new Error("Invalid WebAuthn options received from server.");
-    const attestation = await startRegistration({ optionsJSON: optData.options });
-    const verRes = await fetch(`${API_BASE}/api/auth/passkey/register-complete`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ response: attestation }),
-    });
-    const verData = await verRes.json();
-    if (!verData.success) throw new Error(verData.error || "Passkey registration failed.");
-    return verData;
-  };
-
   /* ── SIGNUP ── */
   const handleSignup = () => {
     setError("");
     if (!email.trim())       { setError("Please enter your email."); return; }
-    if (!password.trim())    { setError("Please enter a password."); return; }
     if (!selectedWord)       { setError("Please choose a word."); return; }
     if (!letterPair[0] || !letterPair[1]) { setError("Please choose two letters."); return; }
     if (letterPair[0] === letterPair[1])  { setError("The two letters must be different."); return; }
@@ -236,11 +229,9 @@ export default function Auth() {
     setPreview(null);
     setLoading(true);
     setError("");
-
     try {
       const data = await postJson("/api/auth/signup", {
         email,
-        password,
         selectedWord:      selectedWord.word,
         selectedWordParts: selectedWord.parts,
         selectedWordLang:  selectedWord.lang,
@@ -248,80 +239,98 @@ export default function Auth() {
         offset:            parseInt(offset, 10),
         wpFlow:            isWpFlow,
       });
-
       if (!data.success) {
         setError(data.error || "Could not create account. Please try again.");
         return;
       }
-
       localStorage.setItem("token", data.token);
       showToast("success", "Account created! Please sign in.");
       resetAll("login");
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err) {
+    } catch {
       setError("Server error. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const continueToSignIn = () => {
-    resetAll("login");
-    showToast("success", "Account created! Please sign in.");
-  };
+  /* ── LOGIN — email only, no password ── */
+  const handleLoginCreds = async () => {
+    setError("");
 
-  /* ── PASSKEY LOGIN ── */
-  const handlePasskeyLogin = async () => {
-    setError(""); setLoading(true);
+    if (!email.trim()) {
+      setError("Please enter your email.");
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const optRes = await fetch(`${API_BASE}/api/auth/passkey/login-options`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ email }),
-      });
-      const optData = await optRes.json();
-      if (!optData.success) { setError(optData.error || "Passkey login not available."); return; }
-      const assertion = await startAuthentication({ optionsJSON: optData.options });
-      const verRes = await fetch(`${API_BASE}/api/auth/passkey/login-complete`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ email, response: assertion }),
-      });
-      const verData = await verRes.json();
-      if (!verData.success) { setError(verData.error || "Passkey authentication failed."); return; }
-      setSessionId(verData.sessionId);
-      setChallengeGrid(verData.challengeGrid || []);
-      setRegisterLetters(verData.registerLetters || []);
-      setRegInputs(Array(5).fill(""));
-      setLoginStep("grid");
-      showToast("success", "Passkey verified — complete the grid.");
-    } catch (err) {
-      if (err.name === "NotAllowedError") {
-        setError("No passkey found for this account. Please sign in with your password.");
-      } else {
-        setError(err.message || "Passkey login failed.");
+      const data = await postJson("/api/auth/login", { email });
+
+      console.log("LOGIN RESPONSE:", data);
+
+      if (!data?.success) {
+        setError(data?.error || "No account found with that email.");
+        return;
       }
+
+      setSessionId(data.sessionId);
+      setChallengeGrid(data.challengeGrid || []);
+      setRegisterLetters(Array.isArray(data.registerLetters) ? data.registerLetters : []);
+      setRegInputs(Array(5).fill(""));
+
+      setLoginStep("grid");
+    } catch (err) {
+      console.error(err);
+      setError("Server error. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ── LOGIN STEP 1 ── */
-  const handleLoginCreds = async () => {
+  /* ── VERIFY ── */
+  const handleVerify = async () => {
     setError("");
-    if (!email.trim()) { setError("Please enter your email."); return; }
+
+    if (!allFilled) {
+      setError("Please fill in all 5 positions.");
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const data = await postJson("/api/auth/login", { email, password: password || null });
-      if (data.success) {
-        setSessionId(data.sessionId);
-        setChallengeGrid(data.challengeGrid || []);
-        setRegisterLetters(data.registerLetters || []);
-        setRegInputs(Array(5).fill(""));
-        setLoginStep("grid");
+      const data = await postJson("/api/auth/verify", {
+        sessionId,
+        registerInputs: regInputs.map(v => parseInt(v, 10)),
+      });
+
+      if (!data.success) {
+        setError(data.error || "Verification failed.");
+
+        if (!data.error?.includes("attempt")) {
+          setLoginStep("creds");
+          setChallengeGrid([]);
+          setSessionId("");
+        }
+
         return;
       }
-      setError(data.error || "Incorrect credentials.");
+
+      if (data.token)
+        localStorage.setItem("token", data.token);
+
+      const callback = localStorage.getItem("wp_callback");
+      if (callback) {
+        localStorage.removeItem("wp_callback");
+        window.location.href = decodeURIComponent(callback);
+        return;
+      }
+
+      showToast("success", data.message || "Identity verified! Welcome back.");
+      setLoginStep("success");
+
     } catch {
       setError("Server error. Please try again.");
     } finally {
@@ -355,55 +364,15 @@ export default function Auth() {
     }
   };
 
-  /* ── GRID: user taps their card ── */
   const handleCardSelect = (idx) => {
-    setSelectedCard(idx);
     setRegInputs(Array(5).fill(""));
   };
 
-  /* ── LOGIN STEP 2+3 combined: verify ── */
-  const handleVerify = async () => {
-    setError("");
-    if (selectedCard === null) { setError("Please select your word card."); return; }
-    if (!allFilled)            { setError("Please fill in all 5 positions."); return; }
-    setLoading(true);
-    try {
-      const data = await postJson("/api/auth/verify", {
-        sessionId,
-        selectedCardIndex: selectedCard,
-        registerInputs:    regInputs.map(v => parseInt(v, 10)),
-      });
-      if (!data.success) {
-        setError(data.error || "Verification failed.");
-        if (!data.error?.includes("attempt")) {
-          setLoginStep("creds"); setChallengeGrid([]); setSessionId(""); setSelectedCard(null);
-        }
-        return;
-      }
-      if (data.token) localStorage.setItem("token", data.token);
-      const callback = localStorage.getItem("wp_callback");
-      if (callback) {
-        localStorage.removeItem("wp_callback");
-        window.location.href = decodeURIComponent(callback);
-        return;
-      }
-      showToast("success", data.message || "Identity verified! Welcome back.");
-      setLoginStep("success");
-    } catch {
-      setError("Server error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* ═══════════════════════════════════════════════════════════
-     RENDER
-  ═══════════════════════════════════════════════════════════ */
+  /* ═══════════════════ RENDER ═══════════════════════════════ */
   return (
     <>
       <style>{CSS}</style>
       <Toast toasts={toasts} onClose={closeToast} />
-
 
       {/* ── SIGNUP PREVIEW OVERLAY ── */}
       {preview && (
@@ -443,7 +412,6 @@ export default function Auth() {
               </div>
             </div>
 
-            {/* Mnemonic */}
             <div className="mnemonic-box">
               <div className="mnemonic-letters" style={{ fontFamily: preview.word.lang !== "en" ? "'Noto Sans Devanagari', sans-serif" : "'Space Grotesk', sans-serif", letterSpacing: preview.word.lang !== "en" ? "0.1em" : "0.18em" }}>
                 {preview.word.word}
@@ -461,7 +429,6 @@ export default function Auth() {
               </p>
             </div>
 
-            {/* Parts visual */}
             <div className="preview-grid">
               {preview.word.parts.filter(Boolean).map((p, i) => (
                 <div key={i} className="preview-item">
@@ -522,17 +489,11 @@ export default function Auth() {
                       <button className={`flow-btn${!isWpFlow ? " flow-btn--active" : ""}`} onClick={() => setIsWpFlow(false)}>Regular (two words)</button>
                     </div>
 
-                    <div className="field-row">
-                      <div className="field-group">
-                        <label className="field-label">Email</label>
-                        <input className="field-input" type="email" placeholder="you@example.com"
-                          value={email} onChange={e => setEmail(e.target.value)} />
-                      </div>
-                      <div className="field-group">
-                        <label className="field-label">Password</label>
-                        <input className="field-input" type="password" placeholder="••••••••"
-                          value={password} onChange={e => setPassword(e.target.value)} />
-                      </div>
+                    {/* Email only — no password */}
+                    <div className="field-group">
+                      <label className="field-label">Email</label>
+                      <input className="field-input" type="email" placeholder="you@example.com"
+                        value={email} onChange={e => setEmail(e.target.value)} />
                     </div>
 
                     {/* Offset */}
@@ -568,13 +529,13 @@ export default function Auth() {
                       </div>
                     </div>
 
-                    {/* Language selector — sits above the word grid, controls which pool loads */}
+                    {/* Language selector */}
                     <div className="field-group">
                       <label className="field-label">Choose language for your word</label>
-                      <div className="flow-toggle">
-                        <button className={`flow-btn${lang === "mr" ? " flow-btn--active" : ""}`} onClick={() => setLang("mr")}>मराठी</button>
-                        <button className={`flow-btn${lang === "en" ? " flow-btn--active" : ""}`} onClick={() => setLang("en")}>English</button>
-                        <button className={`flow-btn${lang === "hi" ? " flow-btn--active" : ""}`} onClick={() => setLang("hi")}>हिंदी</button>
+                      <div className="lang-toggle">
+                        <button className={`lang-btn${lang === "mr" ? " lang-btn--active" : ""}`} onClick={() => setLang("mr")}>मराठी</button>
+                        <button className={`lang-btn${lang === "en" ? " lang-btn--active" : ""}`} onClick={() => setLang("en")}>English</button>
+                        <button className={`lang-btn${lang === "hi" ? " lang-btn--active" : ""}`} onClick={() => setLang("hi")}>हिंदी</button>
                       </div>
                     </div>
 
@@ -587,80 +548,29 @@ export default function Auth() {
 
                     <div className="word-grid">
                       {(isWpFlow ? words : wordPairs).map((item, idx) => {
-                        // Resolve string pair into full word objects
                         const w0 = isWpFlow ? item : words.find(w => w.word === item[0]);
                         const w1 = isWpFlow ? null : words.find(w => w.word === item[1]);
-
                         const isSel = isWpFlow
                           ? selectedWord?.word === item.word
                           : selectedWord?.word === `${w0?.word} + ${w1?.word}`;
-
-                        const displayWord = isWpFlow
-                          ? item.word
-                          : `${w0?.word} + ${w1?.word}`;
-
-                        const displayParts = isWpFlow
-                          ? item.parts
-                          : [...(w0?.parts || []), ...(w1?.parts || [])];
-
+                        const displayWord  = isWpFlow ? item.word : `${w0?.word} + ${w1?.word}`;
+                        const displayParts = isWpFlow ? item.parts : [...(w0?.parts || []), ...(w1?.parts || [])];
                         const isDevanagari = isWpFlow
                           ? (item.lang === "hi" || item.lang === "mr")
                           : (w0?.lang === "hi" || w0?.lang === "mr");
-
                         return (
-                          <div
-                            key={idx}
+                          <div key={idx}
                             className={`word-card${isSel ? " word-card--selected" : ""}`}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() =>
-                              setSelectedWord(
-                                isWpFlow
-                                  ? item
-                                  : {
-                                      word: displayWord,
-                                      parts: displayParts,
-                                      lang: w0?.lang || "en",
-                                    }
-                              )
-                            }
-                            onKeyDown={e =>
-                              e.key === "Enter" &&
-                              setSelectedWord(
-                                isWpFlow
-                                  ? item
-                                  : {
-                                      word: displayWord,
-                                      parts: displayParts,
-                                      lang: w0?.lang || "en",
-                                    }
-                              )
-                            }
+                            role="button" tabIndex={0}
+                            onClick={() => setSelectedWord(isWpFlow ? item : { word: displayWord, parts: displayParts, lang: w0?.lang || "en" })}
+                            onKeyDown={e => e.key === "Enter" && setSelectedWord(isWpFlow ? item : { word: displayWord, parts: displayParts, lang: w0?.lang || "en" })}
                           >
-                            <div
-                              className="word-display"
-                              style={{
-                                fontFamily: isDevanagari
-                                  ? "'Noto Sans Devanagari', sans-serif"
-                                  : "'Space Grotesk', sans-serif",
-                              }}
-                            >
+                            <div className="word-display" style={{ fontFamily: isDevanagari ? "'Noto Sans Devanagari', sans-serif" : "'Space Grotesk', sans-serif" }}>
                               {displayWord}
                             </div>
-
                             <div className="word-parts">
                               {displayParts.filter(Boolean).map((p, i) => (
-                                <span
-                                  key={i}
-                                  className="part-chip"
-                                  style={{
-                                    fontFamily: isDevanagari
-                                      ? "'Noto Sans Devanagari', sans-serif"
-                                      : "inherit",
-                                  }}
-                                >
-                                  {p}
-                                </span>
+                                <span key={i} className="part-chip" style={{ fontFamily: isDevanagari ? "'Noto Sans Devanagari', sans-serif" : "inherit" }}>{p}</span>
                               ))}
                             </div>
                           </div>
@@ -678,96 +588,41 @@ export default function Auth() {
                 {/* ══ LOGIN ══ */}
                 {mode === "login" && (
                   <>
-                    {/* Step 1 — creds */}
+                    {/* ── Step 1: email only, no password, no forgot, no delete ── */}
                     {loginStep === "creds" && !isWordpressLogin && (
                       <div className="form-stack">
-                        <div className="step-badge">Step 1 / 2 — Sign in</div>
-                        <div className="field-group">
-                          <label className="field-label">Email</label>
-                          <input className="field-input" type="email" placeholder="you@example.com"
-                            value={email} onChange={e => setEmail(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && handleLoginCreds()} />
+                        <div className="step-badge">Step 1 / 2 — Enter your email</div>
+                        <div className="info-box">
+                          No password needed. Just enter your email — your Visual Word is your key.
                         </div>
                         <div className="field-group">
-                          <label className="field-label">Password</label>
-                          <input className="field-input" type="password" placeholder="••••••••"
-                            value={password} onChange={e => setPassword(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && handleLoginCreds()} />
-                        </div>
-                        <div className="auth-links">
-                          <button type="button" className="auth-link" onClick={() => setLoginStep("forgot")}>Forgot password?</button>
-                          <button type="button" className="auth-link auth-link--danger" onClick={() => setLoginStep("delete")}>Delete account</button>
+                          <label className="field-label">Email address</label>
+                          <input
+                            className="field-input field-input--lg"
+                            type="email"
+                            placeholder="you@example.com"
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && handleLoginCreds()}
+                            autoFocus
+                          />
                         </div>
                         {error && <div className="alert-error">{error}</div>}
-                        <button className="btn-primary" disabled={loading} onClick={handleLoginCreds}>
+                        <button className="btn-primary" disabled={loading || !email.trim()} onClick={handleLoginCreds}>
                           {loading ? "Please wait…" : "Continue →"}
                         </button>
                       </div>
                     )}
 
-                    {/* Forgot password */}
-                    {loginStep === "forgot" && (
-                      <div className="form-stack">
-                        <div className="step-badge">Reset Password</div>
-                        <div className="info-box">Enter your email — a reset link will be sent.</div>
-                        <input className="field-input" type="email" placeholder="you@example.com"
-                          value={email} onChange={e => setEmail(e.target.value)} />
-                        {error && <div className="alert-error">{error}</div>}
-                        <button className="btn-primary" onClick={async () => {
-                          setLoading(true); setError("");
-                          try {
-                            const data = await postJson("/api/auth/forgot-password", { email });
-                            if (!data.success) { setError(data.error || "Could not send reset email."); return; }
-                            showToast("success", "Reset link sent — check your inbox.");
-                            setLoginStep("creds");
-                          } catch { setError("Server error. Please try again."); }
-                          finally { setLoading(false); }
-                        }}>
-                          {loading ? "Sending…" : "Send reset link"}
-                        </button>
-                        <button className="btn-outline" onClick={() => setLoginStep("creds")}>← Back</button>
-                      </div>
-                    )}
-
-                    {/* Delete account */}
-                    {loginStep === "delete" && (
-                      <div className="form-stack">
-                        <div className="step-badge">Delete Account</div>
-                        <div className="info-box" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.05)", color: "#92400e" }}>
-                          This action is permanent and cannot be undone.
-                        </div>
-                        <input className="field-input" type="email" placeholder="Email"
-                          value={email} onChange={e => setEmail(e.target.value)} />
-                        <input className="field-input" type="password" placeholder="Password"
-                          value={password} onChange={e => setPassword(e.target.value)} />
-                        {error && <div className="alert-error">{error}</div>}
-                        <button className="btn-primary btn-primary--danger" onClick={async () => {
-                          setLoading(true); setError("");
-                          try {
-                            const data = await postJson("/api/auth/delete-user", { email, password });
-                            if (!data.success) { setError(data.error || "Could not delete account."); return; }
-                            showToast("success", "Your account has been permanently deleted.");
-                            resetAll("signup");
-                          } catch { setError("Server error. Please try again."); }
-                          finally { setLoading(false); }
-                        }}>
-                          {loading ? "Deleting…" : "Delete my account"}
-                        </button>
-                        <button className="btn-outline" onClick={() => setLoginStep("creds")}>← Back</button>
-                      </div>
-                    )}
-
-                    {/* ── Step 2+3 COMBINED: grid + register inline ── */}
+                    {/* ── Step 2: grid + register inline ── */}
                     {loginStep === "grid" && (
                       <div className="form-stack">
                         <div className="step-badge">Step 2 / 2 — Identify your word and enter digits</div>
                         <div className="info-box">
-                          <strong>Find your word hint.</strong> Select the card that shows part of your secret word.
-                          The number below it is your card value — add your offset to get a 2-digit result,
-                          then enter each digit under your two chosen letters.
+                          <strong>Find your word hint.</strong> The number beneath your word is your card value.
+                          Add your offset to obtain a 2-digit result, then enter the digits under your two chosen letters.
                         </div>
 
-                        {/* 21-card grid */}
                         <div className="cg-grid">
                           {challengeGrid.length > 0
                             ? challengeGrid.map((item, i) => (
@@ -775,8 +630,6 @@ export default function Auth() {
                                   key={i}
                                   mask={item.mask}
                                   value={item.value}
-                                  selected={selectedCard === i}
-                                  onClick={() => handleCardSelect(i)}
                                 />
                               ))
                             : <div style={{ gridColumn: "1/-1", textAlign: "center", color: "#dc2626", padding: 40 }}>
@@ -785,7 +638,6 @@ export default function Auth() {
                           }
                         </div>
 
-                        {/* Register bar immediately below grid */}
                         {registerLetters.length === 5 && (
                           <>
                             <div className="register-sep">
@@ -803,10 +655,9 @@ export default function Auth() {
                         )}
 
                         {error && <div className="alert-error">{error}</div>}
-
                         <button
                           className="btn-primary"
-                          disabled={loading || selectedCard === null || !allFilled}
+                          disabled={loading || !allFilled}
                           onClick={handleVerify}
                         >
                           {loading ? "Verifying…" : "Verify →"}
@@ -826,9 +677,6 @@ export default function Auth() {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════
-   STYLES
-══════════════════════════════════════════════════════════════ */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@400;600;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -852,22 +700,30 @@ button,input,select{font-family:inherit;}
 .mode-tab:hover{border-color:rgba(6,182,212,0.4);color:#0891b2;}
 .mode-tab--active{background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;border-color:transparent;font-weight:700;}
 
+/* flow toggle (WordPress / Regular) */
 .flow-toggle{display:flex;gap:6px;background:#f3efe9;border-radius:99px;padding:4px;}
 .flow-btn{flex:1;padding:7px 14px;border-radius:99px;background:transparent;border:none;font-size:0.9rem;font-weight:500;color:#475569;cursor:pointer;transition:all 0.18s;}
 .flow-btn--active{background:#fff;color:#0891b2;font-weight:700;box-shadow:0 1px 4px rgba(15,23,42,0.08);}
+
+/* language toggle — large black on white, senior-readable */
+.lang-toggle{display:flex;gap:0;border:2px solid #0f172a;border-radius:12px;overflow:hidden;}
+.lang-btn{flex:1;padding:14px 8px;background:#fff;border:none;border-right:2px solid #0f172a;font-family:'Space Grotesk','Noto Sans Devanagari',sans-serif;font-size:1.15rem;font-weight:800;color:#0f172a;cursor:pointer;transition:background 0.15s,color 0.15s;line-height:1.2;}
+.lang-btn:last-child{border-right:none;}
+.lang-btn:hover{background:#f3efe9;}
+.lang-btn--active{background:#0f172a;color:#fff;}
 
 .step-badge{padding:9px 14px;border-radius:9px;background:rgba(6,182,212,0.07);border:1px solid rgba(6,182,212,0.15);font-size:0.83rem;color:#0891b2;font-weight:600;}
 .info-box{padding:13px 16px;border-radius:11px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);font-size:0.84rem;color:#92400e;line-height:1.65;}
 .info-box strong{font-weight:700;color:#78350f;}
 
 .form-stack{display:flex;flex-direction:column;gap:16px;}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-@media(max-width:540px){.field-row{grid-template-columns:1fr;}}
 .field-group{display:flex;flex-direction:column;gap:5px;}
 .field-label{font-size:0.73rem;font-weight:600;color:#475569;letter-spacing:0.05em;text-transform:uppercase;}
 .field-input{width:100%;padding:11px 13px;border-radius:10px;border:1.5px solid #e2d9cc;background:#fff;font-size:0.91rem;color:#0f172a;outline:none;transition:border-color 0.18s,box-shadow 0.18s;}
 .field-input:focus{border-color:#06B6D4;box-shadow:0 0 0 3px rgba(6,182,212,0.1);}
 .field-input::placeholder{color:#94a3b8;}
+.field-input--lg{font-size:1.1rem;padding:14px 16px;border-radius:12px;border-width:2px;}
+.field-input--lg:focus{border-color:#06B6D4;box-shadow:0 0 0 4px rgba(6,182,212,0.1);}
 
 .offset-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .letter-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px;}
@@ -878,16 +734,29 @@ button,input,select{font-family:inherit;}
 .section-label{font-size:0.73rem;font-weight:700;color:#475569;letter-spacing:0.06em;text-transform:uppercase;}
 .section-hint{font-size:0.79rem;color:#94a3b8;line-height:1.6;}
 
+.ctrl-select{padding:10px 16px;border-radius:10px;border:2px solid #0f172a;background:#fff;font-family:'Space Grotesk',sans-serif;font-size:1.3rem;font-weight:800;color:#000;cursor:pointer;outline:none;min-width:58px;text-align:center;}
+.ctrl-select:focus{border-color:#06B6D4;box-shadow:0 0 0 3px rgba(6,182,212,0.25);}
+.ctrl-select:disabled{background:#f3efe9;color:#94a3b8;cursor:not-allowed;}
+
 .word-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;max-height:320px;overflow-y:auto;padding-right:4px;}
 .word-grid::-webkit-scrollbar{width:4px;}
 .word-grid::-webkit-scrollbar-thumb{background:#d1c4b0;border-radius:2px;}
-.word-parts{display:flex;flex-wrap:wrap;gap:4px;}
+.word-card{background:#fff;border:2px solid #0f172a;border-radius:12px;padding:16px 14px;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s;text-align:center;}
+.word-card:hover{border-color:#0891b2;box-shadow:0 0 0 2px rgba(8,145,178,0.15);}
+.word-card--selected{border-color:#0891b2;background:#e0f7fa;box-shadow:0 0 0 3px rgba(8,145,178,0.25);}
+.word-display{font-size:1.2rem;font-weight:800;line-height:1.3;color:#000;text-align:center;}
+.word-parts{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;}
+.part-chip{padding:5px 10px;font-size:0.92rem;font-weight:700;border:2px solid #0f172a;background:#fff;color:#000;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;}
 
-.cg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%;margin-top:4px;}
+.cg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;margin-top:4px;}
 @media(max-width:900px){.cg-grid{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:540px){.cg-grid{grid-template-columns:repeat(3,1fr);gap:7px;}}
 
-.wc-card:hover{border-color:rgba(6,182,212,0.4);transform:translateY(-1px);}
+.wc-card{padding:14px 12px;border:2px solid #0f172a;background:#fff;min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-radius:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+.wc-card:hover{border-color:#0891b2;transform:translateY(-1px);}
+.wc-card--selected{border-color:#0891b2;background:#e0f7fa;box-shadow:0 0 0 3px rgba(8,145,178,0.3);}
+.wc-mask{font-size:1.3rem;font-weight:800;color:#000;letter-spacing:0.04em;text-align:center;}
+.wc-value{font-size:1.4rem;font-weight:800;color:#000;text-align:center;}
 
 .register-sep{display:flex;align-items:center;gap:12px;margin:4px 0 0;}
 .register-sep::before,.register-sep::after{content:'';flex:1;height:1px;background:#e2d9cc;}
@@ -895,6 +764,10 @@ button,input,select{font-family:inherit;}
 
 .reg-wrap{width:100%;border:1px solid #e2d9cc;border-radius:12px;overflow:hidden;overflow-x:auto;}
 .reg-header,.reg-dropdowns{display:grid;grid-template-columns:repeat(5,1fr);min-width:260px;}
+.reg-head-cell{min-height:48px;padding:10px 8px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;font-weight:800;color:#000;background:#fff;border:2px solid #0f172a;border-bottom:none;letter-spacing:0.04em;text-align:center;}
+.reg-select{padding:14px 0;font-size:1.4rem;font-weight:800;color:#000;background:#fff;border:2px solid #0f172a;min-height:54px;text-align:center;text-align-last:center;appearance:none;-webkit-appearance:none;outline:none;cursor:pointer;transition:background 0.15s;}
+.reg-select:focus{background:rgba(6,182,212,0.07);}
+.reg-select--disabled{background:#f1f1f1;color:#9ca3af;}
 
 .overlay-bg{position:fixed;inset:0;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;z-index:9000;padding:20px;}
 .overlay-card{position:relative;background:#fbf7f0;border:1px solid #e2d9cc;border-radius:20px;padding:36px 32px;max-width:380px;width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:0 20px 60px rgba(15,23,42,0.2);animation:oIn 0.22s ease;}
@@ -913,168 +786,25 @@ button,input,select{font-family:inherit;}
 .preview-row{display:flex;gap:14px;font-size:0.88rem;line-height:1.6;align-items:flex-start;}
 .preview-key{font-weight:700;color:#475569;min-width:70px;font-size:0.82rem;text-transform:uppercase;letter-spacing:0.04em;padding-top:2px;}
 .preview-val{color:#0f172a;display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
-
 .mnemonic-box{width:100%;background:rgba(6,182,212,0.06);border:1.5px solid rgba(6,182,212,0.2);border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;}
 .mnemonic-letters{font-size:2.4rem;font-weight:800;color:#0891b2;line-height:1.15;text-align:center;}
 .mnemonic-pairs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
 .mnemonic-pair{font-size:0.9rem;color:#334155;background:#fff;border:1px solid #e2d9cc;border-radius:8px;padding:5px 14px;}
 .mnemonic-pair strong{color:#0891b2;}
 .mnemonic-hint{font-size:0.78rem;color:#64748b;text-align:center;line-height:1.7;}
-
 .preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;width:100%;}
 .preview-item{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px;border-radius:12px;background:#fff;border:1px solid #e2d9cc;}
 .preview-img-wrap{width:80px;height:80px;border-radius:10px;background:#f3efe9;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #e2d9cc;}
 .preview-label{font-size:0.78rem;font-weight:700;color:#0f172a;text-align:center;font-family:'Space Grotesk','Noto Sans Devanagari',sans-serif;}
 
-/* Register letter headers (login grid) */
-.reg-head-cell{
-  height:auto;              /* fixed: was 5px, clipping the letters */
-  min-height:48px;
-  padding:10px 8px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:1.25rem;        /* slightly smaller than before, still large */
-  font-weight:800;
-  color:#000000;
-  background:#ffffff;
-  border:2px solid #0f172a;
-  border-bottom:none;
-  letter-spacing:0.04em;
-  text-align:center;
-}
-
-/* Register digit selects (login grid) */
-.reg-select{
-  padding:14px 0;
-  font-size:1.4rem;
-  font-weight:800;
-  color:#000000;
-  background:#ffffff;
-  border:2px solid #0f172a;
-  min-height:54px;
-  text-align:center;
-  text-align-last:center;
-}
-.reg-select--disabled{background:#f1f1f1;color:#9ca3af;}
-
-/* Word card masks shown during login (the _ _ le hints) */
-.wc-mask{
-  font-size:1.3rem;
-  font-weight:800;
-  color:#000000;
-  letter-spacing:0.04em;
-  text-align:center;
-}
-.wc-value{
-  font-size:1.4rem;
-  font-weight:800;
-  color:#000000;
-  text-align:center;
-}
-.wc-card{
-  padding:14px 12px;
-  border:2px solid #0f172a;
-  background:#ffffff;
-  min-height:88px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  border-radius:10px;
-}
-.wc-card--selected{
-  border-color:#0891b2;
-  background:#e0f7fa;
-  box-shadow:0 0 0 3px rgba(8,145,178,0.3);
-}
-
-/* Letter-pair selects (signup) — toned down slightly */
-.ctrl-select{
-  padding:10px 16px;
-  border-radius:10px;
-  border:2px solid #0f172a;
-  background:#ffffff;
-  font-family:'Space Grotesk',sans-serif;
-  font-size:1.3rem;
-  font-weight:800;
-  color:#000000;
-  cursor:pointer;
-  outline:none;
-  min-width:58px;
-  text-align:center;
-}
-.ctrl-select:focus{border-color:#06B6D4;box-shadow:0 0 0 3px rgba(6,182,212,0.25);}
-.ctrl-select:disabled{background:#f3efe9;color:#94a3b8;cursor:not-allowed;}
-
-/* part-chip — also toned down to match, centered */
-.part-chip{
-  padding:5px 10px;
-  font-size:0.92rem;
-  font-weight:700;
-  border:2px solid #0f172a;
-  background:#fff;
-  color:#000;
-  border-radius:8px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.word-display{
-  font-size:1.2rem;
-  font-weight:800;
-  line-height:1.3;
-  color:#000;
-  text-align:center;
-}
-
-.word-card{
-  background:#fff;
-  border:2px solid #0f172a;
-  border-radius:12px;
-  padding:16px 14px;
-  min-height:100px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-  cursor:pointer;
-  transition:border-color .15s, box-shadow .15s;
-  text-align:center;
-}
-.word-card--selected{
-  border-color:#0891b2;
-  background:#e0f7fa;
-  box-shadow:0 0 0 3px rgba(8,145,178,0.25);
-}
-
-.word-parts{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  justify-content:center;
-}
-
 .btn-primary{width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,#06B6D4,#0891b2);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:0.94rem;cursor:pointer;box-shadow:0 0 18px rgba(6,182,212,0.22);transition:transform 0.18s,box-shadow 0.18s,opacity 0.18s;}
 .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 26px rgba(6,182,212,0.36);}
 .btn-primary:disabled{opacity:0.36;cursor:not-allowed;box-shadow:none;transform:none;}
-.btn-primary--danger{background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 18px rgba(239,68,68,0.2);}
 .btn-outline{width:100%;padding:12px;border-radius:10px;border:1.5px solid #e2d9cc;background:transparent;color:#475569;font-size:0.9rem;font-weight:500;cursor:pointer;transition:border-color 0.18s,color 0.18s;}
 .btn-outline:hover{border-color:#06B6D4;color:#0891b2;}
 .btn-outline:disabled{opacity:0.4;cursor:not-allowed;}
 
 .alert-error{padding:11px 14px;border-radius:9px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);color:#dc2626;font-size:0.84rem;line-height:1.5;}
-.auth-links{display:flex;justify-content:space-between;margin-top:6px;gap:10px;}
-.auth-link{background:none;border:none;font-size:0.78rem;color:#0891b2;font-weight:600;cursor:pointer;padding:2px 0;}
-.auth-link:hover{text-decoration:underline;}
-.auth-link--danger{color:#dc2626;}
-
-.passkey-spinner{width:44px;height:44px;border-radius:50%;border:3px solid #e2d9cc;border-top-color:#06B6D4;animation:spin 0.8s linear infinite;margin:0 auto;}
-@keyframes spin{to{transform:rotate(360deg)}}
-.passkey-icon{font-size:2.4rem;line-height:1;}
 
 .success-box{display:flex;flex-direction:column;align-items:center;gap:14px;padding:32px 20px;text-align:center;}
 .success-check{width:64px;height:64px;border-radius:50%;background:rgba(34,197,94,0.12);border:2px solid rgba(34,197,94,0.3);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:#16a34a;}
