@@ -401,7 +401,6 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-/* ── POST /api/auth/login ───────────────────────────────────── */
 /* ── POST /api/auth/login ───────────────────────────────────────
    Email-only login — no password. The visual word grid IS the
    authentication. Password field removed from UI entirely.
@@ -411,18 +410,18 @@ router.post("/login", async (req, res) => {
     const { email } = req.body;
     if (!email)
       return res.status(400).json({ success: false, error: "Email is required." });
- 
+
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) return res.status(404).json({ success: false, error: "No account found with that email." });
- 
+
     if (user.pendingSetup)
       return res.status(403).json({ success: false, error: "Account setup not complete. Please check your invite email." });
- 
+
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
       user.offset, user.secretLetters, user.registerLetters,user.selectedWordLang
     );
- 
+
     return res.json({ success: true, sessionId, challengeGrid, registerLetters });
   } catch (err) {
     console.error("[login]", err);
@@ -535,7 +534,7 @@ router.post("/verify", async (req, res) => {
       }
       return res.status(401).json({
         success: false,
-        error: `गलत अंक। ${remaining} प्रयास बचे हैं।`,
+        error: `Invalid credentials. ${remaining} attempts remaining.`,
       });
     }
 
@@ -552,7 +551,7 @@ router.post("/verify", async (req, res) => {
 
     return res.json({
       success: true,
-      message: "पहचान सत्यापित। वापस आपका स्वागत है!",
+      message: "Successfully logged in using credentials!",
       token,
       user: { id: user._id, email: user.email },
     });
