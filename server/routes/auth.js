@@ -456,34 +456,6 @@ router.post("/wordpress-login", async (req, res) => {
   }
 });
 
-/* ── POST /api/auth/wordpress-login ────────────────────────── */
-router.post("/wordpress-login", async (req, res) => {
-  try {
-    const { email, apiKey } = req.body;
-    if (!email || !apiKey)
-      return res.status(400).json({ success: false, error: "email and apiKey are required." });
-
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user)
-      return res.status(404).json({ success: false, error: "User not found." });
-
-    const keyValid = await user.verifyApiKey(apiKey);
-    if (!keyValid)
-      return res.status(401).json({ success: false, error: "Invalid API key." });
-
-    const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
-      user._id, user.selectedWord, user.secretParts,
-      user.offset, user.secretLetters, user.registerLetters,
-      user.selectedWordLang
-    );
-
-    return res.json({ success: true, sessionId, challengeGrid, registerLetters });
-  } catch (err) {
-    console.error("[wordpress-login]", err);
-    return res.status(500).json({ success: false, error: "Server error." });
-  }
-});
-
 /* ── POST /api/auth/verify ───────────────────────────────────
    Now combined: user selects card + submits register in one step.
    Body: { sessionId, selectedCardIndex, registerInputs: [5 ints] }
@@ -789,6 +761,103 @@ router.post("/regenerate-api-key", verifyUserToken, (_req, res) => {
     success: false,
     error: "API key management has moved to the admin dashboard. Contact your administrator.",
   });
+});
+
+/* ── POST /api/auth/erp-login ────────────────────────────────
+   Generic ERP integration — identical logic to wordpress-login
+   but named neutrally. Share this with college / hospital ERPs.
+   They send the user's email + their API key, get back a session.
+─────────────────────────────────────────────────────────────── */
+router.post("/erp-login", async (req, res) => {
+  try {
+    const { email, apiKey } = req.body;
+
+    if (!email || !apiKey)
+      return res.status(400).json({
+        success: false,
+        error: "email and apiKey are required.",
+      });
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+
+    if (!user)
+      return res.status(404).json({
+        success: false,
+        error: "No Scam2Safe account found for this email. Ask the user to register at scam2safe.com first.",
+      });
+
+    const keyValid = await user.verifyApiKey(apiKey);
+
+    if (!keyValid)
+      return res.status(401).json({
+        success: false,
+        error: "Invalid API key. Contact support@scam2safe.com to get your organisation's API key.",
+      });
+
+    const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
+      user._id,
+      user.selectedWord,
+      user.secretParts,
+      user.offset,
+      user.secretLetters,
+      user.registerLetters,
+      user.selectedWordLang
+    );
+
+    return res.json({
+      success: true,
+      sessionId,
+      challengeGrid,
+      registerLetters,
+      // Convenience: tell the ERP how long the session is valid
+      expiresInSeconds: 600,
+    });
+
+  } catch (err) {
+    console.error("[erp-login]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
+  }
+});
+
+/* ── POST /api/auth/verify-erp-token ────────────────────────
+   ERPs call this after receiving the JWT from the callback URL
+   to confirm it's genuine and get the user's identity.
+   Replaces verify-wp-token with a neutral name.
+─────────────────────────────────────────────────────────────── */
+router.post("/verify-erp-token", async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token)
+      return res.status(400).json({ success: false, error: "token is required." });
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ success: false, error: "Invalid or expired token." });
+    }
+
+    // Optionally look up the user to confirm account still exists
+    const user = await User.findById(decoded.userId, ["email", "pendingSetup"]);
+    if (!user)
+      return res.status(404).json({ success: false, error: "User account no longer exists." });
+
+    if (user.pendingSetup)
+      return res.status(403).json({ success: false, error: "Account setup incomplete." });
+
+    return res.json({
+      success: true,
+      userId: decoded.userId,
+      email: decoded.email,
+      // ERPs can use this to create their own local session
+      verifiedAt: new Date().toISOString(),
+    });
+
+  } catch (err) {
+    console.error("[verify-erp-token]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
+  }
 });
 
 router.get("/test", (_req, res) => res.json({ message: "Auth route working ✓" }));
