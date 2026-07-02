@@ -9,6 +9,7 @@ import crypto   from "crypto";
 import User          from "../models/User.js";
 import LoginSession  from "../models/LoginSession.js";
 import { WORDS_BY_LANG, WORDS, WORD_PAIRS } from "../data/words.js";
+import Organisation from "../models/Organisation.js";
 
 // ── BACKUP: sentence-based system ────────────────────────────
 // import { SENTENCES } from "../data/sentences.js";
@@ -771,47 +772,30 @@ router.post("/regenerate-api-key", verifyUserToken, (_req, res) => {
 router.post("/erp-login", async (req, res) => {
   try {
     const { email, apiKey } = req.body;
-
     if (!email || !apiKey)
-      return res.status(400).json({
-        success: false,
-        error: "email and apiKey are required.",
-      });
+      return res.status(400).json({ success: false, error: "email and apiKey are required." });
 
+    // Validate org API key
+    const orgs = await Organisation.find({ status: "approved" });
+    const org  = orgs.find(o => o.verifyApiKey(apiKey));
+    if (!org)
+      return res.status(401).json({ success: false, error: "Invalid or inactive API key." });
+
+    // Find the user
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-
     if (!user)
       return res.status(404).json({
         success: false,
-        error: "No Scam2Safe account found for this email. Ask the user to register at scam2safe.com first.",
-      });
-
-    const keyValid = await user.verifyApiKey(apiKey);
-
-    if (!keyValid)
-      return res.status(401).json({
-        success: false,
-        error: "Invalid API key. Contact support@scam2safe.com to get your organisation's API key.",
+        error: "No Scam2Safe account found for this email.",
       });
 
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
-      user._id,
-      user.selectedWord,
-      user.secretParts,
-      user.offset,
-      user.secretLetters,
-      user.registerLetters,
+      user._id, user.selectedWord, user.secretParts,
+      user.offset, user.secretLetters, user.registerLetters,
       user.selectedWordLang
     );
 
-    return res.json({
-      success: true,
-      sessionId,
-      challengeGrid,
-      registerLetters,
-      // Convenience: tell the ERP how long the session is valid
-      expiresInSeconds: 600,
-    });
+    return res.json({ success: true, sessionId, challengeGrid, registerLetters, expiresInSeconds: 600 });
 
   } catch (err) {
     console.error("[erp-login]", err);
@@ -858,6 +842,27 @@ router.post("/verify-erp-token", async (req, res) => {
     console.error("[verify-erp-token]", err);
     return res.status(500).json({ success: false, error: "Server error." });
   }
+});
+
+router.post("/admin-login", async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!process.env.ADMIN_EMAILS.split(",").includes(email)) {
+    return res.status(403).json({ success: false, error: "Not admin" });
+  }
+
+  // simple check (or bcrypt if you want)
+  if (password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ success: false, error: "Invalid credentials" });
+  }
+
+  const token = jwt.sign(
+    { userId: "admin", email },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  return res.json({ success: true, token });
 });
 
 router.get("/test", (_req, res) => res.json({ message: "Auth route working ✓" }));

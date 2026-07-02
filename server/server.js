@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import authRouter from "./routes/authRoutes.js";
 import adminRoutes from "./routes/admin.js";
+import orgRoutes from "./routes/orgs.js";
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ import helmet from "helmet";
 
 const app = express();
 app.use(helmet());
+
 
 // ── Middleware ────────────────────────────────────────────────
 app.use(cors({
@@ -26,6 +28,7 @@ app.use(express.json());
 // ── Routes ───────────────────────────────────────────────────
 app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRoutes);
+app.use("/api/orgs", orgRoutes);
 
 // ── Health check ─────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
