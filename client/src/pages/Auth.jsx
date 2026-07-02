@@ -289,7 +289,7 @@ export default function Auth() {
     }
   };
 
-  /* ── VERIFY ── */
+    /* ── VERIFY ── */
   const handleVerify = async () => {
     setError("");
 
@@ -318,13 +318,21 @@ export default function Auth() {
         return;
       }
 
-      if (data.token)
+      // Modified WordPress callback flow
+      if (data.token) {
         localStorage.setItem("token", data.token);
+      }
 
       const callback = localStorage.getItem("wp_callback");
-      if (callback) {
+
+      if (callback && data.token) {
         localStorage.removeItem("wp_callback");
-        window.location.href = decodeURIComponent(callback);
+
+        const url = new URL(decodeURIComponent(callback));
+
+        url.searchParams.set("jwt", data.token);
+
+        window.location.href = url.toString();
         return;
       }
 
