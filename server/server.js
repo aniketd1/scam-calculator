@@ -19,7 +19,8 @@ app.use(cors({
   origin: [
     "http://localhost:5173",
     "https://scam2safe.com",
-    "https://magenta-dragonfly-533205.hostingersite.com"
+    "https://magenta-dragonfly-533205.hostingersite.com",
+    "https://chocolate-guanaco-675288.hostingersite.com/"
   ],
   credentials: true
 }));

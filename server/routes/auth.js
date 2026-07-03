@@ -851,7 +851,6 @@ router.post("/admin-login", async (req, res) => {
     return res.status(403).json({ success: false, error: "Not admin" });
   }
 
-  // simple check (or bcrypt if you want)
   if (password !== process.env.ADMIN_PASSWORD) {
     return res.status(401).json({ success: false, error: "Invalid credentials" });
   }
