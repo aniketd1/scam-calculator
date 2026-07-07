@@ -82,26 +82,33 @@ const UserSchema = new mongoose.Schema(
     apiKeyHint:      { type: String, default: null },   // last 4 chars
     apiKeyPrefix:    { type: String, default: null },   // first 8 chars
     apiKeyCreatedAt: { type: Date,   default: null },
-
-    /* ── Passkeys ───────────────────────────────────────────── */
-    passkeyCredentials: { type: [PasskeyCredentialSchema], default: [] },
-    passkeyChallenge:   { type: String, default: null },
-
-    /* ── Password reset ─────────────────────────────────────── */
-    resetPasswordToken:   { type: String, default: null },
-    resetPasswordExpires: { type: Date,   default: null },
+    apiKeyDomain:    { type: String, default: null }, // ← add this — bound website domain
+    
   },
   { timestamps: true }
 );
 
 /* ── generateApiKey — called by admin route ── */
-UserSchema.methods.generateApiKey = async function () {
-  const rawKey        = crypto.randomBytes(32).toString("hex");
-  this.apiKeyHash     = await bcrypt.hash(rawKey, 10);
-  this.apiKeyHint     = rawKey.slice(-4);
-  this.apiKeyPrefix   = rawKey.slice(0, 8);
+UserSchema.methods.generateApiKey = async function (domain) {
+  if (!domain) throw new Error("domain is required to generate an API key.");
+  const rawKey         = crypto.randomBytes(32).toString("hex");
+  this.apiKeyHash      = await bcrypt.hash(rawKey, 10);
+  this.apiKeyHint      = rawKey.slice(-4);
+  this.apiKeyPrefix    = rawKey.slice(0, 8);
   this.apiKeyCreatedAt = new Date();
+  this.apiKeyDomain    = domain.toLowerCase().trim(); // e.g. "college.edu"
   return rawKey;
+};
+
+// verifyApiKey now also checks domain
+UserSchema.methods.verifyApiKey = async function (rawKey, incomingDomain) {
+  if (!this.apiKeyHash) return false;
+  const keyMatch = await bcrypt.compare(rawKey, this.apiKeyHash);
+  if (!keyMatch) return false;
+  if (!incomingDomain) return false;
+  // normalize — strip protocol, www, trailing slash
+  const normalize = d => d.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim();
+  return normalize(incomingDomain) === normalize(this.apiKeyDomain);
 };
 
 UserSchema.pre("save", async function (next) {
@@ -109,11 +116,5 @@ UserSchema.pre("save", async function (next) {
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
-
-/* ── verifyApiKey ── */
-UserSchema.methods.verifyApiKey = async function (rawKey) {
-  if (!this.apiKeyHash) return false;
-  return bcrypt.compare(rawKey, this.apiKeyHash);
-};
 
 export default mongoose.model("User", UserSchema);

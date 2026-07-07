@@ -433,10 +433,11 @@ router.post("/login", async (req, res) => {
 /* ── POST /api/auth/wordpress-login ────────────────────────── */
 router.post("/wordpress-login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, apiKey, domain } = req.body;
+    // domain = the WordPress site's domain, sent by the plugin
 
-    if (!email || !password)
-      return res.status(400).json({ success: false, error: "Email and password are required." });
+    if (!email || !password || !apiKey || !domain)
+      return res.status(400).json({ success: false, error: "email, password, apiKey and domain are required." });
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user)
@@ -445,13 +446,23 @@ router.post("/wordpress-login", async (req, res) => {
     if (user.pendingSetup)
       return res.status(403).json({ success: false, error: "Account setup not complete." });
 
+    // 1. Verify password
     if (!user.password)
       return res.status(401).json({ success: false, error: "No password set. Please log in via scam2safe.com." });
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match)
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch)
       return res.status(401).json({ success: false, error: "Invalid email or password." });
 
+    // 2. Verify API key AND domain together — both must match
+    const keyValid = await user.verifyApiKey(apiKey, domain);
+    if (!keyValid)
+      return res.status(401).json({
+        success: false,
+        error: "Invalid API key or this key is not authorised for this website.",
+      });
+
+    // 3. All checks passed — serve the visual challenge
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
       user.offset, user.secretLetters, user.registerLetters,

@@ -303,33 +303,35 @@ const transporter = nodemailer.createTransport({
 
     /* ── POST /api/admin/generate-api-key ───────────────────────── */
     router.post("/generate-api-key", verifyAdminToken, async (req, res) => {
-    try {
-        const { email } = req.body;
-        if (!email)
-        return res.status(400).json({ success: false, error: "email is required." });
+        try {
+            const { email, domain } = req.body;  // ← domain added
 
-        const user = await User.findOne({ email: email.toLowerCase().trim() });
-        if (!user)
-        return res.status(404).json({ success: false, error: "No user found with that email." });
+            if (!email || !domain)
+            return res.status(400).json({ success: false, error: "email and domain are required." });
 
-        if (user.pendingSetup)
-        return res.status(400).json({ success: false, error: "User has not completed account setup yet." });
+            const user = await User.findOne({ email: email.toLowerCase().trim() });
+            if (!user)
+            return res.status(404).json({ success: false, error: "No user found with that email." });
 
-        const rawApiKey = await user.generateApiKey();
-        await user.save();
+            if (user.pendingSetup)
+            return res.status(400).json({ success: false, error: "User has not completed account setup yet." });
 
-        return res.json({
-        success: true,
-        email:      user.email,
-        apiKey:     rawApiKey,
-        apiKeyHint: user.apiKeyHint,
-        message:    `API key generated for ${user.email}. Copy it now — it won't be shown again.`,
+            const rawApiKey = await user.generateApiKey(domain); // ← pass domain
+            await user.save();
+
+            return res.json({
+            success:    true,
+            email:      user.email,
+            domain:     user.apiKeyDomain,
+            apiKey:     rawApiKey,
+            apiKeyHint: user.apiKeyHint,
+            message:    `API key generated for ${user.email} bound to ${domain}. Copy it now — it won't be shown again.`,
+            });
+        } catch (err) {
+            console.error("[admin/generate-api-key]", err);
+            return res.status(500).json({ success: false, error: "Server error." });
+        }
         });
-    } catch (err) {
-        console.error("[admin/generate-api-key]", err);
-        return res.status(500).json({ success: false, error: "Server error." });
-    }
-    });
 
     /* ── POST /api/admin/revoke-api-key ─────────────────────────── */
     router.post("/revoke-api-key", verifyAdminToken, async (req, res) => {
