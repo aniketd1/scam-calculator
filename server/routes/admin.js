@@ -322,12 +322,11 @@ const transporter = nodemailer.createTransport({
             await user.save();
 
             return res.json({
-            success:    true,
-            email:      user.email,
-            domain:     user.apiKeyDomain,
-            apiKey:     rawApiKey,
-            apiKeyHint: user.apiKeyHint,
-            message:    `API key generated for ${user.email} bound to ${user.apiKeyDomain}. Copy it now — it won't be shown again.`,
+            success:  true,
+            email:    user.email,
+            domain:   domain,
+            apiKey:   rawApiKey,
+            message:  `API key generated for ${user.email} on ${domain}. Copy it now — it won't be shown again.`,
             });
         } catch (err) {
             console.error("[admin/generate-api-key]", err);
@@ -337,24 +336,52 @@ const transporter = nodemailer.createTransport({
 
     /* ── POST /api/admin/revoke-api-key ─────────────────────────── */
     router.post("/revoke-api-key", verifyAdminToken, async (req, res) => {
+        try {
+            const { email, domain } = req.body;
+
+            if (!email || !domain)
+            return res.status(400).json({ success: false, error: "email and domain are required." });
+
+            const user = await User.findOne({ email: email.toLowerCase().trim() });
+            if (!user)
+            return res.status(404).json({ success: false, error: "No user found with that email." });
+
+            user.revokeApiKey(domain);
+            await user.save();
+
+            return res.json({
+            success: true,
+            message: `API key for ${user.email} on ${domain} has been revoked.`,
+            });
+        } catch (err) {
+            console.error("[admin/revoke-api-key]", err);
+            return res.status(500).json({ success: false, error: "Server error." });
+        }
+    });
+
+    /* ── GET /api/admin/users/:email/domains ─────────────────────── 
+    See all domains a user is registered with
+    ─────────────────────────────────────────────────────────────── */
+    router.get("/users/:email/domains", verifyAdminToken, async (req, res) => {
     try {
-        const { email } = req.body;
-        if (!email)
-        return res.status(400).json({ success: false, error: "email is required." });
-
-        const user = await User.findOne({ email: email.toLowerCase().trim() });
+        const user = await User.findOne(
+        { email: req.params.email.toLowerCase().trim() },
+        "email apiKeys"
+        );
         if (!user)
-        return res.status(404).json({ success: false, error: "No user found with that email." });
+        return res.status(404).json({ success: false, error: "User not found." });
 
-        user.apiKeyHash      = null;
-        user.apiKeyHint      = null;
-        user.apiKeyPrefix    = null;
-        user.apiKeyCreatedAt = null;
-        await user.save();
-
-        return res.json({ success: true, message: `API key revoked for ${user.email}.` });
+        return res.json({
+        success: true,
+        email:   user.email,
+        domains: (user.apiKeys || []).map(k => ({
+            domain:    k.domain,
+            keyHint:   k.keyHint,
+            keyPrefix: k.keyPrefix,
+            createdAt: k.createdAt,
+        })),
+        });
     } catch (err) {
-        console.error("[admin/revoke-api-key]", err);
         return res.status(500).json({ success: false, error: "Server error." });
     }
     });

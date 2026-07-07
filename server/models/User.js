@@ -77,39 +77,64 @@ const UserSchema = new mongoose.Schema(
     inviteToken:       { type: String,  default: null },
     inviteTokenExpires:{ type: Date,    default: null },
 
-    /* ── API key (admin-issued) ─────────────────────────────── */
-    apiKeyHash:      { type: String, default: null },
-    apiKeyHint:      { type: String, default: null },   // last 4 chars
-    apiKeyPrefix:    { type: String, default: null },   // first 8 chars
-    apiKeyCreatedAt: { type: Date,   default: null },   
-    apiKeyDomain:    { type: String, default: null }, // bound domain 
+    // One entry per (email + domain) registration
+    apiKeys: {
+      type: [{
+        keyHash:   { type: String, required: true },
+        keyHint:   { type: String },           // last 4 chars
+        keyPrefix: { type: String },           // first 8 chars
+        domain:    { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      }],
+      default: [],
+    },
   },
   { timestamps: true }
 );
 
-const normalize = d => d.toLowerCase()
+const normalizeDomain = d => d
+  .toLowerCase()
   .replace(/^https?:\/\//, "")
   .replace(/^www\./, "")
   .replace(/\/.*$/, "")
   .trim();
 
+// Generate a new key for a specific domain.
+// If that domain already has a key, it gets replaced.
 UserSchema.methods.generateApiKey = async function (domain) {
   if (!domain) throw new Error("domain is required.");
-  const rawKey         = crypto.randomBytes(32).toString("hex");
-  this.apiKeyHash      = await bcrypt.hash(rawKey, 10);
-  this.apiKeyHint      = rawKey.slice(-4);
-  this.apiKeyPrefix    = rawKey.slice(0, 8);
-  this.apiKeyCreatedAt = new Date();
-  this.apiKeyDomain    = normalize(domain);
+  const normalized = normalizeDomain(domain);
+  const rawKey     = crypto.randomBytes(32).toString("hex");
+  const keyHash    = await bcrypt.hash(rawKey, 10);
+
+  // Remove existing entry for this domain if any
+  this.apiKeys = this.apiKeys.filter(k => k.domain !== normalized);
+
+  // Add new entry
+  this.apiKeys.push({
+    keyHash,
+    keyHint:   rawKey.slice(-4),
+    keyPrefix: rawKey.slice(0, 8),
+    domain:    normalized,
+    createdAt: new Date(),
+  });
+
   return rawKey;
 };
 
-// Verifies key AND domain together — both must match
+// Verify: find the entry for this domain, then check the key
 UserSchema.methods.verifyApiKey = async function (rawKey, incomingDomain) {
-  if (!this.apiKeyHash || !this.apiKeyDomain) return false;
-  const keyMatch = await bcrypt.compare(rawKey, this.apiKeyHash);
-  if (!keyMatch) return false;
-  return normalize(incomingDomain) === this.apiKeyDomain;
+  if (!this.apiKeys?.length) return false;
+  const normalized = normalizeDomain(incomingDomain);
+  const entry = this.apiKeys.find(k => k.domain === normalized);
+  if (!entry) return false;  // this user not registered for this domain
+  return bcrypt.compare(rawKey, entry.keyHash);
+};
+
+// Revoke key for a specific domain
+UserSchema.methods.revokeApiKey = function (domain) {
+  const normalized = normalizeDomain(domain);
+  this.apiKeys = this.apiKeys.filter(k => k.domain !== normalized);
 };
 
 UserSchema.pre("save", async function (next) {
