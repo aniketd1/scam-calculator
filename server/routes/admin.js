@@ -306,7 +306,7 @@ const transporter = nodemailer.createTransport({
     /* ── POST /api/admin/generate-api-key ───────────────────────── */
     router.post("/generate-api-key", verifyAdminToken, async (req, res) => {
         try {
-            const { email, domain } = req.body;  // ← domain added
+            const { email, domain } = req.body;
 
             if (!email || !domain)
             return res.status(400).json({ success: false, error: "email and domain are required." });
@@ -316,9 +316,9 @@ const transporter = nodemailer.createTransport({
             return res.status(404).json({ success: false, error: "No user found with that email." });
 
             if (user.pendingSetup)
-            return res.status(400).json({ success: false, error: "User has not completed account setup yet." });
+            return res.status(400).json({ success: false, error: "User has not completed setup yet." });
 
-            const rawApiKey = await user.generateApiKey(domain); // ← pass domain
+            const rawApiKey = await user.generateApiKey(domain);
             await user.save();
 
             return res.json({
@@ -327,13 +327,13 @@ const transporter = nodemailer.createTransport({
             domain:     user.apiKeyDomain,
             apiKey:     rawApiKey,
             apiKeyHint: user.apiKeyHint,
-            message:    `API key generated for ${user.email} bound to ${domain}. Copy it now — it won't be shown again.`,
+            message:    `API key generated for ${user.email} bound to ${user.apiKeyDomain}. Copy it now — it won't be shown again.`,
             });
         } catch (err) {
             console.error("[admin/generate-api-key]", err);
             return res.status(500).json({ success: false, error: "Server error." });
         }
-        });
+    });
 
     /* ── POST /api/admin/revoke-api-key ─────────────────────────── */
     router.post("/revoke-api-key", verifyAdminToken, async (req, res) => {

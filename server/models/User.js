@@ -81,24 +81,35 @@ const UserSchema = new mongoose.Schema(
     apiKeyHash:      { type: String, default: null },
     apiKeyHint:      { type: String, default: null },   // last 4 chars
     apiKeyPrefix:    { type: String, default: null },   // first 8 chars
-    apiKeyCreatedAt: { type: Date,   default: null },    
+    apiKeyCreatedAt: { type: Date,   default: null },   
+    apiKeyDomain:    { type: String, default: null }, // bound domain 
   },
   { timestamps: true }
 );
 
-/* ── generateApiKey — called by admin route ── */
-UserSchema.methods.generateApiKey = async function () {
+const normalize = d => d.toLowerCase()
+  .replace(/^https?:\/\//, "")
+  .replace(/^www\./, "")
+  .replace(/\/.*$/, "")
+  .trim();
+
+UserSchema.methods.generateApiKey = async function (domain) {
+  if (!domain) throw new Error("domain is required.");
   const rawKey         = crypto.randomBytes(32).toString("hex");
   this.apiKeyHash      = await bcrypt.hash(rawKey, 10);
   this.apiKeyHint      = rawKey.slice(-4);
   this.apiKeyPrefix    = rawKey.slice(0, 8);
   this.apiKeyCreatedAt = new Date();
+  this.apiKeyDomain    = normalize(domain);
   return rawKey;
 };
 
-UserSchema.methods.verifyApiKey = async function (rawKey) {
-  if (!this.apiKeyHash) return false;
-  return bcrypt.compare(rawKey, this.apiKeyHash);
+// Verifies key AND domain together — both must match
+UserSchema.methods.verifyApiKey = async function (rawKey, incomingDomain) {
+  if (!this.apiKeyHash || !this.apiKeyDomain) return false;
+  const keyMatch = await bcrypt.compare(rawKey, this.apiKeyHash);
+  if (!keyMatch) return false;
+  return normalize(incomingDomain) === this.apiKeyDomain;
 };
 
 UserSchema.pre("save", async function (next) {

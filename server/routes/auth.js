@@ -439,26 +439,6 @@ router.post("/wordpress-login", async (req, res) => {
     if (!email || !password || !apiKey || !domain)
       return res.status(400).json({ success: false, error: "email, password, apiKey and domain are required." });
 
-    // 1. Normalize incoming domain
-    const normalizedDomain = domain
-      .toLowerCase()
-      .replace(/^https?:\/\//, "")
-      .replace(/^www\./, "")
-      .replace(/\/.*$/, "")
-      .trim();
-
-    // 2. Check domain is registered and active — independent of user
-    const registeredDomain = await RegisteredDomain.findOne({
-      domain: normalizedDomain,
-      status: "active",
-    });
-    if (!registeredDomain)
-      return res.status(401).json({
-        success: false,
-        error: "This website is not registered with Scam2Safe. Contact support@scam2safe.com.",
-      });
-
-    // 3. Find user by email
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user)
       return res.status(404).json({ success: false, error: "User not found." });
@@ -466,7 +446,7 @@ router.post("/wordpress-login", async (req, res) => {
     if (user.pendingSetup)
       return res.status(403).json({ success: false, error: "Account setup not complete." });
 
-    // 4. Verify password
+    // 1. Password check
     if (!user.password)
       return res.status(401).json({ success: false, error: "No password set. Please log in via scam2safe.com." });
 
@@ -474,12 +454,19 @@ router.post("/wordpress-login", async (req, res) => {
     if (!passwordMatch)
       return res.status(401).json({ success: false, error: "Invalid email or password." });
 
-    // 5. Verify API key matches THIS user (email-bound)
-    const keyValid = await user.verifyApiKey(apiKey);
+    // 2. API key check — verifies BOTH the key and the domain in one call
+    //    key_abc + user@college.edu + college.edu = ✓
+    //    key_abc + user@college.edu + hospital.com = ✗ (domain mismatch)
+    //    key_abc + user2@college.edu + college.edu = ✗ (wrong user's key)
+    const keyValid = await user.verifyApiKey(apiKey, domain);
     if (!keyValid)
-      return res.status(401).json({ success: false, error: "Invalid API key." });
+      return res.status(401).json({
+        success: false,
+        error: "Invalid API key or this key is not authorised for this website.",
+      });
 
-    // 6. All checks passed — same visual password regardless of which site
+    // 3. All checks passed — serve the visual challenge
+    //    Same visual password regardless of which approved site they log in from
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
       user.offset, user.secretLetters, user.registerLetters,
