@@ -6,6 +6,8 @@ import nodemailer from "nodemailer";
 import User      from "../models/User.js";
 import AdminUser from "../models/AdminUser.js";
 import dotenv    from "dotenv";
+import RegisteredDomain from "../models/RegisteredDomain.js";
+
 dotenv.config();
 
 const router = express.Router();
@@ -359,15 +361,100 @@ const transporter = nodemailer.createTransport({
 
     /* ── GET /api/admin/me ──────────────────────────────────────── */
     router.get("/me", verifyAdminToken, async (req, res) => {
+        try {
+            const admin = await AdminUser.findById(req.admin.adminId, "-password");
+            if (!admin)
+            return res.status(404).json({ success: false, error: "Admin not found." });
+            return res.json({ success: true, admin });
+        } catch (err) {
+            console.error("[admin/me]", err);
+            return res.status(500).json({ success: false, error: "Server error." });
+        }
+    });
+
+    /* ── GET /api/admin/domains ─────────────────────────────── */
+    router.get("/domains", verifyAdminToken, async (req, res) => {
     try {
-        const admin = await AdminUser.findById(req.admin.adminId, "-password");
-        if (!admin)
-        return res.status(404).json({ success: false, error: "Admin not found." });
-        return res.json({ success: true, admin });
+        const domains = await RegisteredDomain.find().sort({ createdAt: -1 });
+        return res.json({ success: true, domains });
     } catch (err) {
-        console.error("[admin/me]", err);
         return res.status(500).json({ success: false, error: "Server error." });
     }
-});
+    });
+
+    /* ── POST /api/admin/domains ────────────────────────────── */
+    router.post("/domains", verifyAdminToken, async (req, res) => {
+        try {
+            const { domain, orgName, notes } = req.body;
+            if (!domain || !orgName)
+            return res.status(400).json({ success: false, error: "domain and orgName are required." });
+
+            const existing = await RegisteredDomain.findOne({
+            domain: domain.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "").trim()
+            });
+            if (existing)
+            return res.status(409).json({ success: false, error: "Domain already registered." });
+
+            const doc = await RegisteredDomain.create({
+            domain, orgName, notes, addedBy: req.admin.email,
+            });
+
+            return res.status(201).json({ success: true, domain: doc });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: "Server error." });
+        }
+    });
+
+    /* ── POST /api/admin/domains/:id/suspend ────────────────── */
+    router.post("/domains/:id/suspend", verifyAdminToken, async (req, res) => {
+        try {
+            const doc = await RegisteredDomain.findByIdAndUpdate(
+            req.params.id, { status: "suspended" }, { new: true }
+            );
+            if (!doc) return res.status(404).json({ success: false, error: "Domain not found." });
+            return res.json({ success: true, message: `${doc.domain} suspended.` });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: "Server error." });
+        }
+    });
+
+    /* ── DELETE /api/admin/domains/:id ──────────────────────── */
+    router.delete("/domains/:id", verifyAdminToken, async (req, res) => {
+        try {
+            await RegisteredDomain.findByIdAndDelete(req.params.id);
+            return res.json({ success: true, message: "Domain removed." });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: "Server error." });
+        }
+    });
+
+    // Also update generate-api-key — no domain needed anymore
+    router.post("/generate-api-key", verifyAdminToken, async (req, res) => {
+        try {
+            const { email } = req.body;
+            if (!email)
+            return res.status(400).json({ success: false, error: "email is required." });
+
+            const user = await User.findOne({ email: email.toLowerCase().trim() });
+            if (!user)
+            return res.status(404).json({ success: false, error: "No user found with that email." });
+
+            if (user.pendingSetup)
+            return res.status(400).json({ success: false, error: "User has not completed account setup yet." });
+
+            const rawApiKey = await user.generateApiKey();
+            await user.save();
+
+            return res.json({
+            success:    true,
+            email:      user.email,
+            apiKey:     rawApiKey,
+            apiKeyHint: user.apiKeyHint,
+            message:    `API key generated for ${user.email}. Copy it now — it won't be shown again.`,
+            });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: "Server error." });
+        }
+    });
 
 export default router;

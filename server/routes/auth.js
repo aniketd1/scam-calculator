@@ -10,6 +10,7 @@ import User          from "../models/User.js";
 import LoginSession  from "../models/LoginSession.js";
 import { WORDS_BY_LANG, WORDS, WORD_PAIRS } from "../data/words.js";
 import Organisation from "../models/Organisation.js";
+import RegisteredDomain from "../models/RegisteredDomain.js";
 
 // ── BACKUP: sentence-based system ────────────────────────────
 // import { SENTENCES } from "../data/sentences.js";
@@ -434,11 +435,30 @@ router.post("/login", async (req, res) => {
 router.post("/wordpress-login", async (req, res) => {
   try {
     const { email, password, apiKey, domain } = req.body;
-    // domain = the WordPress site's domain, sent by the plugin
 
     if (!email || !password || !apiKey || !domain)
       return res.status(400).json({ success: false, error: "email, password, apiKey and domain are required." });
 
+    // 1. Normalize incoming domain
+    const normalizedDomain = domain
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .replace(/\/.*$/, "")
+      .trim();
+
+    // 2. Check domain is registered and active — independent of user
+    const registeredDomain = await RegisteredDomain.findOne({
+      domain: normalizedDomain,
+      status: "active",
+    });
+    if (!registeredDomain)
+      return res.status(401).json({
+        success: false,
+        error: "This website is not registered with Scam2Safe. Contact support@scam2safe.com.",
+      });
+
+    // 3. Find user by email
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user)
       return res.status(404).json({ success: false, error: "User not found." });
@@ -446,7 +466,7 @@ router.post("/wordpress-login", async (req, res) => {
     if (user.pendingSetup)
       return res.status(403).json({ success: false, error: "Account setup not complete." });
 
-    // 1. Verify password
+    // 4. Verify password
     if (!user.password)
       return res.status(401).json({ success: false, error: "No password set. Please log in via scam2safe.com." });
 
@@ -454,15 +474,12 @@ router.post("/wordpress-login", async (req, res) => {
     if (!passwordMatch)
       return res.status(401).json({ success: false, error: "Invalid email or password." });
 
-    // 2. Verify API key AND domain together — both must match
-    const keyValid = await user.verifyApiKey(apiKey, domain);
+    // 5. Verify API key matches THIS user (email-bound)
+    const keyValid = await user.verifyApiKey(apiKey);
     if (!keyValid)
-      return res.status(401).json({
-        success: false,
-        error: "Invalid API key or this key is not authorised for this website.",
-      });
+      return res.status(401).json({ success: false, error: "Invalid API key." });
 
-    // 3. All checks passed — serve the visual challenge
+    // 6. All checks passed — same visual password regardless of which site
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
       user.offset, user.secretLetters, user.registerLetters,
