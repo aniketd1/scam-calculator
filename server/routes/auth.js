@@ -433,21 +433,29 @@ router.post("/login", async (req, res) => {
 /* ── POST /api/auth/wordpress-login ────────────────────────── */
 router.post("/wordpress-login", async (req, res) => {
   try {
-    const { email, apiKey } = req.body;
-    if (!email || !apiKey)
-      return res.status(400).json({ success: false, error: "email and apiKey are required." });
+    const { email, password } = req.body;
+
+    if (!email || !password)
+      return res.status(400).json({ success: false, error: "Email and password are required." });
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user)
       return res.status(404).json({ success: false, error: "User not found." });
 
-    const keyValid = await user.verifyApiKey(apiKey);
-    if (!keyValid)
-      return res.status(401).json({ success: false, error: "Invalid API key." });
+    if (user.pendingSetup)
+      return res.status(403).json({ success: false, error: "Account setup not complete." });
+
+    if (!user.password)
+      return res.status(401).json({ success: false, error: "No password set. Please log in via scam2safe.com." });
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match)
+      return res.status(401).json({ success: false, error: "Invalid email or password." });
 
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
-      user.offset, user.secretLetters, user.registerLetters
+      user.offset, user.secretLetters, user.registerLetters,
+      user.selectedWordLang
     );
 
     return res.json({ success: true, sessionId, challengeGrid, registerLetters });

@@ -104,6 +104,12 @@ UserSchema.methods.generateApiKey = async function () {
   return rawKey;
 };
 
+UserSchema.pre("save", async function (next) {
+  if (!this.isModified("password") || !this.password) return next();
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
+
 /* ── verifyApiKey ── */
 UserSchema.methods.verifyApiKey = async function (rawKey) {
   if (!this.apiKeyHash) return false;
