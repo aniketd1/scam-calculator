@@ -194,11 +194,13 @@ function CreateUserPanel({ token, showToast }) {
 
 /* ── ApiKeyPanel ────────────────────────────────────────────── */
 function ApiKeyPanel({ token, showToast }) {
-  const [email, setEmail] = useState("");
-  const [user, setUser] = useState(null);
+  const [email, setEmail]     = useState("");
+  const [domain, setDomain]   = useState("");
+  const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState(null);
-  const [newKey, setNewKey] = useState(null);
+  const [msg, setMsg]         = useState(null);
+  const [newKey, setNewKey]   = useState(null);
+  const [newKeyDomain, setNewKeyDomain] = useState("");
 
   const lookup = async (e) => {
     e.preventDefault();
@@ -206,64 +208,151 @@ function ApiKeyPanel({ token, showToast }) {
     const data = await apiFetch(`/api/admin/users/${encodeURIComponent(email.trim())}`, token);
     setLoading(false);
     if (!data.success) { setMsg({ type: "danger", text: data.error }); return; }
-    setUser(data.user);
+    // Also fetch domains for this user
+    const domainData = await apiFetch(`/api/admin/users/${encodeURIComponent(email.trim())}/domains`, token);
+    setUser({ ...data.user, apiKeys: domainData.success ? domainData.domains : [] });
     showToast("success", `Found account for ${data.user.email}.`);
   };
 
   const generateKey = async () => {
+    if (!domain.trim()) { setMsg({ type: "danger", text: "Please enter a domain." }); return; }
     setMsg(null); setNewKey(null); setLoading(true);
-    const data = await apiFetch("/api/admin/generate-api-key", token, { method: "POST", body: JSON.stringify({ email: user.email }) });
+    const data = await apiFetch("/api/admin/generate-api-key", token, {
+      method: "POST",
+      body: JSON.stringify({ email: user.email, domain: domain.trim() }),
+    });
     setLoading(false);
     if (!data.success) { setMsg({ type: "danger", text: data.error }); return; }
     setNewKey(data.apiKey);
-    setUser(prev => ({ ...prev, apiKeyHint: data.apiKeyHint, apiKeyCreatedAt: new Date().toISOString() }));
-    showToast("success", `API key generated for ${user.email} — copy it now, it won't be shown again.`, 7000);
+    setNewKeyDomain(data.domain);
+    // Refresh domain list
+    const domainData = await apiFetch(`/api/admin/users/${encodeURIComponent(user.email)}/domains`, token);
+    setUser(prev => ({ ...prev, apiKeys: domainData.success ? domainData.domains : prev.apiKeys }));
+    setDomain("");
+    showToast("success", `Key generated for ${user.email} on ${data.domain} — copy it now.`, 7000);
   };
 
-  const revokeKey = async () => {
-    if (!confirm(`Revoke API key for ${user.email}? WordPress login will stop working until a new key is issued.`)) return;
+  const revokeKey = async (domainToRevoke) => {
+    if (!confirm(`Revoke key for ${user.email} on ${domainToRevoke}? WordPress login for this site will stop working.`)) return;
     setMsg(null); setLoading(true);
-    const data = await apiFetch("/api/admin/revoke-api-key", token, { method: "POST", body: JSON.stringify({ email: user.email }) });
+    const data = await apiFetch("/api/admin/revoke-api-key", token, {
+      method: "POST",
+      body: JSON.stringify({ email: user.email, domain: domainToRevoke }),
+    });
     setLoading(false);
     if (!data.success) { setMsg({ type: "danger", text: data.error }); return; }
-    setUser(prev => ({ ...prev, apiKeyHint: null, apiKeyCreatedAt: null }));
-    setNewKey(null);
-    showToast("warning", `API key revoked for ${user.email}. WordPress login is now disabled.`);
+    setUser(prev => ({ ...prev, apiKeys: prev.apiKeys.filter(k => k.domain !== domainToRevoke) }));
+    if (newKeyDomain === domainToRevoke) { setNewKey(null); setNewKeyDomain(""); }
+    showToast("warning", `Key revoked for ${user.email} on ${domainToRevoke}.`);
   };
 
   return (
     <section className="panel-section">
       <h2 className="panel-heading">Manage API keys</h2>
-      <p className="panel-sub">Look up a user by email to issue, rotate, or revoke their WordPress API key. Users cannot manage their own keys.</p>
+      <p className="panel-sub">
+        Each API key is bound to one email address and one website domain.
+        Look up a user, then generate or revoke keys per domain.
+      </p>
+
+      {/* Lookup */}
       <form onSubmit={lookup} className="search-row">
-        <input className="field-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="user@example.com" required />
-        <button className="btn-primary btn-primary--inline" type="submit" disabled={loading}>{loading ? "…" : "Look up"}</button>
+        <input className="field-input" type="email" value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="user@gmail.com" required />
+        <button className="btn-primary btn-primary--inline" type="submit" disabled={loading}>
+          {loading ? "…" : "Look up"}
+        </button>
       </form>
+
       {msg && <Alert type={msg.type}>{msg.text}</Alert>}
-      {newKey && <CopyBox value={newKey} label="New API key — copy now, won't be shown again" />}
+
+      {/* New key result */}
+      {newKey && (
+        <CopyBox
+          value={newKey}
+          label={`New API key for ${newKeyDomain} — copy now, won't be shown again`}
+        />
+      )}
+
       {user && (
         <div className="user-card">
-          {user.pendingSetup && <Alert type="warning">This user has not completed account setup. API keys cannot be issued until setup is done.</Alert>}
+          {user.pendingSetup && (
+            <Alert type="warning">
+              This user has not completed account setup. API keys cannot be issued until setup is done.
+            </Alert>
+          )}
+
+          {/* User header */}
           <div className="user-card-header">
             <div className="user-avatar">{user.email[0].toUpperCase()}</div>
             <div>
               <div className="user-email">{user.email}</div>
-              <div className="user-meta">Joined {new Date(user.createdAt).toLocaleDateString()}</div>
+              <div className="user-meta">
+                Joined {new Date(user.createdAt).toLocaleDateString()} ·{" "}
+                {user.apiKeys?.length || 0} domain{user.apiKeys?.length !== 1 ? "s" : ""} registered
+              </div>
             </div>
           </div>
-          <table className="user-table">
-            <tbody>
-              <tr><td className="user-table-key">Status</td><td>{user.pendingSetup ? <span className="badge badge--warning">Pending setup</span> : <span className="badge badge--success">Active</span>}</td></tr>
-              <tr><td className="user-table-key">WordPress site</td><td>{user.wordpressSite || <span className="dim">—</span>}</td></tr>
-              <tr><td className="user-table-key">Passkey</td><td>{user.passkeyEnabled ? <span className="badge badge--success">Registered</span> : <span className="dim">None</span>}</td></tr>
-              <tr><td className="user-table-key">API key hint</td><td>{user.apiKeyHint ? <code className="mono">…{user.apiKeyHint}</code> : <span className="dim">No key yet</span>}</td></tr>
-              {user.apiKeyCreatedAt && <tr><td className="user-table-key">Key issued</td><td className="dim">{new Date(user.apiKeyCreatedAt).toLocaleString()}</td></tr>}
-            </tbody>
-          </table>
+
+          {/* Existing domain keys */}
+          {user.apiKeys?.length > 0 && (
+            <div>
+              <p className="inner-card-title" style={{ marginBottom: 8 }}>Registered domains</p>
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Domain</th>
+                      <th>Key hint</th>
+                      <th>Issued</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {user.apiKeys.map(k => (
+                      <tr key={k.domain}>
+                        <td><code className="mono">{k.domain}</code></td>
+                        <td><code className="mono">…{k.keyHint}</code></td>
+                        <td className="dim">{new Date(k.createdAt).toLocaleDateString()}</td>
+                        <td>
+                          <button
+                            className="btn-danger btn-danger--sm"
+                            onClick={() => revokeKey(k.domain)}
+                            disabled={loading}
+                          >
+                            Revoke
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Generate new key */}
           {!user.pendingSetup && (
-            <div className="btn-row">
-              <button className="btn-primary" onClick={generateKey} disabled={loading}>{user.apiKeyHint ? "Rotate key" : "Generate key"}</button>
-              {user.apiKeyHint && <button className="btn-danger" onClick={revokeKey} disabled={loading}>Revoke key</button>}
+            <div className="inner-card">
+              <p className="inner-card-title">Generate key for a new domain</p>
+              <p className="dim" style={{ fontSize: "0.8rem", marginTop: -8 }}>
+                Enter the WordPress site domain. The same visual password works across all domains.
+              </p>
+              <div className="search-row">
+                <input
+                  className="field-input"
+                  value={domain}
+                  onChange={e => setDomain(e.target.value)}
+                  placeholder="college.edu or hospital.com"
+                />
+                <button
+                  className="btn-primary btn-primary--inline"
+                  onClick={generateKey}
+                  disabled={loading || !domain.trim()}
+                >
+                  {loading ? "…" : "Generate"}
+                </button>
+              </div>
             </div>
           )}
         </div>
