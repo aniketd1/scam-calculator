@@ -161,15 +161,19 @@ export default function Auth() {
   const closeToast = id => setToasts(prev => prev.filter(t => t.id !== id));
 
   /* ── URL params (WordPress SSO) ── */
+  const [domain, setDomain] = useState("");
+
   useEffect(() => {
     const params   = new URLSearchParams(window.location.search);
     const em       = params.get("email");
     const ak       = params.get("apikey");
+    const dm       = params.get("domain");
     const callback = params.get("callback");
     if (em) setEmail(em);
     if (ak) setApiKey(ak);
+    if (dm) setDomain(dm);
     if (callback) localStorage.setItem("wp_callback", callback);
-    if (em && ak) { setMode("login"); setIsWordpressLogin(true); }
+    if (em && ak && dm) { setMode("login"); setIsWordpressLogin(true); }
     window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
@@ -350,7 +354,7 @@ export default function Auth() {
   const handleWordpressLogin = async () => {
     try {
       setLoading(true);
-      const data = await postJson("/api/auth/wordpress-login", { email, apiKey });
+      const data = await postJson("/api/auth/wordpress-login", { email, apiKey, domain });
       if (!data.success) {
         if (data.error === "User not found.") {
           setMode("signup");
@@ -371,6 +375,13 @@ export default function Auth() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isWordpressLogin && email && apiKey && domain && !wpLoginStarted) {
+      setWpLoginStarted(true);
+      handleWordpressLogin();
+    }
+  }, [isWordpressLogin, email, apiKey, domain, wpLoginStarted]);
 
   const handleCardSelect = (idx) => {
     setRegInputs(Array(5).fill(""));
