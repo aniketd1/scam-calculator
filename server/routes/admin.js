@@ -277,7 +277,7 @@ const transporter = nodemailer.createTransport({
         const total  = await User.countDocuments(filter);
         const users  = await User.find(
         filter,
-        "-password -apiKeyHash -secretNouns -secretPositions -offset -resetPasswordToken -resetPasswordExpires -passkeyCredentials -passkeyChallenge -inviteToken"
+        "-password -apiKeys.keyHash -secretNouns -secretPositions -offset -resetPasswordToken -resetPasswordExpires -passkeyCredentials -passkeyChallenge -inviteToken"
         ).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit);
 
         return res.json({ success: true, total, page, pages: Math.ceil(total / limit), users });
@@ -289,72 +289,44 @@ const transporter = nodemailer.createTransport({
 
     /* ── GET /api/admin/users/:email ────────────────────────────── */
     router.get("/users/:email", verifyAdminToken, async (req, res) => {
-    try {
-        const user = await User.findOne(
-        { email: req.params.email.toLowerCase().trim() },
-        "-password -apiKeyHash -secretNouns -secretPositions -offset -resetPasswordToken -resetPasswordExpires -passkeyCredentials -passkeyChallenge -inviteToken"
-        );
-        if (!user)
-        return res.status(404).json({ success: false, error: "User not found." });
-        return res.json({ success: true, user });
-    } catch (err) {
-        console.error("[admin/users/:email]", err);
-        return res.status(500).json({ success: false, error: "Server error." });
-    }
+        try {
+            const user = await User.findOne(
+            { email: req.params.email.toLowerCase().trim() },
+            "-password -apiKeys.keyHash -secretNouns -secretPositions -offset -resetPasswordToken -resetPasswordExpires -passkeyCredentials -passkeyChallenge -inviteToken"
+            );
+            if (!user)
+            return res.status(404).json({ success: false, error: "User not found." });
+            return res.json({ success: true, user });
+        } catch (err) {
+            console.error("[admin/users/:email]", err);
+            return res.status(500).json({ success: false, error: "Server error." });
+        }
     });
 
     /* ── POST /api/admin/generate-api-key ───────────────────────── */
     router.post("/generate-api-key", verifyAdminToken, async (req, res) => {
         try {
             const { email, domain } = req.body;
-
             if (!email || !domain)
             return res.status(400).json({ success: false, error: "email and domain are required." });
 
-            const user = await User.findOne({ email: email.toLowerCase().trim() });
-            if (!user)
-            return res.status(404).json({ success: false, error: "No user found with that email." });
-
-            if (user.pendingSetup)
-            return res.status(400).json({ success: false, error: "User has not completed setup yet." });
+            let user = await User.findOne({ email: email.toLowerCase().trim() });
+            if (!user) {
+            user = new User({ email: email.toLowerCase().trim() });
+            }
 
             const rawApiKey = await user.generateApiKey(domain);
             await user.save();
 
             return res.json({
-            success:  true,
-            email:    user.email,
-            domain:   domain,
-            apiKey:   rawApiKey,
-            message:  `API key generated for ${user.email} on ${domain}. Copy it now — it won't be shown again.`,
+            success: true,
+            email: user.email,
+            domain,
+            apiKey: rawApiKey,
+            message: `API key generated for ${user.email} on ${domain}. Copy it now — it won't be shown again.`,
             });
         } catch (err) {
             console.error("[admin/generate-api-key]", err);
-            return res.status(500).json({ success: false, error: "Server error." });
-        }
-    });
-
-    /* ── POST /api/admin/revoke-api-key ─────────────────────────── */
-    router.post("/revoke-api-key", verifyAdminToken, async (req, res) => {
-        try {
-            const { email, domain } = req.body;
-
-            if (!email || !domain)
-            return res.status(400).json({ success: false, error: "email and domain are required." });
-
-            const user = await User.findOne({ email: email.toLowerCase().trim() });
-            if (!user)
-            return res.status(404).json({ success: false, error: "No user found with that email." });
-
-            user.revokeApiKey(domain);
-            await user.save();
-
-            return res.json({
-            success: true,
-            message: `API key for ${user.email} on ${domain} has been revoked.`,
-            });
-        } catch (err) {
-            console.error("[admin/revoke-api-key]", err);
             return res.status(500).json({ success: false, error: "Server error." });
         }
     });
@@ -450,35 +422,6 @@ const transporter = nodemailer.createTransport({
         try {
             await RegisteredDomain.findByIdAndDelete(req.params.id);
             return res.json({ success: true, message: "Domain removed." });
-        } catch (err) {
-            return res.status(500).json({ success: false, error: "Server error." });
-        }
-    });
-
-    // Also update generate-api-key — no domain needed anymore
-    router.post("/generate-api-key", verifyAdminToken, async (req, res) => {
-        try {
-            const { email } = req.body;
-            if (!email)
-            return res.status(400).json({ success: false, error: "email is required." });
-
-            const user = await User.findOne({ email: email.toLowerCase().trim() });
-            if (!user)
-            return res.status(404).json({ success: false, error: "No user found with that email." });
-
-            if (user.pendingSetup)
-            return res.status(400).json({ success: false, error: "User has not completed account setup yet." });
-
-            const rawApiKey = await user.generateApiKey();
-            await user.save();
-
-            return res.json({
-            success:    true,
-            email:      user.email,
-            apiKey:     rawApiKey,
-            apiKeyHint: user.apiKeyHint,
-            message:    `API key generated for ${user.email}. Copy it now — it won't be shown again.`,
-            });
         } catch (err) {
             return res.status(500).json({ success: false, error: "Server error." });
         }
