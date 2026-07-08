@@ -362,15 +362,58 @@ router.post("/signup", async (req, res) => {
     if (!Array.isArray(selectedWordParts) || ![3, 6].includes(selectedWordParts.filter(Boolean).length))
       return res.status(400).json({ success: false, error: "Word must have exactly 3 parts (or 6 for two-word combos)." });
 
-    const existing = await User.findOne({ email: email.toLowerCase().trim() });
-    if (existing)
-      return res.status(409).json({ success: false, error: "An account with that email already exists." });
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await User.findOne({ email: normalizedEmail });
 
-    // Generate fixed 5-letter register row for this user
+    // Generate the fixed register letters
     const regLetters = generateRegisterLetters(secretLetters);
 
+    if (existing) {
+
+      // Account already fully configured
+      if (!existing.pendingSetup) {
+        return res.status(409).json({
+          success: false,
+          error: "An account with that email already exists."
+        });
+      }
+
+      // Complete the pending account
+      existing.password = password;
+      existing.selectedWord = selectedWord;
+      existing.selectedWordLang = selectedWordLang || "en";
+      existing.secretParts = selectedWordParts.filter(Boolean);
+      existing.secretLetters = secretLetters;
+      existing.registerLetters = regLetters;
+      existing.offset = off;
+      existing.wpFlow = !!wpFlow;
+      existing.wordpressSite = wordpressSite || existing.wordpressSite;
+      existing.wordpressUsername = wordpressUsername || existing.wordpressUsername;
+      existing.pendingSetup = false;
+
+      await existing.save();
+
+      const token = jwt.sign(
+        {
+          userId: existing._id,
+          email: existing.email,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      return res.status(200).json({
+        success: true,
+        token,
+        user: {
+          id: existing._id,
+          email: existing.email,
+        },
+      });
+    }
+
     const user = new User({
-      email:             email.toLowerCase().trim(),
+      email:             normalizedEmail,
       password,
       selectedWord,
       selectedWordLang:  selectedWordLang || "en",
@@ -558,7 +601,7 @@ router.post("/verify", async (req, res) => {
 });
 
 /* ══════════════════════════════════════════════════════════════
-   WEBAUTHN — PASSKEY (unchanged from previous version)
+   WEBAUTHN — PASSKEY
 ══════════════════════════════════════════════════════════════ */
 
 router.post("/passkey/register-options", verifyUserToken, async (req, res) => {
