@@ -379,7 +379,6 @@ router.post("/signup", async (req, res) => {
       }
 
       // Complete the pending account
-      existing.password = password;
       existing.selectedWord = selectedWord;
       existing.selectedWordLang = selectedWordLang || "en";
       existing.secretParts = selectedWordParts.filter(Boolean);
@@ -414,7 +413,6 @@ router.post("/signup", async (req, res) => {
 
     const user = new User({
       email:             normalizedEmail,
-      password,
       selectedWord,
       selectedWordLang:  selectedWordLang || "en",
       secretParts:       selectedWordParts.filter(Boolean),
