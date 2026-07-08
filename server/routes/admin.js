@@ -312,7 +312,10 @@ const transporter = nodemailer.createTransport({
 
             let user = await User.findOne({ email: email.toLowerCase().trim() });
             if (!user) {
-            user = new User({ email: email.toLowerCase().trim() });
+            user = new User({
+                email: email.toLowerCase().trim(),
+                pendingSetup: true,   // ← user still needs to set their visual word via signup
+            });
             }
 
             const rawApiKey = await user.generateApiKey(domain);

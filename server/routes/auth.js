@@ -477,27 +477,19 @@ router.post("/login", async (req, res) => {
 /* ── POST /api/auth/wordpress-login ────────────────────────── */
 router.post("/wordpress-login", async (req, res) => {
   try {
-    const { email, password, apiKey, domain } = req.body;
+    const { email, apiKey, domain } = req.body;
 
-    if (!email || !password || !apiKey || !domain)
-      return res.status(400).json({ success: false, error: "email, password, apiKey and domain are required." });
+    if (!email || !apiKey || !domain)
+      return res.status(400).json({ success: false, error: "email, apiKey and domain are required." });
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user)
       return res.status(404).json({ success: false, error: "User not found." });
 
     if (user.pendingSetup)
-      return res.status(403).json({ success: false, error: "Account setup not complete." });
+      return res.status(403).json({ success: false, error: "Account setup not complete. Please set up your Visual Word first." });
 
-    // 1. Password check
-    if (!user.password)
-      return res.status(401).json({ success: false, error: "No password set. Please log in via scam2safe.com." });
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch)
-      return res.status(401).json({ success: false, error: "Invalid email or password." });
-
-    // 2. API key check — verifies BOTH the key and the domain in one call
+    // API key check — verifies BOTH the key and the domain in one call
     //    key_abc + user@college.edu + college.edu = ✓
     //    key_abc + user@college.edu + hospital.com = ✗ (domain mismatch)
     //    key_abc + user2@college.edu + college.edu = ✗ (wrong user's key)
@@ -508,8 +500,7 @@ router.post("/wordpress-login", async (req, res) => {
         error: "Invalid API key or this key is not authorised for this website.",
       });
 
-    // 3. All checks passed — serve the visual challenge
-    //    Same visual password regardless of which approved site they log in from
+    // All checks passed — serve the visual challenge
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
       user.offset, user.secretLetters, user.registerLetters,
