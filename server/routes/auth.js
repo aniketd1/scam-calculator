@@ -245,6 +245,47 @@ router.get("/words", (req, res) => {
   res.json({ success: true, lang, words, wordPairs });
 });
 
+/* ── POST /api/auth/verify-wp-session ─────────────────────────
+   Called by the WordPress plugin after login to confirm the JWT
+   is valid and matches the API key + website it was issued for.
+   Accepts form-urlencoded: email, apikey, website, jwt
+─────────────────────────────────────────────────────────────── */
+router.post("/verify-wp-session", async (req, res) => {
+  try {
+    const { email, apikey, website, jwt: token } = req.body;
+
+    if (!email || !apikey || !website || !token)
+      return res.status(400).json({ success: false, error: "email, apikey, website and jwt are required." });
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).json({ success: false, error: "Invalid or expired JWT." });
+    }
+
+    if (decoded.email?.toLowerCase() !== email.toLowerCase().trim())
+      return res.status(401).json({ success: false, error: "JWT email does not match supplied email." });
+
+    const user = await User.findById(decoded.userId);
+    if (!user)
+      return res.status(404).json({ success: false, error: "User not found." });
+
+    const keyValid = await user.verifyApiKey(apikey, website);
+    if (!keyValid)
+      return res.status(400).json({ success: false, error: "Website API Key does not match." });
+
+    return res.status(200).json({
+      success: true,
+      token,
+      user: { id: user._id, email: user.email },
+    });
+  } catch (err) {
+    console.error("[verify-wp-session]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
+  }
+});
+
 // wordpress security endpoint
 router.post("/verify-wp-token", async (req, res) => {
     try {

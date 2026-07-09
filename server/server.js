@@ -25,7 +25,8 @@ app.use(cors({
   ],
   credentials: true
 }));
-app.use(express.json());
+
+app.use(express.urlencoded({ extended: true }));
 
 // ── Routes ───────────────────────────────────────────────────
 app.use("/api/auth", authRouter);
