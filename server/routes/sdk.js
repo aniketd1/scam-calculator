@@ -75,40 +75,46 @@ function issueVerificationToken(session) {
 }
 
 async function createTransactionChallenge(req, res) {
-  const { email, transactionId, amount, currency = "INR", recipientName } = req.body;
-  if (!email || !validTransactionId(transactionId) || amount === undefined || !recipientName) {
-    return res.status(400).json({ success: false, error: "email, transactionId, amount and recipientName are required." });
+  const { email, transactionId } = req.body;
+  if (!email || !validTransactionId(transactionId)) {
+    return res.status(400).json({ success: false, error: "email and transactionId are required." });
   }
-  const money = amountToMinor(amount, currency);
-  if (!money) return res.status(400).json({ success: false, error: "amount must be a positive value with at most two decimal places." });
-  const markers = recipientMarkers(recipientName);
-  if (!markers) return res.status(400).json({ success: false, error: "recipientName must contain at least two distinct letters or digits." });
 
   const user = await User.findOne({ email: String(email).toLowerCase().trim() });
-  if (!user || user.pendingSetup) return res.status(404).json({ success: false, error: "No eligible Scam2Safe user was found." });
+  if (!user || user.pendingSetup) {
+    return res.status(404).json({ success: false, error: "No eligible Scam2Safe user was found." });
+  }
+  if (!Array.isArray(user.registerLetters) || user.registerLetters.length !== 5 ||
+      !Array.isArray(user.secretLetters) || user.secretLetters.length !== 2 || user.offset === null) {
+    return res.status(409).json({ success: false, error: "This user has not completed visual-password setup." });
+  }
+
   const { grid, secretValue } = buildWordGrid(user);
-  const { registerLetters, markerPositions } = buildRecipientRegister(markers);
-  const fingerprint = transactionFingerprint({ transactionId: transactionId.trim(), ...money, recipientName });
+  const markerPositions = user.secretLetters.map(letter => user.registerLetters.indexOf(letter));
+  if (markerPositions.some(position => position < 0)) {
+    return res.status(409).json({ success: false, error: "User visual-password setup is invalid." });
+  }
+  const expectedDigits = String((Number(user.offset) + secretValue) % 100).padStart(2, "0").split("").map(Number);
+
+  const fingerprint = transactionFingerprint({ transactionId: transactionId.trim(), userId: String(user._id) });
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   const sessionId = crypto.randomUUID();
-  const expectedDigits = amountCode(Number(amount), secretValue);
 
   try {
     await TransactionSession.create({
       sessionId, apiKeyOwnerId: req.sdkUser._id, userId: user._id, purpose: "transaction",
-      transactionId: transactionId.trim(), transactionHash: fingerprint, ...money,
-      recipientInitials: markers, registerLetters, markerPositions, expectedDigits, expiresAt,
+      transactionId: transactionId.trim(), transactionHash: fingerprint,
+      registerLetters: user.registerLetters, markerPositions, expectedDigits, expiresAt,
     });
   } catch (error) {
-    if (error?.code === 11000) return res.status(409).json({ success: false, error: "An active challenge already exists for this transaction. Use its session or wait for it to expire." });
+    if (error?.code === 11000) return res.status(409).json({ success: false, error: "An active challenge already exists for this transaction." });
     throw error;
   }
 
   console.info(`[sdk/transaction/start] owner=${req.sdkUser._id} session=${sessionId}`);
-  return res.status(201).json(challengeResponse(sessionId, grid, registerLetters, expiresAt, {
-    transactionId: transactionId.trim(), recipientInitials: markers,
-    verificationRule:
-"Count the number of digits in the transaction amount. Add the selected visual-word card value to this count. Enter the resulting two-digit code in the positions marked by the recipient initials."
+  return res.status(201).json(challengeResponse(sessionId, grid, user.registerLetters, expiresAt, {
+    transactionId: transactionId.trim(),
+    verificationRule: "Enter your visual-word value plus your offset, split across your two secret letter positions."
   }));
 }
 
