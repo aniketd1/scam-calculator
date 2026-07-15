@@ -1,3 +1,4 @@
+// routes/sdk.js
 import express from "express";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
@@ -147,6 +148,10 @@ router.post("/transaction/verify", async (req, res) => {
     );
     const supplied = suppliedRaw.map(Number);
     const valid = validFormat && supplied[0] === session.expectedDigits[0] && supplied[1] === session.expectedDigits[1];
+
+    console.log("DEBUG expectedDigits:", session.expectedDigits, "markerPositions:", session.markerPositions);
+    console.log("DEBUG supplied:", supplied, "registerInputs:", registerInputs);
+
     if (!valid) {
       const updated = await TransactionSession.findOneAndUpdate(
         { _id: session._id, status: "challenge" }, { $inc: { attempts: 1 } }, { new: true }
