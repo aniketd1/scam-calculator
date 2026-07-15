@@ -78,8 +78,21 @@ export function amountToMinor(amount, currency = "INR") {
   return Number.isSafeInteger(minor) && minor > 0 ? { amountMinor: minor, currency: String(currency).toUpperCase() } : null;
 }
 
-export function amountCode(amountMinor, secretValue) {
-  return String((amountMinor + secretValue) % 100).padStart(2, "0").split("").map(Number);
+export function amountCode(amount, secretValue) {
+  const amountString = String(Math.floor(amount));
+
+  const firstDigit = amountString[0];
+  const digitCount = amountString.length;
+
+  const mentalMargin = Number(`${firstDigit}${digitCount}`);
+
+  const finalCode = mentalMargin + secretValue;
+
+  return String(finalCode)
+    .padStart(2, "0")
+    .slice(-2)
+    .split("")
+    .map(Number);
 }
 
 export function transactionFingerprint({ transactionId, amountMinor, currency, recipientName }) {
