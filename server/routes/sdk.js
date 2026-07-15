@@ -21,7 +21,7 @@ const buckets = new Map();
 
 function rateLimit(limit, windowMs) {
   return (req, res, next) => {
-    const key = `${req.organisation?._id || req.ip}:${req.path}`;
+    const key = `${req.sdkUser?._id || req.ip}:${req.path}`;
     const now = Date.now();
     const bucket = buckets.get(key);
     if (!bucket || bucket.resetAt <= now) {
@@ -64,7 +64,7 @@ function issueVerificationToken(session) {
     {
       scope: session.purpose === "transaction" ? "sdk:transaction" : "sdk:recovery",
       sub: String(session.userId),
-      org: String(session.organisationId),
+      sdk: String(session.apiKeyOwnerId),
       sid: session.sessionId,
       tx: session.transactionHash || undefined,
     },
@@ -94,7 +94,7 @@ async function createTransactionChallenge(req, res) {
 
   try {
     await TransactionSession.create({
-      sessionId, organisationId: req.organisation._id, userId: user._id, purpose: "transaction",
+      sessionId, apiKeyOwnerId: req.sdkUser._id, userId: user._id, purpose: "transaction",
       transactionId: transactionId.trim(), transactionHash: fingerprint, ...money,
       recipientInitials: markers, registerLetters, markerPositions, expectedDigits, expiresAt,
     });
@@ -103,7 +103,7 @@ async function createTransactionChallenge(req, res) {
     throw error;
   }
 
-  console.info(`[sdk/transaction/start] org=${req.organisation._id} session=${sessionId}`);
+  console.info(`[sdk/transaction/start] owner=${req.sdkUser._id} session=${sessionId}`);
   return res.status(201).json(challengeResponse(sessionId, grid, registerLetters, expiresAt, {
     transactionId: transactionId.trim(), recipientInitials: markers,
     verificationRule: "Add the selected visual-word card value to the last two digits of the amount. Enter the resulting two-digit code in the positions marked by the recipient initials.",
@@ -114,7 +114,7 @@ router.get("/ping", (_req, res) => res.json({ success: true, status: "ok", servi
 router.get("/version", (_req, res) => res.json({ success: true, version: "1.0.0" }));
 
 // Limit unauthenticated traffic too, so invalid-key requests cannot be used to
-// exhaust database lookups. The second limit is keyed by organisation.
+// exhaust database lookups. The second limit is keyed by API-key owner.
 router.use(rateLimit(120, 60 * 1000));
 router.use(verifySdkApiKey);
 router.use(rateLimit(60, 60 * 1000));
@@ -134,7 +134,7 @@ router.post("/transaction/verify", async (req, res) => {
     if (typeof sessionId !== "string" || !Array.isArray(registerInputs) || registerInputs.length !== 5) {
       return res.status(400).json({ success: false, error: "sessionId and exactly five registerInputs are required." });
     }
-    const session = await TransactionSession.findOne({ sessionId, organisationId: req.organisation._id });
+    const session = await TransactionSession.findOne({ sessionId, apiKeyOwnerId: req.sdkUser._id });
     if (!session) return res.status(404).json({ success: false, error: "Challenge not found or already consumed." });
     if (session.expiresAt <= new Date()) return res.status(410).json({ success: false, error: "Challenge expired. Start a new transaction verification." });
     if (session.status !== "challenge") return res.status(409).json({ success: false, error: "Challenge has already been used." });
@@ -165,7 +165,7 @@ router.post("/transaction/verify", async (req, res) => {
     if (!consumed) return res.status(409).json({ success: false, error: "Challenge has already been used or expired." });
 
     const verificationToken = issueVerificationToken(consumed);
-    console.info(`[sdk/transaction/verify] org=${req.organisation._id} session=${sessionId} verified=true`);
+    console.info(`[sdk/transaction/verify] owner=${req.sdkUser._id} session=${sessionId} verified=true`);
     return res.json({
       success: true, verified: true, recovery: consumed.purpose === "recovery",
       verificationToken, tokenType: "Bearer", expiresIn: 300,
@@ -192,7 +192,7 @@ router.post("/recovery/start", async (req, res) => {
     const expectedDigits = String((Number(user.offset) + secretValue) % 100).padStart(2, "0").split("").map(Number);
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
     const sessionId = crypto.randomUUID();
-    await TransactionSession.create({ sessionId, organisationId: req.organisation._id, userId: user._id, purpose: "recovery", registerLetters: user.registerLetters, markerPositions, expectedDigits, expiresAt });
+    await TransactionSession.create({ sessionId, apiKeyOwnerId: req.sdkUser._id, userId: user._id, purpose: "recovery", registerLetters: user.registerLetters, markerPositions, expectedDigits, expiresAt });
     return res.status(201).json(challengeResponse(sessionId, grid, user.registerLetters, expiresAt, { recovery: true }));
   } catch (error) {
     console.error("[sdk/recovery/start]", error);

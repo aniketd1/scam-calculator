@@ -9,7 +9,6 @@ import crypto   from "crypto";
 import User          from "../models/User.js";
 import LoginSession  from "../models/LoginSession.js";
 import { WORDS_BY_LANG, WORDS, WORD_PAIRS } from "../data/words.js";
-import Organisation from "../models/Organisation.js";
 import RegisteredDomain from "../models/RegisteredDomain.js";
 
 // ── BACKUP: sentence-based system ────────────────────────────
@@ -871,10 +870,15 @@ router.post("/erp-login", async (req, res) => {
     if (!email || !apiKey)
       return res.status(400).json({ success: false, error: "email and apiKey are required." });
 
-    // Validate org API key
-    const orgs = await Organisation.find({ status: "approved" });
-    const org  = orgs.find(o => o.verifyApiKey(apiKey));
-    if (!org)
+    // Validate against the shared User.apiKeys infrastructure.
+    const keyPrefix = apiKey.slice(0, 8);
+    const keyOwners = await User.find({ "apiKeys.keyPrefix": keyPrefix });
+    const valid = (await Promise.all(keyOwners.flatMap(owner =>
+      owner.apiKeys
+        .filter(key => key.keyPrefix === keyPrefix)
+        .map(key => bcrypt.compare(apiKey, key.keyHash))
+    ))).some(Boolean);
+    if (!valid)
       return res.status(401).json({ success: false, error: "Invalid or inactive API key." });
 
     // Find the user

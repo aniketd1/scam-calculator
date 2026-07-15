@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 
 // An SDK challenge is deliberately separate from a login session: it is bound
-// to one organisation and one transaction, and can be consumed only once.
+// to one API-key owner and one transaction, and can be consumed only once.
 const TransactionSessionSchema = new mongoose.Schema(
   {
     sessionId: { type: String, required: true, unique: true, index: true },
-    organisationId: { type: mongoose.Schema.Types.ObjectId, ref: "Organisation", required: true, index: true },
+    apiKeyOwnerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     purpose: { type: String, enum: ["transaction", "recovery"], required: true },
     transactionId: { type: String, default: null, index: true },
@@ -25,7 +25,7 @@ const TransactionSessionSchema = new mongoose.Schema(
 );
 
 TransactionSessionSchema.index(
-  { organisationId: 1, transactionId: 1, status: 1 },
+  { apiKeyOwnerId: 1, transactionId: 1, status: 1 },
   { unique: true, partialFilterExpression: { transactionId: { $type: "string" }, status: "challenge" } }
 );
 
