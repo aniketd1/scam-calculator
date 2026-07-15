@@ -79,18 +79,12 @@ export function amountToMinor(amount, currency = "INR") {
 }
 
 export function amountCode(amount, secretValue) {
-  const amountString = String(Math.floor(amount));
+  const digitCount = String(Math.floor(amount)).length;
 
-  const firstDigit = amountString[0];
-  const digitCount = amountString.length;
-
-  const mentalMargin = Number(`${firstDigit}${digitCount}`);
-
-  const finalCode = mentalMargin + secretValue;
+  const finalCode = digitCount + secretValue;
 
   return String(finalCode)
     .padStart(2, "0")
-    .slice(-2)
     .split("")
     .map(Number);
 }

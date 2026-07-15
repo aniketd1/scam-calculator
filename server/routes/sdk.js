@@ -90,7 +90,7 @@ async function createTransactionChallenge(req, res) {
   const fingerprint = transactionFingerprint({ transactionId: transactionId.trim(), ...money, recipientName });
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   const sessionId = crypto.randomUUID();
-  const expectedDigits = amountCode(money.amountMinor, secretValue);
+  const expectedDigits = amountCode(Number(amount), secretValue);
 
   try {
     await TransactionSession.create({
@@ -106,7 +106,8 @@ async function createTransactionChallenge(req, res) {
   console.info(`[sdk/transaction/start] owner=${req.sdkUser._id} session=${sessionId}`);
   return res.status(201).json(challengeResponse(sessionId, grid, registerLetters, expiresAt, {
     transactionId: transactionId.trim(), recipientInitials: markers,
-    verificationRule: "Add the selected visual-word card value to the last two digits of the amount. Enter the resulting two-digit code in the positions marked by the recipient initials.",
+    verificationRule:
+"Count the number of digits in the transaction amount. Add the selected visual-word card value to this count. Enter the resulting two-digit code in the positions marked by the recipient initials."
   }));
 }
 
