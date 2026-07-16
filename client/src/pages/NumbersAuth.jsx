@@ -1,29 +1,20 @@
-// pages/NumberAuth.jsx  (or wherever your router points /numbers)
-// Number-based Visual Password — scam2safe.com/numbers
+// pages/NumberAuth.jsx
+// Number-Box Visual Password — scam2safe.com/numbers
 //
-// GRID LAYOUT (3×3, 9 boxes):
-//   ┌──────┬──────┬──────┐
-//   │  15  │  16  │  99  │   ← row 1: unique numbers, no circle
-//   ├──────┼──────┼──────┤
-//   │  20  │  30  │  78  │   ← row 2: unique numbers, no circle
-//   ├──────┼──────┼──────┤
-//   │ (6)  │ (10) │ (31) │   ← row 3: CIRCLED — user picks one
-//   └──────┴──────┴──────┘
-//
-// Login math:
-//   secretNumber (stored server-side) + mentalMargin (user's head) + pickedCircledNumber = result
-//   e.g. 15 + 4 + 6 = 25 → enter 2 at A, 5 at D (positions the user chose at signup)
+// 9 named boxes, each with 4 unique numbers + 1 circled number below it.
+// Exactly one box (secretly, server-side) contains the user's real secret
+// number among its 4. User recognizes their number, reads that box's
+// circled number, adds secret + mental margin + circled, enters result
+// at their two private positions.
 //
 // Security:
-//   - secretNumber NEVER sent to client
-//   - Only sessionId + grid returned from /api/numbers/login
-//   - /api/numbers/register builds expected digits server-side
-//   - /api/numbers/verify checks only the 2 secret positions
+//   - secretNumber, secretMargin, and which box is "correct" NEVER sent to client
+//   - Server pre-computes expected digits from the correct box before responding
+//   - No "pick a box" round trip — client submits digits straight to /verify
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const DIGITS   = ["0","1","2","3","4","5","6","7","8","9"];
 
@@ -42,7 +33,7 @@ function getRandomLetterPair() {
 
 async function postJson(path, body) {
   try {
-    const res  = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(`${API_BASE}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -55,24 +46,22 @@ async function postJson(path, body) {
   }
 }
 
-/* ── Number Box component ─────────────────────────────────── */
-function NumberBox({ number, circled, selected, onClick }) {
+/* ── Box component ───────────────────────────────────────── */
+function NumberBoxCard({ name, numbers, circled }) {
   return (
-    <div
-      className={`nb-box${circled ? " nb-box--circled" : ""}${selected ? " nb-box--selected" : ""}${circled ? " nb-box--clickable" : ""}`}
-      onClick={circled ? onClick : undefined}
-      role={circled ? "button" : undefined}
-      tabIndex={circled ? 0 : undefined}
-      onKeyDown={circled && onClick ? e => e.key === "Enter" && onClick() : undefined}
-    >
-      <span className="nb-number">{number}</span>
-      {circled && <div className="nb-circle" />}
-      {selected && <div className="nb-selected-ring" />}
+    <div className="box-card">
+      <div className="box-name">{name}</div>
+      <div className="box-numbers">
+        {numbers.map((n, i) => <span key={i} className="box-num">{n}</span>)}
+      </div>
+      <div className="box-circle-wrap">
+        <span className="box-circled">{circled}</span>
+      </div>
     </div>
   );
 }
 
-/* ── Register Dropdown Bar ────────────────────────────────── */
+/* ── Register Dropdown Bar ───────────────────────────────── */
 function RegisterDropdownBar({ letters, inputs, onChange }) {
   const digitCount = {};
   for (const v of inputs) if (v !== "") digitCount[v] = (digitCount[v] || 0) + 1;
@@ -125,8 +114,7 @@ function Toast({ toasts, onClose }) {
    MAIN
 ═══════════════════════════════════════════════════════════ */
 export default function NumberAuth() {
-    const [secretMargin, setSecretMargin] = useState("");
-  const [mode,    setMode]    = useState("signup");  // "signup" | "login"
+  const [mode,    setMode]    = useState("signup");
   const [email,   setEmail]   = useState("");
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
@@ -134,21 +122,19 @@ export default function NumberAuth() {
   const toastCtr = useRef(0);
 
   /* ── signup state ── */
-  const [secretNumber,  setSecretNumber]  = useState("");   // user's private number (not shown again)
-  const [letterPair,    setLetterPair]    = useState(getRandomLetterPair);
-  const [preview,       setPreview]       = useState(null);
+  const [secretNumber, setSecretNumber] = useState("");
+  const [secretMargin, setSecretMargin] = useState("");
+  const [letterPair,   setLetterPair]   = useState(getRandomLetterPair);
+  const [preview,      setPreview]      = useState(null);
 
   /* ── login state ── */
-  const [loginStep,       setLoginStep]       = useState("creds");  // "creds" | "grid" | "register" | "done"
+  const [loginStep,       setLoginStep]       = useState("creds"); // "creds" | "boxes" | "done"
   const [sessionId,       setSessionId]       = useState("");
-  const [topGrid,         setTopGrid]         = useState([]);        // 6 unique numbers (no circle)
-  const [circledNumbers,  setCircledNumbers]  = useState([]);        // 3 circled numbers
-  const [selectedCircled, setSelectedCircled] = useState(null);      // user picks one circled number
-  const [registerLetters, setRegisterLetters] = useState([]);        // 5 letters A-Z
+  const [boxes,           setBoxes]           = useState([]);
+  const [registerLetters, setRegisterLetters] = useState([]);
   const [regInputs,       setRegInputs]       = useState(Array(5).fill(""));
 
-  const registerRef = useRef(null);
-  const allFilled   = regInputs.every(v => v !== "");
+  const allFilled = regInputs.every(v => v !== "");
 
   const showToast = (type, message, dur = 4500) => {
     const id = ++toastCtr.current;
@@ -159,41 +145,41 @@ export default function NumberAuth() {
 
   const resetAll = useCallback((m) => {
     setMode(m); setEmail(""); setError("");
-    setSecretNumber(""); setLetterPair(getRandomLetterPair()); setPreview(null);
-    setLoginStep("creds"); setSessionId(""); setTopGrid([]); setCircledNumbers([]);
-    setSelectedCircled(null); setRegisterLetters([]); setRegInputs(Array(5).fill(""));setSecretMargin("");
+    setSecretNumber(""); setSecretMargin(""); setLetterPair(getRandomLetterPair()); setPreview(null);
+    setLoginStep("creds"); setSessionId(""); setBoxes([]);
+    setRegisterLetters([]); setRegInputs(Array(5).fill(""));
   }, []);
 
   /* ── SIGNUP ── */
-const handleSignup = () => {
-  setError("");
-  if (!email.trim())         { setError("Enter your email."); return; }
-  const sn = parseInt(secretNumber, 10);
-  if (isNaN(sn) || sn < 1 || sn > 9999) { setError("Secret number must be between 1 and 9999."); return; }
-  const sm = parseInt(secretMargin, 10);
-  if (isNaN(sm) || sm < 0 || sm > 99) { setError("Mental margin must be between 0 and 99."); return; }
-  if (!letterPair[0] || !letterPair[1])  { setError("Choose two positions."); return; }
-  if (letterPair[0] === letterPair[1])   { setError("Positions must be different."); return; }
-  setPreview({ secretNumber: sn, secretMargin: sm, letterPair: [...letterPair] });
-};
+  const handleSignup = () => {
+    setError("");
+    if (!email.trim()) { setError("Enter your email."); return; }
+    const sn = parseInt(secretNumber, 10);
+    if (isNaN(sn) || sn < 1 || sn > 9999) { setError("Secret number must be between 1 and 9999."); return; }
+    const sm = parseInt(secretMargin, 10);
+    if (isNaN(sm) || sm < 0 || sm > 99) { setError("Mental margin must be between 0 and 99."); return; }
+    if (!letterPair[0] || !letterPair[1]) { setError("Choose two positions."); return; }
+    if (letterPair[0] === letterPair[1])  { setError("Positions must be different."); return; }
+    setPreview({ secretNumber: sn, secretMargin: sm, letterPair: [...letterPair] });
+  };
 
-const confirmSignup = async () => {
-  setPreview(null); setLoading(true); setError("");
-  try {
-    const data = await postJson("/api/numbers/signup", {
-      email: email.trim().toLowerCase(),
-      secretNumber: parseInt(secretNumber, 10),
-      secretMargin: parseInt(secretMargin, 10),
-      secretPositions: letterPair,
-    });
-    if (!data.success) { setError(data.error || "Could not create account."); return; }
-    showToast("success", "Account created! Sign in now.");
-    resetAll("login");
-  } catch { setError("Server error. Try again."); }
-  finally { setLoading(false); }
-};
+  const confirmSignup = async () => {
+    setPreview(null); setLoading(true); setError("");
+    try {
+      const data = await postJson("/api/numbers/signup", {
+        email: email.trim().toLowerCase(),
+        secretNumber: parseInt(secretNumber, 10),
+        secretMargin: parseInt(secretMargin, 10),
+        secretPositions: letterPair,
+      });
+      if (!data.success) { setError(data.error || "Could not create account."); return; }
+      showToast("success", "Account created! Sign in now.");
+      resetAll("login");
+    } catch { setError("Server error. Try again."); }
+    finally { setLoading(false); }
+  };
 
-  /* ── LOGIN STEP 1: email → get grid ── */
+  /* ── LOGIN STEP 1: email → get box grid ── */
   const handleLoginEmail = async () => {
     setError("");
     if (!email.trim()) { setError("Enter your email."); return; }
@@ -202,35 +188,15 @@ const confirmSignup = async () => {
       const data = await postJson("/api/numbers/login", { email: email.trim().toLowerCase() });
       if (!data.success) { setError(data.error || "No account found."); return; }
       setSessionId(data.sessionId);
-      setTopGrid(data.topNumbers || []);           // 6 unique numbers
-      setCircledNumbers(data.circledNumbers || []); // 3 circled numbers
+      setBoxes(data.boxes || []);
       setRegisterLetters(data.registerLetters || []);
-      setSelectedCircled(null);
       setRegInputs(Array(5).fill(""));
-      setLoginStep("grid");
+      setLoginStep("boxes");
     } catch { setError("Server error. Try again."); }
     finally { setLoading(false); }
   };
 
-  /* ── LOGIN STEP 2: user picks a circled number → POST /register ── */
-  const handlePickCircled = async (num) => {
-    setSelectedCircled(num);
-    setError(""); setLoading(true);
-    try {
-      const data = await postJson("/api/numbers/register", {
-        sessionId,
-        pickedCircledNumber: num,
-      });
-      if (!data.success) { setError(data.error || "Could not build register."); setLoginStep("creds"); return; }
-      // register is built server-side; we just move to the input step
-      setRegInputs(Array(5).fill(""));
-      setLoginStep("register");
-      setTimeout(() => registerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
-    } catch { setError("Server error. Try again."); }
-    finally { setLoading(false); }
-  };
-
-  /* ── LOGIN STEP 3: verify ── */
+  /* ── LOGIN STEP 2: verify ── */
   const handleVerify = async () => {
     setError("");
     if (!allFilled) { setError("Fill all 5 positions."); return; }
@@ -243,7 +209,7 @@ const confirmSignup = async () => {
       if (!data.success) {
         setError(data.error || "Verification failed.");
         if (!data.error?.includes("attempt")) {
-          setLoginStep("creds"); setSessionId(""); setTopGrid([]); setCircledNumbers([]);
+          setLoginStep("creds"); setSessionId(""); setBoxes([]);
         }
         return;
       }
@@ -260,7 +226,6 @@ const confirmSignup = async () => {
       <style>{CSS}</style>
       <Toast toasts={toasts} onClose={closeToast} />
 
-      {/* SIGNUP PREVIEW OVERLAY */}
       {preview && (
         <div className="overlay-bg" onClick={e => { if (e.target === e.currentTarget) setPreview(null); }}>
           <div className="overlay-card">
@@ -272,6 +237,10 @@ const confirmSignup = async () => {
               <div className="preview-row">
                 <span className="preview-key">Secret number</span>
                 <span className="preview-val num-big">{preview.secretNumber}</span>
+              </div>
+              <div className="preview-row">
+                <span className="preview-key">Mental margin</span>
+                <span className="preview-val num-big">{preview.secretMargin}</span>
               </div>
               <div className="preview-row">
                 <span className="preview-key">Positions</span>
@@ -286,16 +255,16 @@ const confirmSignup = async () => {
             <div className="how-box">
               <p className="how-title">How login works</p>
               <ol className="how-list">
-                <li>You'll see a 3×3 grid — 6 plain numbers on top, 3 circled numbers on the bottom row.</li>
-                <li>Pick <strong>one circled number</strong> that feels right to you.</li>
-                <li>Add your <strong>secret number</strong> + your <strong>mental margin</strong> + the circled number.</li>
+                <li>You'll see 9 named boxes, each holding 4 numbers and one circled number underneath.</li>
+                <li>Find the box containing <strong>your secret number</strong> among its 4 numbers.</li>
+                <li>Add your <strong>secret number</strong> + <strong>mental margin</strong> + that box's <strong>circled number</strong>.</li>
                 <li>Enter the 2-digit result at your two secret positions.</li>
-                <li>Example: secret = {preview.secretNumber}, margin = {preview.secretMargin}, circled = 6 → result = {preview.secretNumber + preview.secretMargin + 6} → enter at {preview.letterPair[0]} and {preview.letterPair[1]}.</li>
+                <li>Example: secret = {preview.secretNumber}, margin = {preview.secretMargin}, that box's circled = 6 → result = {preview.secretNumber + preview.secretMargin + 6} → enter at {preview.letterPair[0]} and {preview.letterPair[1]}.</li>
               </ol>
             </div>
 
             <p className="overlay-hint">
-              Your secret number and positions are never shown again. Memorise them now.
+              Your secret number, margin, and positions are never shown again. Memorise them now.
             </p>
             <button className="overlay-btn" disabled={loading} onClick={confirmSignup}>
               {loading ? "Creating…" : "Confirm and create account →"}
@@ -306,23 +275,23 @@ const confirmSignup = async () => {
 
       <div className="auth-page">
         <header className="auth-hero">
-          <p className="hero-eyebrow">Number Visual Password</p>
-          <h1 className="hero-title">Sign in with <span className="hero-accent">Numbers</span></h1>
+          <p className="hero-eyebrow">Number-Box Visual Password</p>
+          <h1 className="hero-title">Sign in with <span className="hero-accent">Number Boxes</span></h1>
           <p className="hero-sub">
-            A 3×3 grid of numbers. Pick one circled number, add it to your secret and your mental margin,
-            and enter the result at your two private positions. Simple, fast, phishing-resistant.
+            Nine named boxes, each hiding four numbers. Find the box holding your secret number,
+            add it to your mental margin and that box's circled number, then enter the result at
+            your two private positions.
           </p>
         </header>
 
         <div className="auth-shell">
           <div className="auth-card">
 
-            {/* DONE */}
             {loginStep === "done" && (
               <div className="success-box">
                 <div className="success-check">✓</div>
                 <h2 className="success-title">Identity Verified</h2>
-                <p className="success-msg">Your number password was accepted. Welcome back!</p>
+                <p className="success-msg">Your number-box password was accepted. Welcome back!</p>
                 <button className="btn-outline" onClick={() => resetAll("login")}>Sign in again</button>
               </div>
             )}
@@ -340,8 +309,9 @@ const confirmSignup = async () => {
                 {mode === "signup" && (
                   <div className="form-stack">
                     <div className="info-box">
-                      Choose a <strong>secret number</strong> (1–9999) and <strong>two letter positions</strong> (A–Z).
-                      At login: pick any circled number, add your secret + your mental margin, enter the result at your positions.
+                      Choose a <strong>secret number</strong> (1–9999), a <strong>mental margin</strong> (0–99),
+                      and <strong>two letter positions</strong> (A–Z). At login: find your number's box, add
+                      secret + margin + that box's circled number, enter the result at your positions.
                     </div>
 
                     <div className="field-group">
@@ -351,27 +321,25 @@ const confirmSignup = async () => {
                     </div>
 
                     <div className="field-group">
-                        <label className="field-label">Your mental margin (0–99)</label>
-                        <p className="section-hint">
-                            A number you'll always add in your head at login — like your age or a favourite number.
-                            Not stored on this screen; you'll need to remember it.
-                        </p>
-                        <input className="field-input field-input--num" type="text" inputMode="numeric"
-                            placeholder="e.g. 4"
-                            value={secretMargin}
-                            onChange={e => setSecretMargin(e.target.value.replace(/\D/g, "").slice(0, 2))} />
-                    </div>
-
-                    <div className="field-group">
                       <label className="field-label">Your secret number (1–9999)</label>
                       <p className="section-hint">
-                        Only you know this. At login: result = <em>secret + mental margin + circled number</em>.
-                        Mental margin is something you carry in your head (like your age, a favourite number).
+                        Only you know this. It will appear hidden among 4 numbers in one box at login.
                       </p>
                       <input className="field-input field-input--num" type="text" inputMode="numeric"
                         placeholder="e.g. 15"
                         value={secretNumber}
                         onChange={e => setSecretNumber(e.target.value.replace(/\D/g, "").slice(0, 4))} />
+                    </div>
+
+                    <div className="field-group">
+                      <label className="field-label">Your mental margin (0–99)</label>
+                      <p className="section-hint">
+                        A number you'll always add in your head at login — like your age or a favourite number.
+                      </p>
+                      <input className="field-input field-input--num" type="text" inputMode="numeric"
+                        placeholder="e.g. 4"
+                        value={secretMargin}
+                        onChange={e => setSecretMargin(e.target.value.replace(/\D/g, "").slice(0, 2))} />
                     </div>
 
                     <div className="field-group">
@@ -402,10 +370,9 @@ const confirmSignup = async () => {
                 {/* ════ LOGIN ════ */}
                 {mode === "login" && (
                   <>
-                    {/* Step 1: email */}
                     {loginStep === "creds" && (
                       <div className="form-stack">
-                        <div className="step-badge">Step 1 of 3 — Enter your email</div>
+                        <div className="step-badge">Step 1 of 2 — Enter your email</div>
                         <div className="field-group">
                           <label className="field-label">Email address</label>
                           <input className="field-input" type="email" placeholder="you@example.com"
@@ -419,53 +386,19 @@ const confirmSignup = async () => {
                       </div>
                     )}
 
-                    {/* Step 2: grid */}
-                    {loginStep === "grid" && (
+                    {loginStep === "boxes" && (
                       <div className="form-stack">
-                        <div className="step-badge">Step 2 of 3 — Pick a circled number</div>
+                        <div className="step-badge">Step 2 of 2 — Find your box, enter your digits</div>
                         <div className="info-box">
-                          <strong>Add the circled number</strong> you choose to your secret number and your mental margin.
-                          Click the circled number you want to use. The result is your 2-digit code to enter at the next step.
+                          <strong>Find your secret number</strong> among the 9 boxes below. Add it to your
+                          mental margin and that box's circled number to get your 2-digit result. Enter it at
+                          your two secret positions (either order is accepted).
                         </div>
 
-                        {/* 3×3 grid */}
-                        <div className="nb-grid">
-                          {/* Top 6 — plain */}
-                          {topGrid.map((num, i) => (
-                            <NumberBox key={i} number={num} circled={false} />
+                        <div className="box-grid">
+                          {boxes.map((b, i) => (
+                            <NumberBoxCard key={i} name={b.name} numbers={b.numbers} circled={b.circled} />
                           ))}
-                          {/* Bottom 3 — circled, clickable */}
-                          {circledNumbers.map((num, i) => (
-                            <NumberBox key={`c${i}`} number={num} circled={true}
-                              selected={selectedCircled === num}
-                              onClick={() => handlePickCircled(num)} />
-                          ))}
-                        </div>
-
-                        <p className="field-hint">
-                          Tap a circled number to select it. You'll then enter your digits on the next screen.
-                        </p>
-                        {error && <div className="alert-error">{error}</div>}
-                        {loading && <div className="loading-bar">Building your register…</div>}
-                        <button className="btn-outline" onClick={() => resetAll("login")}>← Start over</button>
-                      </div>
-                    )}
-
-                    {/* Step 3: register */}
-                    {loginStep === "register" && (
-                      <div className="form-stack" ref={registerRef}>
-                        <div className="step-badge">Step 3 of 3 — Enter your digits</div>
-                        <div className="info-box">
-                          <strong>Fill sequentially.</strong> At your two secret positions, enter the two digits
-                          of your result (secret + mental margin + {selectedCircled}).
-                          Either order is accepted. Fill the rest with any digit.
-                        </div>
-
-                        {/* Show the picked circled number for reference */}
-                        <div className="picked-display">
-                          <span className="picked-label">You picked</span>
-                          <span className="picked-num">{selectedCircled}</span>
-                          <span className="picked-label">→ add your secret + mental margin to get your 2-digit result</span>
                         </div>
 
                         {registerLetters.length === 5 && (
@@ -476,14 +409,11 @@ const confirmSignup = async () => {
                           />
                         )}
 
-                        <p className="field-hint">
-                          Example: secret = 15, margin = 4, circled = {selectedCircled} → {15 + 4 + (selectedCircled || 0)} → enter the two digits at your secret positions.
-                        </p>
                         {error && <div className="alert-error">{error}</div>}
                         <button className="btn-primary" disabled={loading || !allFilled} onClick={handleVerify}>
                           {loading ? "Verifying…" : "Verify →"}
                         </button>
-                        <button className="btn-outline" onClick={() => setLoginStep("grid")}>← Back to grid</button>
+                        <button className="btn-outline" onClick={() => resetAll("login")}>← Start over</button>
                       </div>
                     )}
                   </>
@@ -492,7 +422,7 @@ const confirmSignup = async () => {
             )}
           </div>
         </div>
-        <p className="page-footer">ScamRisk Number Password — phishing-resistant. Your secret never leaves this device.</p>
+        <p className="page-footer">ScamRisk Number-Box Password — phishing-resistant. Your secret never leaves this device.</p>
       </div>
     </>
   );
@@ -513,7 +443,7 @@ button,input,select{font-family:inherit;}
 .hero-accent{color:#06B6D4;}
 .hero-sub{font-size:0.88rem;color:#64748b;line-height:1.7;}
 
-.auth-shell{max-width:560px;margin:0 auto;position:relative;z-index:1;}
+.auth-shell{max-width:760px;margin:0 auto;position:relative;z-index:1;}
 .auth-card{background:#fbf7f0;border:1px solid #e2d9cc;border-radius:20px;padding:36px 40px;display:flex;flex-direction:column;gap:20px;box-shadow:0 4px 28px rgba(15,23,42,0.06);}
 @media(max-width:600px){.auth-card{padding:24px 18px;}}
 
@@ -534,7 +464,6 @@ button,input,select{font-family:inherit;}
 .field-input:focus{border-color:#06B6D4;box-shadow:0 0 0 3px rgba(6,182,212,.1);}
 .field-input::placeholder{color:#94a3b8;}
 .field-input--num{font-family:'Space Grotesk',sans-serif;font-size:1.6rem;font-weight:800;letter-spacing:.06em;text-align:center;max-width:180px;}
-.field-hint{font-size:.79rem;color:#94a3b8;line-height:1.6;}
 
 .letter-row{display:flex;align-items:center;gap:12px;margin-top:4px;}
 .ctrl-select{padding:10px 16px;border-radius:10px;border:2px solid #0f172a;background:#fff;font-family:'Space Grotesk',sans-serif;font-size:1.3rem;font-weight:800;color:#000;cursor:pointer;outline:none;min-width:62px;text-align:center;}
@@ -542,97 +471,25 @@ button,input,select{font-family:inherit;}
 .ctrl-select:disabled{background:#f3efe9;color:#94a3b8;cursor:not-allowed;}
 .ctrl-plus{font-family:'Space Grotesk',sans-serif;font-weight:800;color:#06B6D4;font-size:1.3rem;}
 
-/* ── 3×3 NUMBER GRID ── */
-.nb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:4px 0;}
+/* ── BOX GRID ── */
+.box-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:4px 0;}
+@media(max-width:560px){.box-grid{grid-template-columns:repeat(2,1fr);}}
 
-.nb-box{
-  position:relative;
-  background:#fff;
-  border:2px solid #0f172a;
-  border-radius:14px;
-  min-height:80px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  user-select:none;
+.box-card{
+  background:#fff;border:2px solid #0f172a;border-radius:14px;
+  padding:12px 10px 14px;display:flex;flex-direction:column;align-items:center;gap:8px;
 }
-.nb-box--circled{
-  background:#fff;
-  border-color:#0f172a;
-  cursor:pointer;
-  transition:border-color .15s, box-shadow .15s, transform .12s;
+.box-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.86rem;color:#0891b2;text-transform:uppercase;letter-spacing:.04em;}
+.box-numbers{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;width:100%;}
+.box-num{
+  font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:1.05rem;color:#0f172a;
+  background:#f3efe9;border-radius:8px;padding:6px 0;text-align:center;
 }
-.nb-box--clickable:hover{
-  border-color:#0891b2;
-  box-shadow:0 0 0 3px rgba(8,145,178,.15);
-  transform:translateY(-2px);
-}
-.nb-box--selected{
-  border-color:#0891b2;
-  background:#e0f7fa;
-}
-
-.nb-number{
-  font-family:'Space Grotesk',sans-serif;
-  font-size:1.6rem;
-  font-weight:800;
-  color:#0f172a;
-  line-height:1;
-  position:relative;
-  z-index:1;
-}
-
-/* circle drawn via pseudo-element so it doesn't affect layout */
-.nb-circle{
-  position:absolute;
-  inset:6px;
-  border-radius:50%;
-  border:2.5px solid #0f172a;
-  pointer-events:none;
-}
-.nb-box--selected .nb-circle{
-  border-color:#0891b2;
-}
-
-.nb-selected-ring{
-  position:absolute;
-  inset:-4px;
-  border-radius:18px;
-  border:3px solid #0891b2;
-  pointer-events:none;
-}
-
-/* ── PICKED DISPLAY ── */
-.picked-display{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:12px 16px;
-  background:#fff;
-  border:1.5px solid #e2d9cc;
-  border-radius:12px;
-  flex-wrap:wrap;
-}
-.picked-label{font-size:.8rem;color:#64748b;}
-.picked-num{
-  font-family:'Space Grotesk',sans-serif;
-  font-size:1.8rem;
-  font-weight:800;
-  color:#0891b2;
-  padding:4px 14px;
-  background:rgba(6,182,212,.08);
-  border-radius:10px;
-  border:2px solid rgba(6,182,212,.25);
-}
-
-.loading-bar{
-  text-align:center;
-  font-size:.82rem;
-  color:#0891b2;
-  padding:8px;
-  background:rgba(6,182,212,.05);
-  border-radius:8px;
-  border:1px solid rgba(6,182,212,.15);
+.box-circle-wrap{display:flex;align-items:center;justify-content:center;margin-top:2px;}
+.box-circled{
+  font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:1.15rem;color:#0f172a;
+  width:44px;height:44px;border-radius:50%;border:2.5px solid #0f172a;
+  display:flex;align-items:center;justify-content:center;
 }
 
 /* ── REGISTER BAR ── */

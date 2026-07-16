@@ -500,9 +500,14 @@ router.post("/login", async (req, res) => {
     if (user.pendingSetup)
       return res.status(403).json({ success: false, error: "Account setup not complete. Please check your invite email." });
 
+    // ← add this guard
+    if (!user.selectedWord || !Array.isArray(user.secretParts) || user.secretParts.filter(Boolean).length === 0) {
+      return res.status(409).json({ success: false, error: "This account has no Visual Password configured. Please sign up again to set one." });
+    }
+
     const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
       user._id, user.selectedWord, user.secretParts,
-      user.offset, user.secretLetters, user.registerLetters,user.selectedWordLang
+      user.offset, user.secretLetters, user.registerLetters, user.selectedWordLang
     );
 
     return res.json({ success: true, sessionId, challengeGrid, registerLetters });

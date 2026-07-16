@@ -6,7 +6,7 @@ import authRouter from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 import upiRoutes from "./routes/upi.js"
 import sdkRoutes from "./routes/sdk.js";
-import numbersRoutes from "./routes/numbers.js";
+import numberBoxRoutes from "./routes/numberBoxAuth.js";
 
 dotenv.config();
 
@@ -36,7 +36,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRoutes);
 app.use("/api/upi", upiRoutes);
 app.use("/api/sdk", sdkRoutes);
-app.use("/api/numbers", numbersRoutes);
+app.use("/api/numbers", numberBoxRoutes);
 
 // ── Health check ─────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
