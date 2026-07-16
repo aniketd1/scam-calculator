@@ -2,10 +2,11 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
-import authRouter from "./routes/authRoutes.js";
+import authRouter from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 import upiRoutes from "./routes/upi.js"
 import sdkRoutes from "./routes/sdk.js";
+import numbersRoutes from "./routes/numbers.js";
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/admin", adminRoutes);
 app.use("/api/upi", upiRoutes);
 app.use("/api/sdk", sdkRoutes);
+app.use("/api/numbers", numbersRoutes);
 
 // ── Health check ─────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ status: "ok" }));

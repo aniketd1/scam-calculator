@@ -15,6 +15,7 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import CompleteSignup from "./pages/CompleteSignup";
 import UPIAuth from "./pages/UPIAuth";
+import NumberAuth from "./pages/NumbersAuth";
 
 const AppRoutes = () => {
   return (
@@ -34,6 +35,7 @@ const AppRoutes = () => {
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/complete-invite/:token" element={<CompleteSignup />} />
       <Route path="/upi" element={<UPIAuth />} />
+      <Route path="/numbers" element={<NumberAuth />} />
 
     </Routes>
   );
