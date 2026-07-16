@@ -59,7 +59,7 @@ function buildBoxGrid(secretNumber) {
     }
 
     // circled numbers CAN repeat across boxes — no uniqueness constraint
-    const circled = randomNumberByDigits(randomDigitCount() <= 2 ? randomDigitCount() : 2);
+    const circled = randomNumberByDigits(1);
 
     return { name, numbers, circled };
   });
