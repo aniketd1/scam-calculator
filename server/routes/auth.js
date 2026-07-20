@@ -604,6 +604,137 @@ router.post("/admin-login", async (req, res) => {
   return res.json({ success: true, token });
 });
 
+// wordpress route
+/* ── POST /api/auth/wordpress-login ────────────────────────── */
+router.post("/wordpress-login", async (req, res) => {
+  try {
+    const { email, apiKey, domain } = req.body;
+
+    if (!email || !apiKey || !domain)
+      return res.status(400).json({ success: false, error: "email, apiKey and domain are required." });
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user)
+      return res.status(404).json({ success: false, error: "User not found." });
+
+    if (user.pendingSetup)
+      return res.status(403).json({ success: false, error: "Account setup not complete. Please set up your Visual Word first." });
+
+    // API key check — verifies BOTH the key and the domain in one call
+    //    key_abc + user@college.edu + college.edu = ✓
+    //    key_abc + user@college.edu + hospital.com = ✗ (domain mismatch)
+    //    key_abc + user2@college.edu + college.edu = ✗ (wrong user's key)
+    const keyValid = await user.verifyApiKey(apiKey, domain);
+    if (!keyValid)
+      return res.status(401).json({
+        success: false,
+        error: "Invalid API key or this key is not authorised for this website.",
+      });
+
+    // All checks passed — serve the visual challenge
+    const { sessionId, challengeGrid, registerLetters } = await createLoginSession(
+      user._id, user.selectedWord, user.secretParts,
+      user.offset, user.secretLetters, user.registerLetters,
+      user.selectedWordLang
+    );
+
+    return res.json({ success: true, sessionId, challengeGrid, registerLetters });
+  } catch (err) {
+    console.error("[wordpress-login]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
+  }
+});
+
+/* ── POST /api/auth/verify-wp-session ─────────────────────────
+   Called by the WordPress plugin after login to confirm the JWT
+   is valid and matches the API key + website it was issued for.
+   Accepts form-urlencoded: email, apikey, website, jwt
+─────────────────────────────────────────────────────────────── */
+router.post("/verify-wp-session", async (req, res) => {
+  try {
+    const { email, apikey, website, jwt: token } = req.body;
+
+    if (!email || !apikey || !website || !token)
+      return res.status(400).json({ success: false, error: "email, apikey, website and jwt are required." });
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).json({ success: false, error: "Invalid or expired JWT." });
+    }
+
+    if (decoded.email?.toLowerCase() !== email.toLowerCase().trim())
+      return res.status(401).json({ success: false, error: "JWT email does not match supplied email." });
+
+    const user = await User.findById(decoded.userId);
+    if (!user)
+      return res.status(404).json({ success: false, error: "User not found." });
+
+    const keyValid = await user.verifyApiKey(apikey, website);
+    if (!keyValid)
+      return res.status(400).json({ success: false, error: "Website API Key does not match." });
+
+    return res.status(200).json({
+      success: true,
+      token,
+      user: { id: user._id, email: user.email },
+    });
+  } catch (err) {
+    console.error("[verify-wp-session]", err);
+    return res.status(500).json({ success: false, error: "Server error." });
+  }
+});
+
+// wordpress security endpoint
+router.post("/verify-wp-token", async (req, res) => {
+    try {
+
+        const { token } = req.body;
+
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing token."
+            });
+        }
+
+        let decoded;
+
+        try {
+
+            decoded = jwt.verify(
+                token,
+                process.env.JWT_SECRET
+            );
+
+        } catch (err) {
+
+            return res.status(401).json({
+                success: false,
+                error: "Invalid or expired token."
+            });
+
+        }
+
+        return res.json({
+            success: true,
+            userId: decoded.userId,
+            email: decoded.email
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        return res.status(500).json({
+            success: false,
+            error: "Server error."
+        });
+
+    }
+});
+
 router.get("/test", (_req, res) => res.json({ message: "Auth route working ✓" }));
 
 export default router;
