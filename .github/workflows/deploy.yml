@@ -24,10 +24,10 @@ jobs:
             git pull origin main
 
             echo "Installing packages..."
-            npm install
+            npm ci
 
             echo "Restarting backend..."
-            pm2 restart all
+            pm2 restart scam-api --update-env
 
             echo "Saving PM2..."
             pm2 save
