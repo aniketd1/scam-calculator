@@ -43,7 +43,7 @@ app.use("/api/sdk", sdkRoutes);
 app.use("/api/numbers", numberBoxRoutes);
 app.use("/api/plugin", pluginRoutes);
 app.use("/api/erp", erpRoutes);
-app.use("/api/sdk/number-transaction", numberTransactionRouter);
+app.use("/api/sdk/numbers", numberTransactionRouter);
 //app.use("/api/webauthn", webauthnRoutes);
 
 // ── Health check ─────────────────────────────────────────────
