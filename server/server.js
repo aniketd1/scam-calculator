@@ -9,6 +9,7 @@ import sdkRoutes from "./routes/sdk.js";
 import numberBoxRoutes from "./routes/numberBoxAuth.js";
 import pluginRoutes from "./routes/plugin.js";
 import erpRoutes from "./routes/erp.js";
+import numberTransactionRouter from './routes/numberTransaction.js';
 //import webAuthnRoutes from "./routes/webauthn.js";
 
 dotenv.config();
@@ -42,6 +43,7 @@ app.use("/api/sdk", sdkRoutes);
 app.use("/api/numbers", numberBoxRoutes);
 app.use("/api/plugin", pluginRoutes);
 app.use("/api/erp", erpRoutes);
+app.use("/api/sdk/number-transaction", numberTransactionRouter);
 //app.use("/api/webauthn", webauthnRoutes);
 
 // ── Health check ─────────────────────────────────────────────
