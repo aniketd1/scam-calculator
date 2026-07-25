@@ -193,7 +193,8 @@ router.post("/verify", async (req, res) => {
       return res.status(401).json({ success: false, error: `Incorrect code. ${remaining} attempts remaining.` });
     }
 
-    const visualPasswordValue = (session.expectedD1 * 10) + session.expectedD2; 
+    const visualPasswordValue = (session.expectedD1 * 10) + session.expectedD2;
+
     await NumberBoxSession.deleteOne({ sessionId });
     const user = await NumberUser.findById(session.userId);
     const token = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -203,7 +204,10 @@ router.post("/verify", async (req, res) => {
       message: "Identity verified! Welcome back.",
       token,
       user: { id: user._id, email: user.email },
-      visualPasswordValue, // NEW — needed by BankGuard for transaction verification
+      visualPasswordValue,
+      registerLetters: user.registerLetters,
+      pos1: session.pos1,
+      pos2: session.pos2,
     });
 
     await NumberBoxSession.deleteOne({ sessionId });
