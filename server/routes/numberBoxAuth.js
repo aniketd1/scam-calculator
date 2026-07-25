@@ -210,11 +210,6 @@ router.post("/verify", async (req, res) => {
       pos2: session.pos2,
     });
 
-    await NumberBoxSession.deleteOne({ sessionId });
-    const user = await NumberUser.findById(session.userId);
-    const token = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: "7d" });
-
-    return res.json({ success: true, message: "Identity verified! Welcome back.", token, user: { id: user._id, email: user.email } });
   } catch (err) {
     console.error("[number-boxes/verify]", err);
     return res.status(500).json({ success: false, error: "Server error during verification." });
